@@ -1,0 +1,25 @@
+label,seconds,title,instruction,calls
+stand 1,8,Stand on your spot,"Stand still on your spot in your guard, facing the camera. The game takes this as your home spot.",
+look around,12,Look around,"Stay on your spot. Turn your head left and right, nod, look down at your feet and up. Do not step.",
+twist,12,Twist,"Stay on your spot. Twist your shoulders left and right as if punching, lean a little. Do not step.",
+walk slow,15,Walk in place slowly,"Walk in place on your spot, slowly, lifting your knees a little, facing the camera.",
+walk fast,15,Walk in place fast,"Walk (or jog) in place on your spot, as fast as you comfortably can, facing the camera.",
+walk stop,14,Walk and stop,"Each time you are called, START walking in place, or STOP and stand still.",2:start_walking 5:stop 8:start_walking 11:stop
+turn left,12,Turn to the left,"Stand on your spot. Each time you are called, turn your body (shoulders and hips) to your LEFT, or back to face the camera. Do not walk.",2:turn_left 5:face_camera 8:turn_left 11:face_camera
+turn right,12,Turn to the right,"Stand on your spot. Each time you are called, turn your body (shoulders and hips) to your RIGHT, or back to face the camera. Do not walk.",2:turn_right 5:face_camera 8:turn_right 11:face_camera
+walk turning left,15,Walk turned to the left,"Walk in place. Each time you are called, turn your body to your LEFT while you keep walking, or back to face the camera.",2:turn_left 6:face_camera 9:turn_left 13:face_camera
+walk turning right,15,Walk turned to the right,"Walk in place. Each time you are called, turn your body to your RIGHT while you keep walking, or back to face the camera.",2:turn_right 6:face_camera 9:turn_right 13:face_camera
+walk and punch,15,Walk and punch,"Walk in place, and punch now and then, as you would in the game.",
+straight left,11,Straight punches with the left,"On your spot, in your guard. Each time you are called, throw ONE straight punch with your LEFT hand at the camera.",1.5:straight_left 3:straight_left 4.5:straight_left 6:straight_left 7.5:straight_left 9:straight_left
+straight right,11,Straight punches with the right,"On your spot, in your guard. Each time you are called, throw ONE straight punch with your RIGHT hand at the camera.",1.5:straight_right 3:straight_right 4.5:straight_right 6:straight_right 7.5:straight_right 9:straight_right
+hook left,11,Hooks with the left,"On your spot. Each time you are called, throw ONE hook with your LEFT hand: swing it across, at the height of your chin.",1.5:hook_left 3:hook_left 4.5:hook_left 6:hook_left 7.5:hook_left 9:hook_left
+hook right,11,Hooks with the right,"On your spot. Each time you are called, throw ONE hook with your RIGHT hand: swing it across, at the height of your chin.",1.5:hook_right 3:hook_right 4.5:hook_right 6:hook_right 7.5:hook_right 9:hook_right
+uppercut left,11,Uppercuts with the left,"On your spot. Each time you are called, throw ONE uppercut with your LEFT hand: from below, up to the chin.",1.5:uppercut_left 3:uppercut_left 4.5:uppercut_left 6:uppercut_left 7.5:uppercut_left 9:uppercut_left
+uppercut right,11,Uppercuts with the right,"On your spot. Each time you are called, throw ONE uppercut with your RIGHT hand: from below, up to the chin.",1.5:uppercut_right 3:uppercut_right 4.5:uppercut_right 6:uppercut_right 7.5:uppercut_right 9:uppercut_right
+combos,12,Punch freely,"On your spot, punch as fast as you comfortably can: straights, hooks and uppercuts, both hands. Do not step.",
+knee left,13,Knee strikes with the left,"On your spot. Each time you are called, pull your LEFT knee up high, as a knee strike, and put it down.",2:front_kick_left 4.5:front_kick_left 7:front_kick_left 9.5:front_kick_left
+knee right,13,Knee strikes with the right,"On your spot. Each time you are called, pull your RIGHT knee up high, as a knee strike, and put it down.",2:front_kick_right 4.5:front_kick_right 7:front_kick_right 9.5:front_kick_right
+duck,12,Ducks,"On your spot. Each time you are called, DUCK under a punch (bend your knees and your back), and come up again.",2:duck 4.5:duck 7:duck 9.5:duck
+jump,13,Jumps,"On your spot. Each time you are called, JUMP with both feet, land softly, and stand again.",2:jump 4.5:jump 7:jump 9.5:jump
+free,20,Box freely,"Box as in the game: walk in place, turn, punch, kick, duck and jump, as you like.",
+stand 2,6,Stand on your spot,"Back on your spot, stand still in your guard.",
