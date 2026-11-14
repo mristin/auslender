@@ -16,6 +16,9 @@ namespace Auslender.Vision
     {
         int ClassCount { get; }
 
+        /// <summary>How many features the model reads (see <see cref="MoveFeatures.Count"/>).</summary>
+        int FeatureCount { get; }
+
         void Predict(ReadOnlySpan<float> features, Span<float> probabilities);
     }
 
@@ -31,6 +34,8 @@ namespace Auslender.Vision
 
         public int ClassCount => _trees.ClassCount;
 
+        public int FeatureCount => _trees.FeatureCount;
+
         public void Predict(ReadOnlySpan<float> features, Span<float> probabilities) =>
             _trees.Predict(features, probabilities);
 
@@ -41,7 +46,7 @@ namespace Auslender.Vision
 
     /// <summary>
     /// A neural network exported to ONNX with the inputs "seq" ([1, steps,
-    /// 26]: the sequence of the features) and "score" ([1, 2]: the wrist
+    /// 2 * points]: the sequence of the features, see MoveFeatures.Points) and "score" ([1, 2]: the wrist
     /// confidences), and the output "probs" ([1, classes]).
     /// </summary>
     public sealed class OnnxMoveModel : IMoveModel
@@ -56,6 +61,8 @@ namespace Auslender.Vision
         private readonly string[] _outputNames = { "probs" };
 
         public int ClassCount { get; }
+
+        public int FeatureCount => _seq.Length + _score.Length;
 
         public OnnxMoveModel(byte[] model, int steps, int classes)
         {
@@ -202,6 +209,16 @@ namespace Auslender.Vision
 
             Classes = classes;
             Features = new MoveFeatures(offsets);
+            if (model.FeatureCount != Features.Count)
+            {
+                // NOTE (mristin):
+                // E.g., a model trained on other key points (see MoveFeatures.Points):
+                // it would read the features wrong without a word.
+                throw new ArgumentException(
+                    $"The model reads {model.FeatureCount} features, but the features of the game " +
+                    $"are {Features.Count}; retrain the model (dev/moves/ml/export.py).");
+            }
+
             _model = model;
             _features = new float[Features.Count];
             Probabilities = new float[classes.Length];

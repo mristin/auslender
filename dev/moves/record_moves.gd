@@ -34,6 +34,271 @@ extends SceneTree
 ##
 ## Escape stops early; what was recorded so far is kept. [code]--quick[/code]
 ## makes every step ten times shorter, to try the tool (e.g., with --no-camera).
+##
+## A stick figure (see [MoveFigure]) shows the expected move of the step,
+## timed to the calls, as in a mirror, so that the player can copy it.
+
+
+## A stick figure which shows a move, as in a mirror: its left side (the
+## player's left) is on the left of the screen, like in the camera picture.
+## The limb which moves is gold.
+class MoveFigure:
+    extends Control
+
+    ## How long the move takes from the guard to its peak, holds, and comes
+    ## back, in seconds.
+    const RISE := 0.3
+    const HOLD := 0.25
+    const BACK := 0.35
+
+    const _LINE := Color("f1f0ea")
+    const _ACTIVE := Color("f2c14e")
+    const _DIM := Color(0.6, 0.62, 0.68)
+
+    ## The points of the figure in its guard, in torso lengths, x to the
+    ## figure's left (the screen's left), y down; the hips at the origin.
+    const GUARD := {
+        "head": Vector2(0.0, -1.5),
+        "l_sh": Vector2(-0.33, -1.1),
+        "r_sh": Vector2(0.33, -1.1),
+        "l_elb": Vector2(-0.5, -0.55),
+        "r_elb": Vector2(0.5, -0.55),
+        "l_wri": Vector2(-0.17, -1.2),
+        "r_wri": Vector2(0.17, -1.2),
+        "l_hip": Vector2(-0.22, 0.0),
+        "r_hip": Vector2(0.22, 0.0),
+        "l_knee": Vector2(-0.26, 0.85),
+        "r_knee": Vector2(0.26, 0.85),
+        "l_ank": Vector2(-0.28, 1.7),
+        "r_ank": Vector2(0.28, 1.7),
+    }
+
+    ## The peak of each move of the left side (the right side is its mirror),
+    ## as the points which differ from the guard; "l_fist" is the size of the
+    ## left glove (a straight comes at the camera, so the glove grows).
+    const PEAKS := {
+        "straight": {"l_elb": Vector2(-0.24, -1.0), "l_wri": Vector2(-0.12, -1.25), "l_fist": 2.0},
+        "hook": {"l_elb": Vector2(-0.75, -1.1), "l_wri": Vector2(-0.3, -1.3), "l_fist": 1.3},
+        "uppercut": {"l_elb": Vector2(-0.3, -0.85), "l_wri": Vector2(-0.08, -1.55)},
+        "kick": {"l_knee": Vector2(-0.4, -0.4), "l_ank": Vector2(-0.42, 0.35)},
+        "cover":
+        {
+            "l_elb": Vector2(-0.16, -1.0),
+            "r_elb": Vector2(0.16, -1.0),
+            "l_wri": Vector2(-0.1, -1.6),
+            "r_wri": Vector2(0.1, -1.6),
+        },
+    }
+
+    ## The move to show: "guard", "straight", "hook", "uppercut", "kick",
+    ## "one_two", "slip", "duck", "jump", "cover", "look" or "free".
+    var move := "guard"
+    ## "left", "right" or "" (both, or none).
+    var side := ""
+    ## Seconds since the move started (the call); the figure waits in its
+    ## guard before 0.
+    var since := -1.0
+    ## Whether the move stays at its peak (the cover until the next call).
+    var held := false
+
+    ## Start the move now (at its call).
+    func play(new_move: String, new_side: String, hold := false) -> void:
+        move = new_move
+        side = new_side
+        held = hold
+        since = 0.0
+
+    ## Show the move of a step without calls, e.g., the guard or looking around.
+    func show_still(new_move: String) -> void:
+        move = new_move
+        side = ""
+        held = false
+        since = -1.0
+
+    func _process(delta: float) -> void:
+        since += delta
+        queue_redraw()
+
+    ## How far the move is from the guard to its peak (0 to 1) at the time t.
+    static func amount(t: float) -> float:
+        if t < 0.0:
+            return 0.0
+        if t < RISE:
+            return smoothstep(0.0, 1.0, t / RISE)
+        if t < RISE + HOLD:
+            return 1.0
+        return 1.0 - smoothstep(0.0, 1.0, (t - RISE - HOLD) / BACK)
+
+    func _pose() -> Dictionary:
+        var points := GUARD.duplicate()
+        points["l_fist"] = 1.0
+        points["r_fist"] = 1.0
+        var bob := 0.03 * sin(Time.get_ticks_msec() / 1000.0 * TAU * 1.5)
+        var t := since
+        var name := move
+        var right := side == "right"
+        if move == "free":
+            # NOTE (mristin):
+            # Cycle through a few moves, one every 1.5 seconds.
+            var cycle := ["straight", "hook", "slip", "uppercut", "duck", "kick"]
+            var now := Time.get_ticks_msec() / 1000.0
+            var index := int(now / 1.5)
+            name = cycle[index % cycle.size()]
+            right = index % 2 == 1
+            t = fmod(now, 1.5) - 0.2
+        elif move == "one_two":
+            # NOTE (mristin):
+            # A straight left, then at once a straight right.
+            name = "straight"
+            right = t > RISE + 0.1
+            if right:
+                t -= RISE + 0.1
+        var a := 1.0 if held and since >= RISE else amount(t)
+        var offset := Vector2(0.0, bob)
+        match name:
+            "duck":
+                offset.y += 0.55 * a
+            "jump":
+                offset.y -= 0.5 * a
+            "slip":
+                var lean := (0.3 if right else -0.3) * a
+                for key in points.keys():
+                    if key.ends_with("fist") or key.contains("hip") or key.contains("knee"):
+                        continue
+                    if key.contains("ank"):
+                        continue
+                    var p: Vector2 = points[key]
+                    points[key] = p.rotated(lean)
+            "look":
+                var turn := sin(Time.get_ticks_msec() / 1000.0 * TAU * 0.4)
+                points["head"] += Vector2(0.12 * turn, 0.0)
+            _:
+                if PEAKS.has(name):
+                    var peak: Dictionary = PEAKS[name]
+                    for key in peak.keys():
+                        var target_key: String = key
+                        var value: Variant = peak[key]
+                        if right:
+                            target_key = (
+                                ("r_" + key.substr(2))
+                                if key.begins_with("l_")
+                                else ("l_" + key.substr(2))
+                            )
+                            if value is Vector2:
+                                value = Vector2(-value.x, value.y)
+                        if value is Vector2:
+                            points[target_key] = points[target_key].lerp(value, a)
+                        else:
+                            points[target_key] = lerpf(points[target_key], value, a)
+        for key in points.keys():
+            if key.ends_with("fist"):
+                continue
+            # NOTE (mristin):
+            # In a duck, the body goes down but the feet stay on the floor.
+            if name == "duck" and key.contains("ank"):
+                points[key] += Vector2(0.0, bob)
+                continue
+            points[key] += offset
+        if name == "duck":
+            # NOTE (mristin):
+            # The knees bend out, half way between the hips and the feet.
+            for s in ["l_", "r_"]:
+                var out := -1.0 if s == "l_" else 1.0
+                var middle: Vector2 = (points[s + "hip"] + points[s + "ank"]) / 2.0
+                points[s + "knee"] = middle + Vector2(0.3 * out * a, 0.0)
+        points["_name"] = name
+        points["_right"] = right
+        return points
+
+    func _active(points: Dictionary) -> Array:
+        var name: String = points["_name"]
+        var s := "r_" if points["_right"] else "l_"
+        match name:
+            "straight", "hook", "uppercut":
+                return [s + "arm"]
+            "kick":
+                return [s + "leg"]
+            "cover":
+                return ["l_arm", "r_arm"]
+            "slip", "look":
+                return ["head"]
+            "duck", "jump":
+                return ["l_leg", "r_leg"]
+        return []
+
+    func _draw() -> void:
+        var points := _pose()
+        var active := _active(points)
+        var unit := size.y / 4.2
+        var origin := Vector2(size.x / 2.0, size.y * 0.5)
+
+        var at := func(key: String) -> Vector2: return origin + (points[key] as Vector2) * unit
+
+        var width := maxf(4.0, unit * 0.1)
+        var limb := func(keys: Array, color: Color) -> void:
+            for i in range(keys.size()):
+                draw_circle(at.call(keys[i]), width / 2.0, color)
+                if i > 0:
+                    draw_line(at.call(keys[i - 1]), at.call(keys[i]), color, width)
+
+        # the floor, so that a jump shows
+        var floor_y: float = origin.y + (GUARD["l_ank"].y + 0.05) * unit
+        draw_line(Vector2(size.x * 0.2, floor_y), Vector2(size.x * 0.8, floor_y), _DIM, width * 0.5)
+
+        var neck: Vector2 = (at.call("l_sh") + at.call("r_sh")) / 2.0
+        var pelvis: Vector2 = (at.call("l_hip") + at.call("r_hip")) / 2.0
+        draw_line(at.call("l_sh"), at.call("r_sh"), _LINE, width)
+        draw_line(at.call("l_hip"), at.call("r_hip"), _LINE, width)
+        draw_line(neck, pelvis, _LINE, width)
+        for s in ["l_", "r_"]:
+            var leg := _ACTIVE if active.has(s + "leg") else _LINE
+            limb.call([s + "hip", s + "knee", s + "ank"], leg)
+
+        # NOTE (mristin):
+        # The head before the arms: the gloves come in front of the face, as
+        # the player sees them in the mirror.
+        var head_color := _ACTIVE if active.has("head") else _LINE
+        draw_line(neck, at.call("head"), _LINE, width)
+        draw_circle(at.call("head"), unit * 0.24, Color("0c0e14"))
+        draw_arc(at.call("head"), unit * 0.24, 0.0, TAU, 32, head_color, width)
+        # the unibrow, as on the player's head
+        var brow: Vector2 = at.call("head") + Vector2(0, -unit * 0.05)
+        var half_brow := Vector2(unit * 0.13, 0)
+        draw_line(brow - half_brow, brow + half_brow, head_color, width * 0.7)
+
+        for s in ["l_", "r_"]:
+            var arm := _ACTIVE if active.has(s + "arm") else _LINE
+            limb.call([s + "sh", s + "elb", s + "wri"], arm)
+            var glove := _ACTIVE if active.has(s + "arm") else Color("c8302c")
+            draw_circle(at.call(s + "wri"), unit * 0.12 * float(points[s + "fist"]), glove)
+
+        var font := get_theme_default_font()
+        var caption := ""
+        if move == "free":
+            caption = "anything!"
+        elif side != "" and move != "one_two":
+            caption = side.to_upper() + (" knee" if move == "kick" else " hand")
+            if move == "slip":
+                caption = "to your " + side.to_upper()
+        elif move == "one_two":
+            caption = "LEFT, then RIGHT"
+        if caption != "":
+            var font_size := int(unit * 0.3)
+            var text_size := font.get_string_size(caption, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
+            var x := size.x / 2.0 - text_size.x / 2.0
+            draw_string(
+                font,
+                Vector2(x, size.y - 6.0),
+                caption,
+                HORIZONTAL_ALIGNMENT_LEFT,
+                -1,
+                font_size,
+                _ACTIVE
+            )
+        draw_string(
+            font, Vector2(8.0, 22.0), "as in a mirror", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, _DIM
+        )
+
 
 const _DEFAULT_PLAN := "res://dev/moves/plans/moves.csv"
 
@@ -69,6 +334,7 @@ var _count: Label
 var _next: Label
 var _call: Label
 var _readout: Label
+var _figure: MoveFigure
 var _beep: AudioStreamPlayer
 
 
@@ -180,7 +446,12 @@ func _build(error: String) -> void:
     _count = _label(layer, Vector2(1260, 370), Vector2(620, 110), 90, _PAPER)
     _next = _label(layer, Vector2(1260, 480), Vector2(620, 60), 22, _GREY)
     _next.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    _readout = _label(layer, Vector2(1260, 560), Vector2(620, 480), 22, _PAPER)
+    _figure = MoveFigure.new()
+    _figure.position = Vector2(1260, 540)
+    _figure.size = Vector2(620, 390)
+    layer.add_child(_figure)
+    _readout = _label(layer, Vector2(1260, 935), Vector2(620, 120), 18, _PAPER)
+    _readout.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     _call = _label(layer, Vector2(0, 420), Vector2(1240, 160), 120, _RED)
     _call.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     _call.add_theme_color_override("font_outline_color", Color.BLACK)
@@ -243,6 +514,7 @@ func _go_to(step: int) -> void:
     if step + 1 < _steps.size():
         following = "Next: %s." % _steps[step + 1]["title"]
     _next.text = following
+    _show_step(current)
     if step == 1:
         if not _service.StartRecordingWithFrames(_path, _frames):
             _title.text = "Could not record into %s" % _path
@@ -254,6 +526,46 @@ func _go_to(step: int) -> void:
         _service.Recalibrate()
     _service.SetRecordingLabel(current["label"])
     _beep.play()
+
+
+## Show the move of the step on the figure: in the guard until the first call
+## (with the side of the move), or the step's own move if it has no calls.
+func _show_step(step: Dictionary) -> void:
+    var calls: Array = step["calls"]
+    if calls.is_empty():
+        var label: String = step["label"]
+        var still := "guard"
+        if label == "look around":
+            still = "look"
+        elif label == "free":
+            still = "free"
+        elif label == "":
+            still = "guard"
+        _figure.show_still(still)
+        return
+    var first: Array = _move_of(calls[0][1])
+    _figure.show_still("guard")
+    _figure.side = first[1]
+    _figure.move = first[0]
+
+
+## The move and the side of a call of the plan, e.g., ["kick", "left"] for
+## "front_kick_left".
+func _move_of(call: String) -> Array:
+    for kind in ["straight", "hook", "uppercut", "front_kick", "slip"]:
+        for side in ["left", "right"]:
+            if call == "%s_%s" % [kind, side]:
+                return ["kick" if kind == "front_kick" else kind, side]
+    return [call, ""]
+
+
+## Show the move of a call on the figure, at once.
+func _play_call(call: String) -> void:
+    if call == "guard":
+        _figure.show_still("guard")
+        return
+    var move: Array = _move_of(call)
+    _figure.play(move[0], move[1], call == "cover")
 
 
 func _finish() -> void:
@@ -298,6 +610,7 @@ func _process(delta: float) -> bool:
         _call_left = _CALL_SECONDS
         _call.text = (call[1] as String).replace("_", " ").to_upper() + "!"
         _service.MarkRecording("call:" + call[1])
+        _play_call(call[1])
         _beep.play()
     _call.visible = _call_left > 0.0
 
@@ -306,7 +619,7 @@ func _process(delta: float) -> bool:
     return false
 
 
-## Show what the vision measures now: the offsets of the head, the cues of the depth and
+## Show what the vision measures now: the lean, what the classifier thinks and
 ## the moves which the game detected lately.
 func _update_readout() -> void:
     _overlay.calibrated = _service.IsCalibrated()
@@ -325,19 +638,7 @@ func _update_readout() -> void:
             _detected.pop_front()
 
     var lines: Array[String] = []
-    var offset: Vector2 = _service.GetRoomOffset()
-    var stick: Vector2 = _service.GetStick()
-    lines.append(
-        "sideways %+.2f   depth %+.3f   down %+.2f" % [offset.x, offset.y, _service.GetHeadDown()]
-    )
-    lines.append("stick (%+.2f, %+.2f)" % [stick.x, stick.y])
-    var names: PackedStringArray = _service.GetCueNames()
-    var depths: PackedFloat32Array = _service.GetCueDepths()
-    var cues := ""
-    for i in range(names.size()):
-        var value := "  -  " if is_nan(depths[i]) else "%+.3f" % depths[i]
-        cues += "%-12s %s\n" % [names[i], value]
-    lines.append("depth of each cue:\n" + cues)
+    lines.append("lean %+.2f" % _service.GetLean())
     var classes: PackedStringArray = _service.GetMoveClasses()
     var probabilities: PackedFloat32Array = _service.GetMoveProbabilities()
     var likely := ""

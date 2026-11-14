@@ -20,6 +20,8 @@ namespace Auslender.Tests
         {
             public int ClassCount => Classes.Length;
 
+            public int FeatureCount { get; init; } = new MoveFeatures(new[] { 0.0, 0.1, 0.2, 0.3 }).Count;
+
             public void Predict(ReadOnlySpan<float> features, Span<float> probabilities)
             {
             }
@@ -131,6 +133,13 @@ namespace Auslender.Tests
             Assert.True(classifier.Covering);
             Feed(classifier, new[] { P(("cover", 0.2f)) });
             Assert.False(classifier.Covering);
+        }
+
+        [Fact]
+        public void Refuses_a_model_which_reads_other_features()
+        {
+            Assert.Throws<ArgumentException>(
+                () => new MoveClassifier(Classes, new[] { 0.0, 0.1, 0.2, 0.3 }, new Stub { FeatureCount = 106 }));
         }
 
         [Fact]

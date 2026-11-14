@@ -50,7 +50,7 @@ const _BONES := [
 ## Whether the opponent winds up an attack now, which makes the circle glow.
 var threatened := false
 
-## The dodge which counts now ("SLIP LEFT", "DUCK", "BLOCK", ...; "" if
+## The dodge which counts now ("SLIP LEFT", "DUCK", "COVER", ...; "" if
 ## none), which turns the circle green and shows under it.
 var pose := ""
 

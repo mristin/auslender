@@ -30,8 +30,16 @@ namespace Auslender.Vision
     /// </remarks>
     public sealed class MoveFeatures
     {
-        /// <summary>The COCO key points we use: nose, shoulders, elbows, wrists, hips, knees, ankles.</summary>
-        public static readonly int[] Points = { 0, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
+        /// <summary>
+        /// The COCO key points we use: nose, shoulders, elbows, wrists, hips, knees.
+        /// </summary>
+        /// <remarks>
+        /// Not the ankles: whether the camera sees the feet depends on the height of
+        /// the player and the place of the camera (it saw a child's feet, but not an
+        /// adult's), and the classifier trained with them made five times more false
+        /// moves on the child.
+        /// </remarks>
+        public static readonly int[] Points = { 0, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14 };
 
         /// <summary>How long back the median torso length looks, in seconds.</summary>
         public const double ScaleHistory = 2.0;

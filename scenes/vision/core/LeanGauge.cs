@@ -25,7 +25,7 @@ namespace Auslender.Vision
     /// stepped, or the home spot was set again). The lean is the sideways
     /// offset against that baseline. On that recording, a slip from
     /// <see cref="SlipFrom"/> on found 12 of the 13 slips (the 13th hardly
-    /// moved), and no false slip while she stood in her guard, blocked,
+    /// moved), and no false slip while she stood in her guard, covered,
     /// punched or ducked; turning the head to look around still leans a
     /// fifth of the time.
     /// </para>

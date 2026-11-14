@@ -16,7 +16,10 @@ The game runs it in `scenes/vision/core/MoveClassifier.cs`, with the model in
    last 4 poses, 0.1 s apart (linearly interpolated, so the frame rate does
    not matter), relative to the middle of the shoulders now, in units of the
    median torso length of the last 2 s. So they are scale invariant: a child
-   far away and an adult close by give the same features.
+   far away and an adult close by give the same features. They use the nose,
+   the shoulders, the elbows, the wrists, the hips and the knees, but not the
+   ankles: the camera saw a child's feet but not an adult's, and with the
+   ankles the classifier made five times more false moves on the child.
 3. **The model**: XGBoost (`moves_xgboost.json`), evaluated in plain C#
    (`GradientBoostedTrees`; it agrees with XGBoost to about 1e-7).
 4. **The moves** (`MoveClassifier.Decide`): the strikes of one side decide
@@ -28,8 +31,9 @@ The game runs it in `scenes/vision/core/MoveClassifier.cs`, with the model in
 
 See [Recording and retraining the moves](../../../CONTRIBUTING.md#recording-and-retraining-the-moves)
 in CONTRIBUTING.md for the steps: record with the frames, compute the poses
-(`poses/`), cross-validate (`train.py`), retrain on all the recordings
-(`export.py`) and check it in the game (`replay_with_poses.py`).
+(`poses/`), leave out what went wrong (`<recording>.skip.csv`, `people.py`),
+evaluate across the sessions (`cross_session.py`), retrain on all the
+recordings (`export.py`) and check it in the game (`replay_with_poses.py`).
 
 The labels come from the calls of the plan: each move is anchored where it
 peaks after its call (e.g., where the wrist is farthest from the guard).
@@ -47,9 +51,33 @@ accurate but gave more false moves, and are 10 to 50 times slower.
 
 `viewer.py` plays a recording with RTMPose-t running live on its frames.
 
+## Across the sessions
+
+`cross_session.py` on the three sessions so far (2026-11-14): two of an adult
+(54 called moves each) and one of a child (30 moves left after the cuts: the
+child skipped or mixed up calls, and other children came into the picture for
+the last minute).
+
+| Test on | Trained on the others | + the other folds of the test |
+|---|---|---|
+| adult, 1st session | 49/54, 26 false/min, cover 75% | 51/54, 17 false/min, cover 96% |
+| adult, 2nd session | 48/54, 20 false/min, cover 77% | 51/54, 26 false/min, cover 77% |
+| child | **13/30**, 14 false/min | 17/30, 35 false/min |
+
+The adult sessions carry over to each other, but **not to the child**: the
+augmentation fakes a child's size and proportions, not how a child moves,
+and transforms measured from the child (lower hands, other arm proportions,
+slower moves, more jitter) did not help either. With a part of the child's
+own session, it got 17 of 30 right. The false moves on the child are partly
+the child moving between the calls, which the labels count as no move.
+
+Leaving out the ankles (see above) cut the false moves on the child, trained
+on the adults only, from 98 to 14 a minute; on the adults it costs a few
+false moves a minute, and with the child's own session 17 instead of 21 of
+its 30 moves (few moves, so a noisy number).
+
 ## Known limits
 
-All of it so far comes from **one** player in **one** session. It needs more
-recordings: other players (above all children), other days, clothes, light
-and camera places, and more time without moves (to bring down the false
-moves).
+It needs more recordings of children above all, with the calls followed (and
+nobody else in the picture), then other players, days, clothes, light and
+camera places, and more time without moves (to bring down the false moves).

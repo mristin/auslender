@@ -16,12 +16,14 @@ torch.set_num_threads(2)
 RNG = np.random.default_rng(1)
 
 t, k, marks, steps = M.load(sys.argv[1], sys.argv[2])
-y, event, fold, events = M.label_frames(t, k, marks, steps)
+y, event, fold, events = M.label_frames(t, k, marks, steps, M.load_skips(sys.argv[1]))
 C = len(M.CLASSES)
+# the features of one pose: x and y of each point
+WIDTH = 2 * len(M.POINTS)
 
 
 def sequences(t, k, offsets):
-    """[N, T, 26] oldest first, relative to the shoulders now, in body scales; plus [N, 2] wrist scores."""
+    """[N, T, WIDTH] oldest first, relative to the shoulders now, in body scales; plus [N, 2] wrist scores."""
     scales = M.body_scales(t, k)
     at = (t[:, None] - offsets[None, :]).ravel()
     w = M.interpolate(t, k, at).reshape(len(t), len(offsets), 17, 3)
@@ -169,7 +171,7 @@ class Conv(torch.nn.Module):
     def __init__(self, steps):
         super().__init__()
         self.net = torch.nn.Sequential(
-            torch.nn.Conv1d(26, 64, 3, padding=1),
+            torch.nn.Conv1d(WIDTH, 64, 3, padding=1),
             torch.nn.ReLU(),
             torch.nn.Conv1d(64, 64, 3, padding=1),
             torch.nn.ReLU(),
@@ -198,7 +200,7 @@ class Tcn(torch.nn.Module):
 
     def __init__(self, steps):
         super().__init__()
-        self.inp = torch.nn.Conv1d(26, 48, 1)
+        self.inp = torch.nn.Conv1d(WIDTH, 48, 1)
         self.blocks = torch.nn.Sequential(TcnBlock(48, 1), TcnBlock(48, 2), TcnBlock(48, 4))
         self.head = torch.nn.Linear(48 + 2, C)
 
@@ -210,7 +212,7 @@ class Tcn(torch.nn.Module):
 class Gru(torch.nn.Module):
     def __init__(self, steps):
         super().__init__()
-        self.gru = torch.nn.GRU(26, 64, batch_first=True)
+        self.gru = torch.nn.GRU(WIDTH, 64, batch_first=True)
         self.head = torch.nn.Linear(64 + 2, C)
 
     def forward(self, seq, score):

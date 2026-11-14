@@ -10,12 +10,16 @@ Kept deliberately simple, so that the features can be ported to C# exactly:
 """
 
 import json
+import pathlib
 import sys
 
 import numpy as np
 
-# COCO: nose, shoulders, elbows, wrists, hips, knees, ankles
-POINTS = [0, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+# COCO: nose, shoulders, elbows, wrists, hips, knees. Not the ankles: whether the camera sees
+# the feet depends on the player's height and the camera (it saw a child's, not an adult's), and
+# with them the classifier made five times more false moves on the child. Keep in sync with
+# MoveFeatures.Points in C#.
+POINTS = [0, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
 # NOTE: swap left and right when mirroring
 MIRROR = {
     0: 0,
@@ -75,6 +79,25 @@ def load(recording, poses_path):
     return t, k, marks, steps
 
 
+def load_skips(recording):
+    """The time ranges to leave out of the training, from <recording>.skip.csv if it exists.
+
+    Each line is "start,end,reason" in the time of the recording (seconds), e.g.
+    "180.0,199.5,someone else in the picture"; lines starting with # are comments.
+    """
+    path = pathlib.Path(recording).with_suffix(".skip.csv")
+    if not path.exists():
+        return []
+    skips = []
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        start, end = line.split(",")[:2]
+        skips.append((float(start), float(end)))
+    return skips
+
+
 # ---------------------------------------------------------------- features
 
 
@@ -109,7 +132,7 @@ def features(t, k, scales, i):
     """The feature vector of frame i (looking back over OFFSETS)."""
     window = interpolate(t, k, t[i] - OFFSETS)  # [9, 17, 3]
     sh_now = (k[i, 5, :2] + k[i, 6, :2]) / 2
-    rel = (window[:, POINTS, :2] - sh_now) / scales[i]  # [9, 13, 2]
+    rel = (window[:, POINTS, :2] - sh_now) / scales[i]  # [steps, points, 2]
     score = window[:, [9, 10], 2].min(axis=0)  # wrists' confidence over the window
     return np.concatenate([rel.ravel(), score])
 
@@ -168,8 +191,12 @@ def mirror(k, width=640.0):
 # ---------------------------------------------------------------- labels
 
 
-def label_frames(t, k, marks, steps):
-    """Per frame: the class index, the event id (or -1), and the repetition index for the split."""
+def label_frames(t, k, marks, steps, skips=()):
+    """Per frame: the class index, the event id (or -1), and the repetition index for the split.
+
+    The frames in the skips (see load_skips) and the calls made in them are left out; so are
+    the frames just after a skip, whose features still look back into it.
+    """
     y = np.full(len(t), -1)  # -1: unlabelled, ignored
     event = np.full(len(t), -1)
     fold = np.full(len(t), -1)
@@ -252,12 +279,22 @@ def label_frames(t, k, marks, steps):
             sel = idx[far & (y[idx] == -1)]
             y[sel] = 0
             fold[sel] = rep % 5
-    return y, event, fold, events
+    for a, b in skips:
+        y[(t >= a) & (t <= b + LOOK_BACK)] = -1
+    kept = [e for e in events if not any(a <= e["call"] <= b for a, b in skips)]
+    renumber = {id(e): i for i, e in enumerate(kept)}
+    event = np.array([renumber.get(id(events[e]), -1) if e >= 0 else -1 for e in event])
+    event[y < 0] = -1
+    return y, event, fold, kept
+
+
+# The span of the features into the past, see sequences(); a little more than the oldest offset.
+LOOK_BACK = 0.35
 
 
 if __name__ == "__main__":
     t, k, marks, steps = load(sys.argv[1], sys.argv[2])
-    y, event, fold, events = label_frames(t, k, marks, steps)
+    y, event, fold, events = label_frames(t, k, marks, steps, load_skips(sys.argv[1]))
     import collections
 
     print(collections.Counter(CLASSES[c] for c in y if c >= 0))
@@ -265,7 +302,7 @@ if __name__ == "__main__":
 
 
 def sequences(t, k, offsets):
-    """[N, T, 26] oldest first, relative to the shoulders now, in body scales; plus [N, 2] wrist scores.
+    """[N, T, 2 * points] oldest first, relative to the shoulders now, in body scales; plus [N, 2] wrist scores.
 
     The reference of scenes/vision/core/MoveFeatures.cs: the features of
     frame i are seq[i].ravel() followed by score[i].

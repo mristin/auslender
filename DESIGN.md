@@ -84,7 +84,7 @@ The player stays on their spot; the **opponent** moves: he steps in to attack an
 | Jump | Both feet off the floor | Dodges a low sweep |
 | Cover | Both gloves against the forehead and temples, elbows in | Takes a jab with little damage |
 
-A classifier trained on labelled recordings finds all of these from the body pose on every frame (see [Pose pipeline](#pose-pipeline) and `dev/moves/ml/README.md`). The cover is a distinct gesture, not the plain guard: on the recordings, a player's normal guard already held the fists at the face, so "hands up" could not tell a block from the guard; covering the head lifts the wrists above the eyes and the elbows above the shoulders, which the pose tells apart clearly.
+A classifier trained on labelled recordings finds all of these from the body pose on every frame (see [Pose pipeline](#pose-pipeline) and `dev/moves/ml/README.md`). The cover is a distinct gesture, not the plain guard: on the recordings, a player's normal guard already held the fists at the face, so "hands up" could not tell a cover from the guard; covering the head lifts the wrists above the eyes and the elbows above the shoulders, which the pose tells apart clearly.
 
 #### The opponent
 
@@ -152,7 +152,7 @@ The hero runs straight ahead into the picture, towards the horizon, on a course 
 | Kicks (pose) | ✔ | — | — | — |
 | Lean of the head (sideways offset) | slip | — | — | lane |
 | Head down / up | duck, jump | — | — | duck, jump |
-| Cover (wrists over the eyes, elbows up) | block | — | — | — |
+| Cover (wrists over the eyes, elbows up) | stops a jab | — | — | — |
 | Angle between the hands | — | steer | — | — |
 | Hands' sideways position | — | — | steer | — |
 | Hands' vertical swing | — | — | speed | — |
@@ -224,7 +224,7 @@ To find their rules, we record what the vision measures while a player follows a
 
 ## Milestones
 
-1. **Fight prototype.** The fight scene with one opponent: the punches and the kicks, the slips, the duck, the jump and the block; the opponent stepping in and out, telegraphing his four attacks. Keyboard controls to play without a camera. **First cut done** (`scenes/fight/`), with RTMPose-t on every frame and the trained move classifier; next: more recordings (other players, above all children; other days and camera places; more time without moves), and play-testing the fight.
+1. **Fight prototype.** The fight scene with one opponent: the punches and the kicks, the slips, the duck, the jump and the cover; the opponent stepping in and out, telegraphing his four attacks. Keyboard controls to play without a camera. **First cut done** (`scenes/fight/`), with RTMPose-t on every frame and the trained move classifier; next: more recordings (other players, above all children; other days and camera places; more time without moves), and play-testing the fight.
 2. **Race prototype.** The virtual steering wheel on a simple winding road.
 3. **Sledge prototype.** The arm swing and the side push on a slope.
 4. **Run prototype.** Lanes, jumps and ducks on a straight course.

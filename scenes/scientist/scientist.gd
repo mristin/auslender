@@ -10,7 +10,7 @@ extends Node3D
 ## steps in, attacks once or a few times, and steps back out. A kick drives
 ## him out early.
 ##
-## His attacks (see [constant ATTACKS]) are a jab straight at her face (block,
+## His attacks (see [constant ATTACKS]) are a jab straight at her face (cover,
 ## slip or duck), a hook from her left (slip to the right or duck), a hook from
 ## her right (slip to the left or duck), and a low sweep of his leg (jump).
 ## Each winds up first, long enough for the player to react with her body

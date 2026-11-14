@@ -30,7 +30,7 @@ def mirror_labels(y):
 
 def dataset(recording, poses, rng):
     t, k, marks, steps = M.load(recording, poses)
-    y, _, _, _ = M.label_frames(t, k, marks, steps)
+    y, _, _, _ = M.label_frames(t, k, marks, steps, M.load_skips(recording))
     streams = [(k, y)] + [(M.augment(k, rng, scale=rng.uniform(lo, hi)), y) for lo, hi in SCALES]
     streams += [(M.mirror(s), mirror_labels(l)) for s, l in streams]
     X, Y = [], []

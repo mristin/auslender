@@ -103,7 +103,7 @@ The continuous integration runs the same checks on every pull request.
 ## Recording and retraining the moves
 
 The move classifier is only as good as its recordings.
-All of it so far comes from **one** player in **two** sessions, so every new recording helps, above all:
+All of it so far comes from three sessions: two of an adult, and one of a child with much of it left out, so every new recording helps, above all:
 
 * **other players**, especially children (the game is meant for them, and the augmentation only fakes their size and proportions, not how they move);
 * **other days, clothes, light and rooms**, and other places of the camera (on the floor worked best so far; also try a chair);
@@ -128,7 +128,7 @@ $GODOT --path . --script dev/moves/record_moves.gd -- \
 ```
 
 The recorder waits until it sees you, counts down, and then walks you through the plan (`dev/moves/plans/fight.csv`, about 3.5 minutes): the guard, the cover, looking around, the slips, five of each punch with each hand, one-twos, kicks (raise your knee high), ducks, jumps and fighting freely.
-At each call, it beeps and shows the move big; do the move once, then go back to your guard.
+At each call, it beeps, shows the name of the move big, and a stick figure next to it does the move, as in a mirror (the moving limb in gold); do the move once with it, then go back to your guard.
 The recording marks each call, which gives the labels.
 Escape stops early and keeps what was recorded.
 
@@ -154,23 +154,43 @@ venv-ml/bin/python dev/moves/ml/viewer.py ~/auslender-video/fight-<player>-<date
     ~/auslender-video/fight-<player>-<date>/fight-<player>-<date>.frames scenes/vision/rtmpose/model/rtmpose_t_body7_256x192.onnx
 ```
 
-### 3. Evaluate on the new recording
+### 3. Leave out what went wrong
 
-Cross-validate the classifier on the recording (5 folds: each holds out one repetition of every move), also on its poses shrunk to the size of a child and enlarged:
+A recording is only as good as the moves in it.
+Leave out the parts where somebody else was in the picture (the vision may then follow the wrong person), and the calls which the player did not follow (a straight left done with the right hand, a slip to the wrong side, a kick without lifting the knee).
+List them in `fight-<player>-<date>.skip.csv` next to the recording, one span a line in the time of the recording (`start,end,reason`, `#` starts a comment); the training leaves them out (see `load_skips` in `dev/moves/ml/moves_ml.py`).
+
+`people.py` finds the parts with a second person standing in the picture, and prints them as the lines of the file:
+
+```
+venv-ml/bin/python dev/moves/ml/people.py ~/auslender-video/fight-<player>-<date>/fight-<player>-<date>.jsonl \
+    > ~/auslender-video/fight-<player>-<date>/fight-<player>-<date>.skip.csv
+```
+
+The calls which were not followed you find with the viewer (the times of the calls are the `mark` rows of the recording); add a line for each of them, from just before the call to the next one.
+
+### 4. Evaluate on the new recording
+
+Evaluate the classifier across the sessions:
 
 ```
 cd dev/moves/ml
-../../../venv-ml/bin/python train.py \
-    ~/auslender-video/fight-<player>-<date>/fight-<player>-<date>.jsonl ~/auslender-video/fight-<player>-<date>/fight-<player>-<date>.poses.jsonl \
-    xgb "0.3 s"
+../../../venv-ml/bin/python cross_session.py \
+    ~/auslender-video/fight-floor-20261114-094437/fight-floor-20261114-094437.jsonl \
+    ~/auslender-video/fight-floor-20261114-094437/fight-floor-20261114-094437.poses.jsonl \
+    ... \
+    ~/auslender-video/fight-<player>-<date>/fight-<player>-<date>.jsonl \
+    ~/auslender-video/fight-<player>-<date>/fight-<player>-<date>.poses.jsonl
 cd ../../..
 ```
 
+For each session, it trains on the other sessions only (how well the model does on a session it has never seen), and on the others together with a part of this one (how much the session adds; 5 folds, each holds out one repetition of every move), and tests also on the poses shrunk to the size of a child and enlarged.
 It prints how many moves it found, how many of the right class, the false moves a minute, how well it holds the cover, and the moves it confused.
-Compare with the numbers in `dev/moves/ml/README.md`.
-A recording which scores much worse than the others is worth a look with the viewer: the player may have been cut off by the picture, or done the moves late.
+`train.py` cross-validates within a single recording, and compares the XGBoost with the networks.
 
-### 4. Retrain on all the recordings
+A recording which scores much worse than the others is worth a look with the viewer: the player may have been cut off by the picture, done the moves late, or not followed the calls.
+
+### 5. Retrain on all the recordings
 
 Train the model on **all** the recordings together, and write it into the game:
 
@@ -181,13 +201,15 @@ cd dev/moves/ml
     ~/auslender-video/fight-floor-20261114-094437/fight-floor-20261114-094437.poses.jsonl \
     ~/auslender-video/fight-floor-20261114-161309/fight-floor-20261114-161309.jsonl \
     ~/auslender-video/fight-floor-20261114-161309/fight-floor-20261114-161309.poses.jsonl \
+    ~/auslender-video/fight-floor-20261114-164156/fight-floor-20261114-164156.jsonl \
+    ~/auslender-video/fight-floor-20261114-164156/fight-floor-20261114-164156.poses.jsonl \
     ~/auslender-video/fight-<player>-<date>/fight-<player>-<date>.jsonl ~/auslender-video/fight-<player>-<date>/fight-<player>-<date>.poses.jsonl
 cd ../../..
 ```
 
-It augments every recording (shrunk and enlarged copies, half of them with the proportions of a child, a jitter of the key points, and all of them mirrored), and writes `scenes/vision/moves/model/moves.json` (the description: the classes, the offsets of the poses, the recordings it was trained on) and `moves_xgboost.json` (the model).
+It leaves out the parts in the `.skip.csv` files, augments every recording (shrunk and enlarged copies, half of them with the proportions of a child, a jitter of the key points, and all of them mirrored), and writes `scenes/vision/moves/model/moves.json` (the description: the classes, the offsets of the poses, the recordings it was trained on) and `moves_xgboost.json` (the model).
 
-### 5. Check it in the game
+### 6. Check it in the game
 
 Make a replay of a recording with the poses of the game on every frame, and see what the game makes of it:
 
@@ -205,5 +227,5 @@ Then run the checks (`dev/continuous_integration/precommit.py`; the tests load t
 ### Changing the features or the model
 
 The features are computed twice: in Python for the training (`sequences` in `dev/moves/ml/moves_ml.py`) and in C# for the game (`MoveFeatures`).
-If you change them, change both, and regenerate the case of the parity test (`tests/Auslender.Tests/data/move_features_cases.json`) with the Python, so that `MoveFeaturesTests` checks that both agree.
+If you change them, change both, regenerate the case of the parity test (`tests/Auslender.Tests/data/move_features_cases.json`) with `venv-ml/bin/python dev/moves/ml/parity_cases.py`, so that `MoveFeaturesTests` checks that both agree, and retrain the model: the game refuses a model which reads another number of features.
 Keep every model evaluable in C# without new dependencies (XGBoost as JSON, or a network as ONNX through `OnnxMoveModel`).

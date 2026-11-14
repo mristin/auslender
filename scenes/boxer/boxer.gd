@@ -7,7 +7,7 @@ extends Node3D
 ## She stays on her spot (see DESIGN.md): leaning moves the camera to the
 ## side, ducking lowers it, and a jump lifts it. The gloves follow her hands in
 ## the camera picture, fly forward with each punch, and come up in front of the
-## face while she blocks; a kick shows her shoe.
+## face while she covers her head; a kick shows her shoe.
 
 const MAX_HEALTH := 100.0
 
@@ -33,7 +33,7 @@ var duck := 0.0
 var jumping := false
 
 ## Whether she holds both gloves up in front of her face.
-var blocking := false
+var covering := false
 
 var camera: Camera3D
 
@@ -79,7 +79,7 @@ func reset() -> void:
     lean = 0.0
     duck = 0.0
     jumping = false
-    blocking = false
+    covering = false
 
 
 ## Look at the opponent at [param opponent], and set the eyes from the lean,
@@ -124,10 +124,10 @@ func kick(side: int) -> void:
 
 
 ## Take the damage of a hit: shake and flash (less if it only hit the gloves).
-func take_damage(damage: float, blocked := false) -> void:
+func take_damage(damage: float, covered := false) -> void:
     health = maxf(0.0, health - damage)
-    _shake = 0.4 if blocked else 1.0
-    _hurt = 0.3 if blocked else 1.0
+    _shake = 0.4 if covered else 1.0
+    _hurt = 0.3 if covered else 1.0
 
 
 ## How red the screen flashes now, in [0, 1].
@@ -156,10 +156,10 @@ func _place_glove(i: int, delta: float) -> void:
     var sign_x := -1.0 if i == 0 else 1.0
     var rest := Vector3(0.16 * sign_x, -0.21, -0.55)
     var hand: Variant = _hands[i]
-    if blocking:
+    if covering:
         # NOTE (mristin):
         # The gloves cover the face, close together, so that the player sees
-        # that the block counts.
+        # that the cover counts.
         rest = Vector3(0.065 * sign_x, -0.04, -0.3)
     elif hand != null:
         # NOTE (mristin):

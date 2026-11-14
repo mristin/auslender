@@ -7,7 +7,7 @@ extends Node3D
 ## The player never walks: the scientist steps in to attack and steps back
 ## out. Every frame, we take the moves of the vision (or of the keyboard),
 ## throw her punches and kicks at him (if he is within their reach), and
-## decide whether his attacks hit her: a jab is blocked by covering the head
+## decide whether his attacks hit her: a jab is stopped by covering the head
 ## with both gloves, a hook is slipped by leaning away from it, anything high
 ## is ducked, and a low sweep is jumped.
 ##
@@ -27,7 +27,7 @@ extends Node3D
 ## N, M                       kick left, right
 ## Q, E (hold)                lean (slip) left, right
 ## Z (hold)                   duck
-## B (hold)                   cover the head (blocks a jab)
+## B (hold)                   cover the head (stops a jab)
 ## X or Space                 jump
 ## C                          set the home spot again
 ## R                          fight again
@@ -62,7 +62,7 @@ const SLIP_HOLD := 0.6
 
 ## The damage of his attacks: when they land, and a jab on the gloves.
 const DAMAGE := {"jab": 7.0, "hook_left": 10.0, "hook_right": 10.0, "sweep": 8.0}
-const BLOCKED_DAMAGE := 1.5
+const COVERED_DAMAGE := 1.5
 
 ## The call and the direction of each attack, as the player sees it.
 const CALLS := {
@@ -183,7 +183,7 @@ func _process(delta: float) -> void:
     if Input.is_key_pressed(KEY_E):
         lean += 0.6
     var ducking := Input.is_key_pressed(KEY_Z)
-    var blocking := Input.is_key_pressed(KEY_B)
+    var covering := Input.is_key_pressed(KEY_B)
     var jumping := _keyboard_jump_left > 0.0
 
     if vision != null:
@@ -212,7 +212,7 @@ func _process(delta: float) -> void:
         elif _time - _last_slip_at["right"] <= SLIP_HOLD:
             lean = maxf(lean, 0.8)
         ducking = ducking or _time - _last_duck_at <= DUCK_HOLD
-        blocking = blocking or vision.IsCovering()
+        covering = covering or vision.IsCovering()
         jumping = jumping or _time - _last_jump_at <= JUMP_WINDOW
 
     if _over_left > 0.0:
@@ -224,15 +224,15 @@ func _process(delta: float) -> void:
     boxer.lean = lerpf(boxer.lean, clampf(lean, -1.0, 1.0), minf(1.0, delta * 14.0))
     boxer.duck = lerpf(boxer.duck, 1.0 if ducking else 0.0, minf(1.0, delta * 12.0))
     boxer.jumping = jumping
-    boxer.blocking = blocking
+    boxer.covering = covering
     boxer.face(scientist.global_position, delta)
     if vision != null and overlay != null:
         boxer.set_hands(vision.GetPlayerHands(), vision.GetHeadRect())
 
-    _update_hud(lean, ducking, jumping, blocking)
+    _update_hud(lean, ducking, jumping, covering)
 
 
-func _update_hud(lean: float, ducking: bool, jumping: bool, blocking: bool) -> void:
+func _update_hud(lean: float, ducking: bool, jumping: bool, covering: bool) -> void:
     hud.player_health = boxer.health / Boxer.MAX_HEALTH
     hud.opponent_health = scientist.health / Scientist.MAX_HEALTH
     hud.hurt = boxer.hurt()
@@ -245,7 +245,7 @@ func _update_hud(lean: float, ducking: bool, jumping: bool, blocking: bool) -> v
     # What the player's body does shows on the mirror, on her head, and not
     # in a box of its own (as in Splash 'n' Splat).
     overlay.threatened = attack != ""
-    overlay.pose = _pose(lean, ducking, jumping, blocking)
+    overlay.pose = _pose(lean, ducking, jumping, covering)
 
     if vision == null:
         hud.sees_player = true
@@ -260,12 +260,12 @@ func _update_hud(lean: float, ducking: bool, jumping: bool, blocking: bool) -> v
 
 
 ## The dodge which counts now, by its name ("" if none).
-func _pose(lean: float, ducking: bool, jumping: bool, blocking: bool) -> String:
+func _pose(lean: float, ducking: bool, jumping: bool, covering: bool) -> String:
     if jumping:
         return "JUMP"
     if ducking:
         return "DUCK"
-    if blocking:
+    if covering:
         return "COVER"
     if lean <= -SLIP_FROM:
         return "SLIP LEFT"
@@ -283,9 +283,9 @@ func _on_struck(attack: String) -> void:
         scientist.dodged()
         hud.say(dodge, Hud.GREEN)
         return
-    if attack == "jab" and boxer.blocking:
-        boxer.take_damage(BLOCKED_DAMAGE, true)
-        hud.say("BLOCKED!", Hud.GREEN)
+    if attack == "jab" and boxer.covering:
+        boxer.take_damage(COVERED_DAMAGE, true)
+        hud.say("COVERED!", Hud.GREEN)
         return
     boxer.take_damage(DAMAGE[attack])
     hud.say("OUCH!", Hud.RED)
