@@ -33,6 +33,9 @@ tests/**/obj/
 # The Python virtual environment of the development tools
 /venv/
 
+# The Python virtual environment of the training, see CONTRIBUTING.md
+/venv-ml/
+
 # The downloads of tools/download_and_convert_models.py
 /.cache/
 

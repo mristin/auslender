@@ -24,8 +24,9 @@
   "format": "xgboost",
   "model": "moves_xgboost.json",
   "trained_on": [
-    "fight-floor-20261114-094437.jsonl"
+    "fight-floor-20261114-094437.jsonl",
+    "fight-floor-20261114-161309.jsonl"
   ],
-  "samples": 57438,
+  "samples": 113940,
   "note": "Made with dev/moves/ml/export.py; see dev/moves/ml/README.md."
 }

@@ -35,7 +35,7 @@ def main() -> int:
     frames = pathlib.Path(f"{stem}.frames")
     link = pathlib.Path(f"{stem}-rtmpose.frames")
     if frames.exists() and not link.exists():
-        link.symlink_to(frames.resolve())
+        link.symlink_to(frames.name)
     print(f"Wrote {out}")
     return 0
 

@@ -2,6 +2,8 @@
 # game nor for the continuous integration.
 numpy==2.2.6
 xgboost==3.2.0
+# XGBClassifier needs it:
+scikit-learn==1.7.2
 # Only for comparing the time-series networks (train.py conv,tcn,gru):
 torch==2.14.1
 # Only for the viewer (viewer.py):

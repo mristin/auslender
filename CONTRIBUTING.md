@@ -103,7 +103,7 @@ The continuous integration runs the same checks on every pull request.
 ## Recording and retraining the moves
 
 The move classifier is only as good as its recordings.
-All of it so far comes from **one** player in **one** session, so every new recording helps, above all:
+All of it so far comes from **one** player in **two** sessions, so every new recording helps, above all:
 
 * **other players**, especially children (the game is meant for them, and the augmentation only fakes their size and proportions, not how they move);
 * **other days, clothes, light and rooms**, and other places of the camera (on the floor worked best so far; also try a chair);
@@ -113,7 +113,7 @@ All of it so far comes from **one** player in **one** session, so every new reco
 
 A recording with `--frames` saves **every camera picture** of the session (the game itself never does).
 Record only people who agreed to it, and for children their parents, too.
-Keep the recordings on your computer (by convention in `~/auslender-video/`); **never commit them** nor upload them anywhere.
+Keep the recordings on your computer (by convention in `~/auslender-video/`, a folder for each session); **never commit them** nor upload them anywhere.
 Only the trained model (numbers, no pictures) goes into the repository.
 
 ### 1. Record a session
@@ -124,7 +124,7 @@ Then follow the plan of the fight, with the frames saved:
 ```
 $GODOT --path . --script dev/moves/record_moves.gd -- \
     --plan=res://dev/moves/plans/fight.csv --frames \
-    ~/auslender-video/fight-<player>-<date>.jsonl
+    ~/auslender-video/fight-<player>-<date>/fight-<player>-<date>.jsonl
 ```
 
 The recorder waits until it sees you, counts down, and then walks you through the plan (`dev/moves/plans/fight.csv`, about 3.5 minutes): the guard, the cover, looking around, the slips, five of each punch with each hand, one-twos, kicks (raise your knee high), ducks, jumps and fighting freely.
@@ -132,7 +132,7 @@ At each call, it beeps and shows the move big; do the move once, then go back to
 The recording marks each call, which gives the labels.
 Escape stops early and keeps what was recorded.
 
-It writes `fight-<player>-<date>.jsonl` (what the vision measured, the steps and the calls) and `fight-<player>-<date>.frames/` (the pictures, about 375 MB for a session).
+It writes, into the folder of the session (made if missing), `fight-<player>-<date>.jsonl` (what the vision measured, the steps and the calls) and `fight-<player>-<date>.frames/` (the pictures, about 375 MB for a session).
 
 If you change the plan, keep the names of the calls (`straight_left`, `hook_right`, `front_kick_left`, `duck`, `cover`, …): the training reads them (see `label_frames` in `dev/moves/ml/moves_ml.py`).
 
@@ -142,16 +142,16 @@ Run the pose of the game (RTMPose-t, exactly as in the game) on every frame of t
 
 ```
 dotnet run --project dev/moves/ml/poses -c Release -- \
-    ~/auslender-video/fight-<player>-<date>.jsonl \
-    ~/auslender-video/fight-<player>-<date>.poses.jsonl
+    ~/auslender-video/fight-<player>-<date>/fight-<player>-<date>.jsonl \
+    ~/auslender-video/fight-<player>-<date>/fight-<player>-<date>.poses.jsonl
 ```
 
 It takes about 2 minutes for a session.
 To watch the recording with the pose running live on its frames (space pauses, q quits):
 
 ```
-venv-ml/bin/python dev/moves/ml/viewer.py ~/auslender-video/fight-<player>-<date>.jsonl \
-    ~/auslender-video/fight-<player>-<date>.frames scenes/vision/rtmpose/model/rtmpose_t_body7_256x192.onnx
+venv-ml/bin/python dev/moves/ml/viewer.py ~/auslender-video/fight-<player>-<date>/fight-<player>-<date>.jsonl \
+    ~/auslender-video/fight-<player>-<date>/fight-<player>-<date>.frames scenes/vision/rtmpose/model/rtmpose_t_body7_256x192.onnx
 ```
 
 ### 3. Evaluate on the new recording
@@ -161,7 +161,7 @@ Cross-validate the classifier on the recording (5 folds: each holds out one repe
 ```
 cd dev/moves/ml
 ../../../venv-ml/bin/python train.py \
-    ~/auslender-video/fight-<player>-<date>.jsonl ~/auslender-video/fight-<player>-<date>.poses.jsonl \
+    ~/auslender-video/fight-<player>-<date>/fight-<player>-<date>.jsonl ~/auslender-video/fight-<player>-<date>/fight-<player>-<date>.poses.jsonl \
     xgb "0.3 s"
 cd ../../..
 ```
@@ -177,8 +177,11 @@ Train the model on **all** the recordings together, and write it into the game:
 ```
 cd dev/moves/ml
 ../../../venv-ml/bin/python export.py ../../../scenes/vision/moves/model \
-    ~/auslender-video/fight-floor-20261114-094437.jsonl ~/auslender-video/fight-floor-20261114-094437.poses.jsonl \
-    ~/auslender-video/fight-<player>-<date>.jsonl ~/auslender-video/fight-<player>-<date>.poses.jsonl
+    ~/auslender-video/fight-floor-20261114-094437/fight-floor-20261114-094437.jsonl \
+    ~/auslender-video/fight-floor-20261114-094437/fight-floor-20261114-094437.poses.jsonl \
+    ~/auslender-video/fight-floor-20261114-161309/fight-floor-20261114-161309.jsonl \
+    ~/auslender-video/fight-floor-20261114-161309/fight-floor-20261114-161309.poses.jsonl \
+    ~/auslender-video/fight-<player>-<date>/fight-<player>-<date>.jsonl ~/auslender-video/fight-<player>-<date>/fight-<player>-<date>.poses.jsonl
 cd ../../..
 ```
 
@@ -190,9 +193,9 @@ Make a replay of a recording with the poses of the game on every frame, and see 
 
 ```
 venv-ml/bin/python dev/moves/ml/replay_with_poses.py \
-    ~/auslender-video/fight-<player>-<date>.jsonl ~/auslender-video/fight-<player>-<date>.poses.jsonl
+    ~/auslender-video/fight-<player>-<date>/fight-<player>-<date>.jsonl ~/auslender-video/fight-<player>-<date>/fight-<player>-<date>.poses.jsonl
 $GODOT --headless --fixed-fps 30 --path . --script dev/moves/print_replay.gd -- \
-    --replay=$HOME/auslender-video/fight-<player>-<date>-rtmpose.jsonl
+    --replay=$HOME/auslender-video/fight-<player>-<date>/fight-<player>-<date>-rtmpose.jsonl
 ```
 
 Each call of the plan should give its move (e.g., five `hook left` in the step "hook left"), and the steps without moves (the guard, looking around) none.
