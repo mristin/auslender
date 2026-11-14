@@ -16,6 +16,10 @@ extends Node3D
 ## the camera need not see the whole leg) apart, and finds the slips, the
 ## ducks, the jumps and the cover from the whole body.
 ##
+## A panel in the upper left (see [CameraPanel]) shows the player how the game
+## sees her: the camera picture, her body pose as a wire, and on top the
+## command which her body gives now.
+##
 ## Start it with [code]-- --replay=<recording.jsonl>[/code] to play a recorded
 ## video instead of the camera (see dev/replay/).
 ##
@@ -31,8 +35,7 @@ extends Node3D
 ## X or Space                 jump
 ## C                          set the home spot again
 ## R                          fight again
-## F1                         show what the vision sees
-## F2                         show the mirror (the camera picture) more, or less
+## F1                         hide or show the camera panel
 ## Escape                     quit
 ## [/codeblock]
 
@@ -85,15 +88,18 @@ const _KEYS_PUNCH := {
 
 const _HELP := (
     "Keys: J K punch, U I hook, H L uppercut, N M kick, Q E slip, Z duck, B cover, X jump,"
-    + " C home, R again, F1 debug, F2 mirror"
+    + " C home, R again, F1 camera"
 )
+
+## How long a strike shows as the command of the body, in seconds.
+const STRIKE_SHOWS := 0.8
 
 var vision: Node = null
 
 var boxer: Boxer
 var scientist: Scientist
 var hud: Hud
-var overlay: CameraOverlay
+var panel: CameraPanel
 
 var _over_left := 0.0
 var _last_jump_at := -10.0
@@ -101,8 +107,8 @@ var _last_duck_at := -10.0
 var _last_slip_at := {"left": -10.0, "right": -10.0}
 var _time := 0.0
 var _keyboard_jump_left := 0.0
-var _opacities := [0.3, 0.5, 0.15]
-var _opacity := 0
+var _last_strike := ""
+var _last_strike_at := -10.0
 
 
 func _ready() -> void:
@@ -117,8 +123,15 @@ func _ready() -> void:
     add_child(boxer)
     boxer.global_position = SPOT
 
-    overlay = CameraOverlay.new()
-    add_child(overlay)
+    var layer := CanvasLayer.new()
+    layer.layer = 2
+    add_child(layer)
+    panel = CameraPanel.new()
+    layer.add_child(panel)
+    # NOTE (mristin):
+    # In the upper left, under the health bar: the lower corners are where her
+    # arms swing and her knees come up.
+    panel.position = Vector2(24, 140)
     hud = Hud.new()
     add_child(hud)
     hud.help = _HELP
@@ -126,7 +139,7 @@ func _ready() -> void:
     var holder := get_node_or_null("/root/Vision")
     if holder != null:
         vision = holder.service
-        overlay.setup(vision)
+        panel.setup(vision)
         if not vision.IsReplaying():
             vision.ResetPlayer()
 
@@ -151,6 +164,8 @@ func throw(kind: String, side: String, power: float) -> void:
     if _over_left > 0.0:
         return
     var hand := 0 if side == "left" else 1
+    _last_strike = "%s %s" % [side.to_upper(), _name(kind).to_upper()]
+    _last_strike_at = _time
     if kind == "kick":
         boxer.kick(hand)
     else:
@@ -226,7 +241,7 @@ func _process(delta: float) -> void:
     boxer.jumping = jumping
     boxer.covering = covering
     boxer.face(scientist.global_position, delta)
-    if vision != null and overlay != null:
+    if vision != null:
         boxer.set_hands(vision.GetPlayerHands(), vision.GetHeadRect())
 
     _update_hud(lean, ducking, jumping, covering)
@@ -242,18 +257,32 @@ func _update_hud(lean: float, ducking: bool, jumping: bool, covering: bool) -> v
     hud.warning_progress = scientist.windup_progress()
 
     # NOTE (mristin):
-    # What the player's body does shows on the mirror, on her head, and not
-    # in a box of its own (as in Splash 'n' Splat).
-    overlay.threatened = attack != ""
-    overlay.pose = _pose(lean, ducking, jumping, covering)
+    # The command of the body: a strike for a moment, else the dodge which
+    # counts, else "READY" (not "GUARD", which sounded like a defense next to
+    # "COVER").
+    var dodge := _pose(lean, ducking, jumping, covering)
+    panel.threatened = attack != ""
+    panel.dodging = dodge != ""
+    if _time - _last_strike_at <= STRIKE_SHOWS:
+        panel.command = _last_strike
+        panel.command_color = Hud.GOLD
+    elif dodge != "":
+        panel.command = dodge
+        panel.command_color = Color("6ccf5e")
+    else:
+        panel.command = "READY"
+        panel.command_color = Color(0.75, 0.77, 0.82)
 
     if vision == null:
         hud.sees_player = true
         return
     var camera_on: bool = vision.GetStatus() != "Disabled"
     hud.sees_player = vision.HasPlayer() or not camera_on
-    overlay.calibrated = vision.IsCalibrated() or not camera_on
-    overlay.calibration_progress = vision.GetCalibrationProgress()
+    if camera_on and not vision.HasPlayer():
+        panel.command = "STEP IN FRONT"
+        panel.command_color = Color("ff5a4f")
+    panel.calibrated = vision.IsCalibrated() or not camera_on
+    panel.calibration_progress = vision.GetCalibrationProgress()
     hud.replay = vision.GetReplayTime() if vision.IsReplaying() else Vector2(-1, -1)
     hud.sees_feet = vision.SeesFeet() or not camera_on
     hud.status = VisionStatus.new().text(vision, true)
@@ -337,9 +366,6 @@ func _unhandled_input(event: InputEvent) -> void:
         KEY_R:
             _start()
         KEY_F1:
-            overlay.debug = not overlay.debug
-        KEY_F2:
-            _opacity = (_opacity + 1) % _opacities.size()
-            overlay.opacity = _opacities[_opacity]
+            panel.visible = not panel.visible
         KEY_ESCAPE:
             get_tree().quit()

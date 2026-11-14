@@ -418,21 +418,25 @@ func _build() -> void:
     for i in range(2):
         var x := -0.12 if i == 0 else 0.12
         var hip := _pivot(_body, Vector3(x, 0.92, 0))
-        Flat.box(hip, Vector3(0.15, 0.44, 0.16), Vector3(0, -0.22, 0), TROUSERS)
+        Flat.limb(hip, 0.085, 0.065, 0.46, Vector3(0, -0.22, 0), TROUSERS)
         var knee := _pivot(hip, Vector3(0, -0.46, 0))
-        Flat.box(knee, Vector3(0.13, 0.42, 0.14), Vector3(0, -0.21, 0), TROUSERS)
+        Flat.ball(knee, 0.066, Vector3.ZERO, TROUSERS)
+        Flat.limb(knee, 0.064, 0.05, 0.42, Vector3(0, -0.21, 0), TROUSERS)
         Flat.box(knee, Vector3(0.13, 0.08, 0.27), Vector3(0, -0.42, -0.05), SHOES)
         _legs.append(hip)
         _knees.append(knee)
 
     _torso = _pivot(_body, Vector3(0, 0.95, 0))
     # The lab coat: the skirt down to the knees, the chest, the lapels.
-    _flashing.append(
-        _own(Flat.box(_torso, Vector3(0.5, 0.45, 0.3), Vector3(0, -0.18, 0), COAT, true))
-    )
-    _flashing.append(
-        _own(Flat.box(_torso, Vector3(0.52, 0.62, 0.3), Vector3(0, 0.33, 0), COAT, true))
-    )
+    # NOTE (mristin):
+    # Tapered and flattened prisms, as the bodies of 4D Sports Boxing: the
+    # chest wide at the shoulders, the skirt flaring to the knees.
+    var skirt := Flat.limb(_torso, 0.24, 0.29, 0.45, Vector3(0, -0.18, 0), COAT, true)
+    skirt.scale = Vector3(1, 1, 0.6)
+    _flashing.append(_own(skirt))
+    var chest := Flat.limb(_torso, 0.3, 0.23, 0.62, Vector3(0, 0.33, 0), COAT, true)
+    chest.scale = Vector3(1, 1, 0.55)
+    _flashing.append(_own(chest))
     Flat.box(_torso, Vector3(0.16, 0.36, 0.01), Vector3(0, 0.44, -0.152), SHIRT)
     Flat.box(_torso, Vector3(0.05, 0.3, 0.01), Vector3(0, 0.42, -0.158), TIE)
     Flat.box(_torso, Vector3(0.02, 0.5, 0.01), Vector3(-0.1, 0.36, -0.155), COAT_SHADE)
@@ -446,17 +450,18 @@ func _build() -> void:
     badge.position = Vector3(0.17, 0.5, -0.162)
     badge.rotation.y = PI
     _torso.add_child(badge)
-    Flat.box(_torso, Vector3(0.12, 0.08, 0.12), Vector3(0, 0.68, 0), SKIN)
+    Flat.limb(_torso, 0.055, 0.065, 0.1, Vector3(0, 0.68, 0), SKIN)
 
     _head = _pivot(_torso, Vector3(0, 0.7, 0))
     _flashing.append(_own(Flat.ball(_head, 0.13, Vector3(0, 0.14, 0), SKIN, true, 1.2)))
-    # The grey fringe around his bald head, and the goatee.
-    Flat.box(_head, Vector3(0.05, 0.1, 0.18), Vector3(-0.12, 0.13, 0.03), HAIR)
-    Flat.box(_head, Vector3(0.05, 0.1, 0.18), Vector3(0.12, 0.13, 0.03), HAIR)
-    Flat.box(_head, Vector3(0.22, 0.08, 0.05), Vector3(0, 0.15, 0.12), HAIR)
-    Flat.box(_head, Vector3(0.06, 0.07, 0.04), Vector3(0, 0.01, -0.1), HAIR)
-    # The goggles, the evil brows, the nose and the grin.
-    Flat.box(_head, Vector3(0.25, 0.035, 0.03), Vector3(0, 0.17, -0.11), GOGGLES)
+    # NOTE (mristin):
+    # The grey fringe around the back of his bald head: a band, set back so
+    # that its front hides inside the head; and the goatee.
+    Flat.limb(_head, 0.15, 0.14, 0.1, Vector3(0, 0.11, 0.045), HAIR, false, 10)
+    Flat.limb(_head, 0.035, 0.02, 0.07, Vector3(0, 0.0, -0.105), HAIR, false, 6)
+    # The goggles (their strap a band around the head), the evil brows, the
+    # nose and the grin.
+    Flat.limb(_head, 0.138, 0.138, 0.035, Vector3(0, 0.17, 0), GOGGLES, false, 12)
     for x in [-0.05, 0.05]:
         Flat.box(_head, Vector3(0.07, 0.055, 0.03), Vector3(x, 0.17, -0.125), LENS)
     var brow_left := Flat.box(_head, Vector3(0.08, 0.02, 0.02), Vector3(-0.05, 0.22, -0.125), SHOES)
@@ -469,11 +474,13 @@ func _build() -> void:
     for i in range(2):
         var x := -0.31 if i == 0 else 0.31
         var shoulder := _pivot(_torso, Vector3(x, 0.58, 0))
+        _flashing.append(_own(Flat.ball(shoulder, 0.075, Vector3.ZERO, COAT, true)))
         _flashing.append(
-            _own(Flat.box(shoulder, Vector3(0.12, 0.3, 0.12), Vector3(0, -0.15, 0), COAT, true))
+            _own(Flat.limb(shoulder, 0.068, 0.055, 0.3, Vector3(0, -0.15, 0), COAT, true))
         )
         var elbow := _pivot(shoulder, Vector3(0, -0.3, 0))
-        Flat.box(elbow, Vector3(0.1, 0.26, 0.1), Vector3(0, -0.13, 0), COAT)
+        Flat.ball(elbow, 0.055, Vector3.ZERO, COAT)
+        Flat.limb(elbow, 0.053, 0.042, 0.26, Vector3(0, -0.13, 0), COAT)
         Flat.ball(elbow, 0.085, Vector3(0, -0.3, 0), GLOVES)
         _arms.append(shoulder)
         _elbows.append(elbow)

@@ -49,6 +49,28 @@ static func ball(
     return _add(parent, mesh, at, color, own)
 
 
+## Add a limb: a tapered prism of few facets along y (the top at +y), as the
+## bodies of 4D Sports Boxing, rather than a box; flatten it with its scale
+## for a torso.
+static func limb(
+    parent: Node3D,
+    top_radius: float,
+    bottom_radius: float,
+    length: float,
+    at: Vector3,
+    color: Color,
+    own := false,
+    sides := 8
+) -> MeshInstance3D:
+    var mesh := CylinderMesh.new()
+    mesh.top_radius = top_radius
+    mesh.bottom_radius = bottom_radius
+    mesh.height = length
+    mesh.radial_segments = sides
+    mesh.rings = 1
+    return _add(parent, mesh, at, color, own)
+
+
 ## Add a cylinder with few facets to the parent, upright.
 static func post(
     parent: Node3D, radius: float, height: float, at: Vector3, color: Color

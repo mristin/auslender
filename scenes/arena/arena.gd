@@ -91,19 +91,39 @@ func _build_hall() -> void:
             for i in range(count):
                 if random.randf() < 0.15:
                     continue
-                var x := lerpf(-distance, distance, (i + 0.5) / count) + random.randf_range(-0.1, 0.1)
+                var x := (
+                    lerpf(-distance, distance, (i + 0.5) / count) + random.randf_range(-0.1, 0.1)
+                )
                 var shirt: Color = shirts[random.randi() % shirts.size()]
                 var skin: Color = skins[random.randi() % skins.size()]
-                _rotated_box(Vector3(0.38, 0.5, 0.25), Vector3(x, height + 0.25, -distance), side, shirt)
-                _rotated_box(Vector3(0.2, 0.22, 0.2), Vector3(x, height + 0.65, -distance), side, skin)
+                # NOTE (mristin):
+                # A tapered torso (wide at the shoulders) and a round head, not
+                # boxes: 4D Sports Boxing rather than blocks.
+                var torso := _rotated(
+                    Flat.limb(self, 0.2, 0.15, 0.5, Vector3.ZERO, shirt, false, 6),
+                    Vector3(x, height + 0.25, -distance),
+                    side
+                )
+                torso.scale = Vector3(1, 1, 0.6)
+                _rotated(
+                    Flat.ball(self, 0.11, Vector3.ZERO, skin, false, 1.15),
+                    Vector3(x, height + 0.64, -distance),
+                    side
+                )
 
 
 ## Add a box on the side of the hall: 0 behind the ring, then clockwise.
 func _rotated_box(size: Vector3, at: Vector3, side: int, color: Color) -> void:
+    _rotated(Flat.box(self, size, Vector3.ZERO, color), at, side)
+
+
+## Place a mesh on the side of the hall (0 behind the ring, then clockwise),
+## turned to face the ring.
+func _rotated(instance: MeshInstance3D, at: Vector3, side: int) -> MeshInstance3D:
     var angle := side * PI * 0.5
-    var turned := at.rotated(Vector3.UP, angle)
-    var instance := Flat.box(self, size, turned, color)
+    instance.position = at.rotated(Vector3.UP, angle)
     instance.rotation.y = angle
+    return instance
 
 
 func _build_lights() -> void:
