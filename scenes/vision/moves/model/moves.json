@@ -26,8 +26,12 @@
   "trained_on": [
     "fight-floor-20261114-094437.jsonl",
     "fight-floor-20261114-161309.jsonl",
-    "fight-floor-20261114-164156.jsonl"
+    "fight-floor-20261114-164156.jsonl",
+    "fight-floor-20261114-200552.jsonl",
+    "fight-floor-20261114-204458.jsonl",
+    "fight-floor-20261114-201645.jsonl",
+    "fight-floor-20261114-203041.jsonl"
   ],
-  "samples": 147600,
+  "samples": 315702,
   "note": "Made with dev/moves/ml/export.py; see dev/moves/ml/README.md."
 }

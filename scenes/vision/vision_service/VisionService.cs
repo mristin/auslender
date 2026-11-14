@@ -1180,6 +1180,35 @@ public partial class VisionService : Node
     /// <summary>The format index of a feed which lists no formats (see <see cref="FindFormat"/>).</summary>
     private const int _anyFormat = int.MaxValue;
 
+    /// <summary>Whether we kept the full frame rate of the camera once it streamed.</summary>
+    private bool _fullFrameRateKept;
+
+    /// <summary>
+    /// Keep the camera at its full frame rate in dim light, too (see <see cref="LinuxCameraControls"/>).
+    /// </summary>
+    private void KeepFullFrameRate()
+    {
+        if (_feed == null)
+        {
+            return;
+        }
+
+        // NOTE (mristin):
+        // Only a nicety: whatever goes wrong, the camera runs as it would anyway.
+        try
+        {
+            var devices = LinuxCameraControls.KeepFullFrameRate(_feed.GetName());
+            if (devices.Count > 0)
+            {
+                GD.Print($"Switched off the dynamic frame rate of the camera on {string.Join(", ", devices)}.");
+            }
+        }
+        catch (Exception exception)
+        {
+            GD.PushWarning($"Could not keep the full frame rate of the camera: {exception.Message}");
+        }
+    }
+
     private void StartCamera(CameraFeed feed, int formatIndex)
     {
         string description = formatIndex == _anyFormat
@@ -1194,6 +1223,7 @@ public partial class VisionService : Node
 
         _feed.FeedIsActive = true;
         _nextActivationAttempt = Now + _activationRetryPeriod;
+        KeepFullFrameRate();
 
         CameraTexture = new CameraTexture { CameraFeedId = _feed.GetId(), CameraIsActive = true };
         _cbcrTexture = new CameraTexture
@@ -1246,6 +1276,15 @@ public partial class VisionService : Node
 
     private void OnFrameChanged()
     {
+        if (!_fullFrameRateKept)
+        {
+            // NOTE (mristin):
+            // Once more with the first frame: a driver may reset the controls when
+            // the camera starts to stream.
+            _fullFrameRateKept = true;
+            KeepFullFrameRate();
+        }
+
         // NOTE (mristin):
         // The time between the frames of the camera, which the faces must keep
         // up with (see PoseRate).

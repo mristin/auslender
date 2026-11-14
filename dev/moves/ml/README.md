@@ -76,6 +76,29 @@ on the adults only, from 98 to 14 a minute; on the adults it costs a few
 false moves a minute, and with the child's own session 17 instead of 21 of
 its 30 moves (few moves, so a noisy number).
 
+## The frame rate
+
+The camera of the laptop halved its frame rate in dim light (to 15 frames a
+second), until the game switched that off (`LinuxCameraControls`). The
+features take the poses at fixed times back (interpolated), not at frames,
+so they do not depend on the frame rate. `frame_rates.py` checks it on 7
+sessions (5 at 30 frames a second, 2 at 15), each tested by a model trained
+on the others only (with fewer resized copies than `export.py`, for speed):
+
+* A model trained only on the fast sessions classified the slow sessions as
+  well as the fast ones (50/51 and 53/53), and the fast sessions with every
+  other frame dropped as well as at full rate (e.g., 53/54 and 48/52 either
+  way); only the false moves rose a little at 15 frames a second (e.g., 25 to
+  36 a minute).
+* Adding the slow sessions to the training helped on the adult's sessions
+  (classified 47 to 49, 48 to 51 and 53 to 54 of 54; the cover held 86%
+  instead of 56%, and 79% instead of 32%), by more data rather than by the
+  frame rate. On the child it did worse (10 instead of 15 of 30).
+* Training also on copies of the fast sessions with every other frame
+  dropped changed nothing much, so `export.py` does not.
+
+So the model trains on all the sessions, slow or fast.
+
 ## Known limits
 
 It needs more recordings of children above all, with the calls followed (and
