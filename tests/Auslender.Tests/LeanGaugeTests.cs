@@ -51,7 +51,7 @@ namespace Auslender.Tests
         {
             // NOTE (mristin):
             // As on the recording of a fight: half a unit to the left over a
-            // minute, and then a slip still counts from where she stands.
+            // minute, and then a slip still counts from where he stands.
             var gauge = new LeanGauge();
             double t = 0.0;
             for (int i = 0; i <= 60 * (int)Fps; i++)

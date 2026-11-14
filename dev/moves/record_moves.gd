@@ -18,7 +18,7 @@ extends SceneTree
 ## knows when each move was asked for.
 ##
 ## It needs the camera and a display (not --headless). First, it waits until
-## the camera sees the player, and the first step ("stand 1") sets her home
+## the camera sees the player, and the first step ("stand 1") sets his home
 ## spot. Meanwhile, the vision service records what it measures (see
 ## VisionRecorder): only numbers, never the pictures. The recording goes to
 ## ~/Downloads/move_recordings/<plan>-<time>.jsonl by default.
@@ -479,7 +479,7 @@ func _label(parent: Node, at: Vector2, size: Vector2, font_size: int, color: Col
     return label
 
 
-## A short beep, so that the player hears the call even when she looks away.
+## A short beep, so that the player hears the call even when he looks away.
 func _make_beep() -> AudioStreamWAV:
     var rate := 22050
     var samples := PackedByteArray()

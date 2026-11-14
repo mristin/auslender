@@ -25,6 +25,9 @@ func _enter_tree() -> void:
 
 func _ready() -> void:
     for arg in OS.get_cmdline_user_args():
+        if arg.begins_with("--replay-from="):
+            service.ReplayFrom(float(arg.trim_prefix("--replay-from=")))
+    for arg in OS.get_cmdline_user_args():
         if arg.begins_with("--replay="):
             var recording := arg.trim_prefix("--replay=")
             service.StartReplay(recording, recording.get_basename() + ".frames")

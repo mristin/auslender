@@ -7,25 +7,25 @@ using System;
 namespace Auslender.Vision
 {
     /// <summary>
-    /// Tell from the pose how far the player turned her body to her left or to
-    /// her right, to steer the walking.
+    /// Tell from the pose how far the player turned his body to his left or to
+    /// his right, to steer the walking.
     /// </summary>
     /// <remarks>
     /// <para>
     /// On the recording of a player (dev/moves/), two measures told the turns
-    /// apart, with their direction, while she walked in place:
+    /// apart, with their direction, while he walked in place:
     /// </para>
     /// <list type="bullet">
     /// <item>
     /// the nose against the middle of the shoulders, in torsos (from the middle
     /// of the shoulders to the middle of the hips): +0.02 ± 0.06 facing the
-    /// camera, +0.22 turned to her left, -0.20 turned to her right (in the not
-    /// mirrored frame, her left is to the right);
+    /// camera, +0.22 turned to his left, -0.20 turned to his right (in the not
+    /// mirrored frame, his left is to the right);
     /// </item>
     /// <item>
     /// the score of the left ear minus the right one: -0.03 ± 0.07 facing,
-    /// -0.69 turned to her left (the camera sees her right ear), +0.78 turned
-    /// to her right.
+    /// -0.69 turned to his left (the camera sees his right ear), +0.78 turned
+    /// to his right.
     /// </item>
     /// </list>
     /// <para>
@@ -57,10 +57,10 @@ namespace Auslender.Vision
 
         private double _observedAt = double.NaN;
 
-        /// <summary>The share of a full turn, smoothed: positive to her left; 0 if unknown.</summary>
+        /// <summary>The share of a full turn, smoothed: positive to his left; 0 if unknown.</summary>
         public float Raw { get; private set; }
 
-        /// <summary>The turn in [-1, 1], beyond the dead zone: negative to her left, as the reins of The Steppe Rescue.</summary>
+        /// <summary>The turn in [-1, 1], beyond the dead zone: negative to his left, as the reins of The Steppe Rescue.</summary>
         public float Turn { get; private set; }
 
         public void Reset()

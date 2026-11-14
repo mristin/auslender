@@ -38,8 +38,8 @@ namespace Auslender.Vision
 
         /// <summary>
         /// The time constant of smoothing the unit, in seconds: slow, since the
-        /// distance between the eyes changes as the player tilts her head in a
-        /// squat, but quick enough to follow her when she steps closer or back.
+        /// distance between the eyes changes as the player tilts his head in a
+        /// squat, but quick enough to follow him when he steps closer or back.
         /// </summary>
         public double UnitTau = 3.0;
 
@@ -121,7 +121,7 @@ namespace Auslender.Vision
 
             // NOTE (mristin):
             // The unit is smoothed, since the distance between the eyes shrinks a
-            // little whenever the player turns her head. After a gap, we start
+            // little whenever the player turns his head. After a gap, we start
             // afresh, as the squat meter does.
             if (float.IsNaN(Unit) || double.IsNaN(_measuredAt) || t - _measuredAt > 1.0)
             {

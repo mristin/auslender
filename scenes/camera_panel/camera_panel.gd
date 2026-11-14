@@ -1,14 +1,18 @@
 class_name CameraPanel
 extends Control
 
-## Show the player how the game sees her, in a panel in a corner (as in Bird
-## Dog): the mirrored camera picture, her body pose as a wire, her head as a
-## circle with her unibrow and her mladež (see [FaceLooks]), and on top of the
-## panel the command which her body gives now (see [member command]).
+## Show the player how the game sees him, in a panel in a corner (as in Bird
+## Dog): the mirrored camera picture, his body pose as a wire, his head as a
+## circle with his unibrow and his mladež (see [FaceLooks]), and on top of the
+## panel the command which his body gives now (see [member command]).
 ##
 ## The circle around the head turns orange while the opponent winds up an
-## attack, and green while a dodge counts. While the game sets her home spot,
+## attack, and green while a dodge counts. While the game sets his home spot,
 ## an arc fills up around the head.
+##
+## If the vision lifts the pose to 3D (see PoseLifter), the rigged 3D model of
+## the hero (see [RiggedFigure]) stands on the wire: its joints where the
+## wire's are, at the depth of the 3D pose.
 
 ## The size of the panel: the picture (4:3) and the header with the command.
 const PICTURE := Vector2(512, 384)
@@ -29,6 +33,22 @@ const JOINT_SIZE := 26.0
 
 ## The color of the wire, unless a strike shows (then the color of the command).
 const WIRE := Color(0.35, 1.0, 0.6)
+
+## How opaque the 3D figure is over the picture.
+const FIGURE_ALPHA := 0.8
+
+## Pixels of the panel per unit of the 3D world of the figure.
+const _PIXELS_PER_UNIT := 100.0
+
+## How much the joints of the 3D figure are calmed (a One-Euro filter): the
+## cutoff when they stand still (Hz), how much it rises with their speed, and
+## the cutoff of the speed itself. Calm when still, quick in a punch.
+const CALM_CUTOFF := 1.0
+const CALM_BETA := 0.6
+const CALM_SPEED_CUTOFF := 1.0
+
+## The score from which the pose sees a knee, for the legs of the figure.
+const KNEE_SEEN := 0.4
 
 const _GREEN := Color("6ccf5e")
 const _GOLD := Color("f2c14e")
@@ -68,12 +88,20 @@ var dodging := false
 var calibrated := true
 var calibration_progress := 0.0
 
+## Whether to show the 3D figure, if there is a 3D pose.
+var show_figure := true
+
 var vision: Node = null
 
 var _looks := FaceLooks.new()
 var _time := 0.0
 var _bones: Node2D
 var _joints: Node2D
+var _figure: RiggedFigure
+var _calm: Array[Vector3] = []
+var _calm_speed: Array[Vector3] = []
+var _front: SubViewport
+var _front_view: TextureRect
 
 
 func _ready() -> void:
@@ -83,6 +111,8 @@ func _ready() -> void:
     # NOTE (mristin):
     # The wire is drawn by shaders, in a layer over the picture which clips its
     # glow, so that it does not spill over the header.
+    _build_figure()
+
     var layer := Control.new()
     layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
     layer.clip_contents = true
@@ -93,6 +123,106 @@ func _ready() -> void:
     _bones.draw.connect(_draw_bones)
     _joints = _shaded(layer, preload("res://scenes/camera_panel/wire_joint.gdshader"))
     _joints.draw.connect(_draw_joints)
+
+
+## The 3D figure: a world of its own with the model of Auslender and the
+## lights, seen from the front (orthographic, so that it lines up with the
+## wire). It is posed as in the picture which is not mirrored, and its view is
+## mirrored, as the camera picture.
+func _build_figure() -> void:
+    var world := World3D.new()
+    var environment := Environment.new()
+    environment.background_mode = Environment.BG_CLEAR_COLOR
+    environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+    environment.ambient_light_color = Color(0.6, 0.6, 0.62)
+    world.environment = environment
+
+    _front = SubViewport.new()
+    _front.size = Vector2i(PICTURE)
+    _front.transparent_bg = true
+    _front.world_3d = world
+    _front.msaa_3d = Viewport.MSAA_2X
+    add_child(_front)
+    _front_view = TextureRect.new()
+    _front_view.texture = _front.get_texture()
+    _front_view.flip_h = true
+    _front_view.position = Vector2(0, HEADER)
+    _front_view.size = PICTURE
+    _front_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _front_view.modulate = Color(1, 1, 1, FIGURE_ALPHA)
+    add_child(_front_view)
+
+    var camera := Camera3D.new()
+    camera.projection = Camera3D.PROJECTION_ORTHOGONAL
+    camera.size = PICTURE.y / _PIXELS_PER_UNIT
+    camera.position = Vector3(
+        PICTURE.x * 0.5 / _PIXELS_PER_UNIT, -PICTURE.y * 0.5 / _PIXELS_PER_UNIT, 50.0
+    )
+    camera.far = 100.0
+    _front.add_child(camera)
+
+    _figure = RiggedFigure.new()
+    _front.add_child(_figure)
+    var sun := DirectionalLight3D.new()
+    sun.rotation_degrees = Vector3(-35, 30, 0)
+    sun.light_energy = 1.0
+    _front.add_child(sun)
+
+
+## Put the figure on the wire: x and y where the wire is (in the picture which
+## is not mirrored), the depth from the 3D pose, scaled so that its torso is
+## as long as the wire's.
+func _update_figure() -> void:
+    var lifted: Array = vision.GetPose3D() if vision != null and show_figure else []
+    var joints: Array[Vector3] = []
+    if lifted.size() == 2:
+        var points: PackedVector2Array = lifted[0]
+        var depths: PackedVector3Array = lifted[1]
+        var torso_2d := (points[RiggedFigure.THORAX] - points[RiggedFigure.PELVIS]) * PICTURE
+        var torso_3d := depths[RiggedFigure.THORAX].distance_to(depths[RiggedFigure.PELVIS])
+        var scale := torso_2d.length() / maxf(torso_3d, 1e-3) / _PIXELS_PER_UNIT
+        for j in range(points.size()):
+            var at := Vector2(1.0 - points[j].x, points[j].y) * PICTURE / _PIXELS_PER_UNIT
+            # NOTE (mristin):
+            # The 3D pose has z away from the camera; our camera looks along -z.
+            joints.append(Vector3(at.x, -at.y, -depths[j].z * scale))
+    if not joints.is_empty():
+        # NOTE (mristin):
+        # A leg whose knee the pose hardly sees hangs down (COCO: 13 is the
+        # left knee, 14 the right one).
+        var scores: PackedFloat32Array = vision.GetKeypointScores()
+        if scores.size() == 17:
+            _figure.legs_seen = [scores[13] >= KNEE_SEEN, scores[14] >= KNEE_SEEN]
+    _figure.set_joints(_calmed(joints, get_process_delta_time()))
+    _front_view.visible = not joints.is_empty()
+
+
+## Calm the jitter of the joints with a One-Euro filter (per joint): strong
+## while they stand still, little while they move fast.
+func _calmed(joints: Array[Vector3], delta: float) -> Array[Vector3]:
+    if joints.is_empty() or _calm.size() != joints.size() or delta <= 0.0:
+        _calm = joints.duplicate()
+        _calm_speed.clear()
+        _calm_speed.resize(joints.size())
+        _calm_speed.fill(Vector3.ZERO)
+        return joints
+    var speed_alpha := _alpha(CALM_SPEED_CUTOFF, delta)
+    for j in range(joints.size()):
+        var speed := (joints[j] - _calm[j]) / delta
+        _calm_speed[j] = _calm_speed[j].lerp(speed, speed_alpha)
+        var cutoff := CALM_CUTOFF + CALM_BETA * _calm_speed[j].length()
+        _calm[j] = _calm[j].lerp(joints[j], _alpha(cutoff, delta))
+    return _calm.duplicate()
+
+
+static func _alpha(cutoff: float, delta: float) -> float:
+    var tau := 1.0 / (TAU * cutoff)
+    return 1.0 / (1.0 + tau / delta)
+
+
+## Show the chosen hero (see RiggedFigure.chosen).
+func rebuild_figure() -> void:
+    _figure.rebuild()
 
 
 func _shaded(parent: Node, shader: Shader) -> Node2D:
@@ -113,6 +243,7 @@ func _process(delta: float) -> void:
     queue_redraw()
     _bones.queue_redraw()
     _joints.queue_redraw()
+    _update_figure()
 
 
 ## Map a point of the mirrored picture (normalized) into the panel.

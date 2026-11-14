@@ -2,15 +2,15 @@ class_name CameraOverlay
 extends CanvasLayer
 
 ## Show the webcam dimly over the whole screen, like a mirror, as in Splash 'n'
-## Splat: so that the player sees where her head is. There is no other camera
-## picture on the screen; all that the player needs to know about her body is
-## drawn on the mirror, on her head:
+## Splat: so that the player sees where his head is. There is no other camera
+## picture on the screen; all that the player needs to know about his body is
+## drawn on the mirror, on his head:
 ##
 ## - a soft, glowing circle around the head, which turns orange and pulses
 ##   while the opponent winds up an attack, and green while a dodge counts
 ##   (see [member pose]), with the name of the dodge under it;
-## - her unibrow and her mladež (the mole) on her face (see [FaceLooks]);
-## - while the game sets her home spot, an arc around the head which fills up.
+## - his unibrow and his mladež (the mole) on his face (see [FaceLooks]);
+## - while the game sets his home spot, an arc around the head which fills up.
 ##
 ## We show the middle of the camera picture which fills the screen (the 4:3
 ## picture cut to 16:9), so the picture and the looks line up.

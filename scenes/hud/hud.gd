@@ -3,8 +3,8 @@ extends CanvasLayer
 
 ## Draw what the player needs to know over the fight: both health bars, the
 ## call of an attack which comes (e.g., "SLIP RIGHT!", with an arrow from where
-## it comes), what came of her moves, and the status of the camera (or of the
-## replay). What her body does shows on the mirror (see [CameraOverlay]).
+## it comes), what came of his moves, and the status of the camera (or of the
+## replay). What his body does shows on the mirror (see [CameraOverlay]).
 ##
 ## The fight sets the fields on every frame; the HUD only draws.
 
@@ -118,7 +118,7 @@ func _draw_hud() -> void:
 
 
 ## The call of the attack which comes, with an arrow from where it comes:
-## a hook from her left comes from the left edge, and so on.
+## a hook from his left comes from the left edge, and so on.
 func _draw_warning() -> void:
     var size := 96 + int(32 * warning_progress)
     var color := Color(GOLD, 0.6 + 0.4 * warning_progress)

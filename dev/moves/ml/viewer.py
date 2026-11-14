@@ -99,7 +99,7 @@ while i < len(frames):
         ms = (time.perf_counter() - a) * 1000
         ms_avg = ms if ms_avg is None else ms_avg * 0.9 + ms * 0.1
         box = box_from(k, 0.4)
-    view = cv2.flip(img, 1)  # mirrored, as the player sees herself
+    view = cv2.flip(img, 1)  # mirrored, as the player sees himself
     if k is not None:
         p = k.copy()
         p[:, 0] = img.shape[1] - p[:, 0]

@@ -2,7 +2,7 @@ class_name FaceLooks
 extends RefCounted
 
 ## Draw the looks over the player's face in the camera picture: the unibrow
-## over her brows, and the mole (the mladež) on her cheek.
+## over his brows, and the mole (the mladež) on his cheek.
 ##
 ## Each look is a picture of the face box [constant BOX] around the point
 ## between the eyes, in eye distances, as the cut pictures of

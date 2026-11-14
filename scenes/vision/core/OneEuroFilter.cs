@@ -14,7 +14,7 @@ namespace Auslender.Vision
     /// <remarks>
     /// The speed is measured in the unit of the player (see
     /// <see cref="Pose.Unit"/>) per second, so that the filter behaves the same
-    /// whether she stands close to the camera or far from it.
+    /// whether he stands close to the camera or far from it.
     /// </remarks>
     public sealed class OneEuroFilter
     {

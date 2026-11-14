@@ -1,0 +1,16 @@
+{
+  "model": "videopose3d_h36m_1frame.onnx",
+  "source": "MMPose VideoPose3D, one frame, fully convolutional, supervised, fine-tuned on CPN 2D poses (videopose_h36m_1frame_fullconv_supervised_cpn_ft-5c3afaed_20210527.pth), exported with dev/lifting/export_videopose.py",
+  "sha256": "21a621b868a241473316e65b7b93990b9abb8e750a202f32d939d2c2cad9d344",
+  "license": "The code and the weights of MMPose are Apache-2.0, but the network was trained on Human3.6M, whose license allows only academic, non-commercial research. Check this before releasing the game with this file; the game runs without it (no 3D pose then).",
+  "input": {
+    "name": "keypoints_2d",
+    "shape": ["n", 34],
+    "description": "The 17 joints of Human3.6M (see PoseLifter.cs), x and y interleaved, normalized: (x - w / 2) / (w / 2), (y - h / 2) / (w / 2)."
+  },
+  "output": {
+    "name": "keypoints_3d",
+    "shape": ["n", 51],
+    "description": "The 17 joints in 3D, x, y and z interleaved, in meters, relative to the pelvis; x right, y down, z away from the camera."
+  }
+}

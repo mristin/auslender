@@ -37,15 +37,23 @@ static func box(
     return _add(parent, mesh, at, color, own)
 
 
-## Add a ball with few facets (a low-poly sphere) to the parent.
+## Add a ball with few facets (a low-poly sphere) to the parent; more facets
+## (sides around, rings from top to bottom) for what is seen up close.
 static func ball(
-    parent: Node3D, radius: float, at: Vector3, color: Color, own := false, stretch := 1.0
+    parent: Node3D,
+    radius: float,
+    at: Vector3,
+    color: Color,
+    own := false,
+    stretch := 1.0,
+    sides := 7,
+    rings := 4
 ) -> MeshInstance3D:
     var mesh := SphereMesh.new()
     mesh.radius = radius
     mesh.height = radius * 2.0 * stretch
-    mesh.radial_segments = 7
-    mesh.rings = 4
+    mesh.radial_segments = sides
+    mesh.rings = rings
     return _add(parent, mesh, at, color, own)
 
 

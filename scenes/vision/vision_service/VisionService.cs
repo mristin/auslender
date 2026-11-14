@@ -52,6 +52,9 @@ public partial class VisionService : Node
     /// <summary>The description of the move classifier (see <see cref="MoveClassifier"/>).</summary>
     public const string MovesModelPath = "res://scenes/vision/moves/model/moves.json";
 
+    /// <summary>The network which lifts the pose to 3D (see <see cref="PoseLifter"/>); optional.</summary>
+    public const string LifterModelPath = "res://scenes/vision/lifting/model/videopose3d_h36m_1frame.onnx";
+
     /// <summary>The top-down pose which follows the player on every frame (see <see cref="RtmPoseTracker"/>).</summary>
     public const string TopDownModelPath = "res://scenes/vision/rtmpose/model/rtmpose_t_body7_256x192.onnx";
 
@@ -101,7 +104,7 @@ public partial class VisionService : Node
 
     public readonly RoomJoystick Joystick = new();
 
-    /// <summary>The lean of the player to slip a punch, against where she stood lately.</summary>
+    /// <summary>The lean of the player to slip a punch, against where he stood lately.</summary>
     public readonly LeanGauge Lean = new();
 
     /// <summary>The sizes of the player in the latest face frame and the latest pose, for the depth.</summary>
@@ -119,6 +122,9 @@ public partial class VisionService : Node
     private RecordingReader? _replay;
     private string _replayFrames = "";
     private int _replayFace;
+
+    /// <summary>Where the replay starts (and starts again), in seconds from its first frame.</summary>
+    private double _replayFrom;
     private int _replayFrame;
     private int _replayPose;
     private int _replayShown = -1;
@@ -273,6 +279,7 @@ public partial class VisionService : Node
         // NOTE (mristin):
         // The replays need the classifier, too, though they switch the camera off.
         LoadMoveClassifier();
+        LoadLifter();
 
         if (!UseCamera)
         {
@@ -469,7 +476,79 @@ public partial class VisionService : Node
         }
     }
 
-    /// <summary>Classify the moves of the player on her newest pose (see <see cref="MoveClassifier"/>).</summary>
+    private PoseLifter? _lifter;
+    private readonly System.Numerics.Vector3[] _lifted3d = new System.Numerics.Vector3[PoseLifter.JointCount];
+    private readonly System.Numerics.Vector2[] _lifted2d = new System.Numerics.Vector2[PoseLifter.JointCount];
+    private double _liftedAt = double.NegativeInfinity;
+    private System.Numerics.Vector2 _liftedPicture;
+
+    /// <summary>Load the network which lifts the pose to 3D; without it, there is no 3D pose.</summary>
+    private void LoadLifter()
+    {
+        if (!FileAccess.FileExists(LifterModelPath))
+        {
+            GD.PushWarning($"The lifting network {LifterModelPath} is missing; there is no 3D pose.");
+            return;
+        }
+
+        try
+        {
+            _lifter = new PoseLifter(FileAccess.GetFileAsBytes(LifterModelPath));
+        }
+        catch (Exception exception)
+        {
+            GD.PushWarning($"Could not load the lifting network: {exception.Message}");
+            _lifter = null;
+        }
+    }
+
+    /// <summary>Lift the newest pose of the player to 3D (see <see cref="PoseLifter"/>).</summary>
+    private void LiftPose(VisionSnapshot snapshot, Pose pose)
+    {
+        if (_lifter == null)
+        {
+            return;
+        }
+
+        try
+        {
+            _lifter.Lift(pose, snapshot.Width, snapshot.Height, _lifted3d, _lifted2d);
+            _liftedAt = snapshot.Timestamp;
+            _liftedPicture = new System.Numerics.Vector2(snapshot.Width, snapshot.Height);
+        }
+        catch (Exception exception)
+        {
+            GD.PushWarning($"Could not lift the pose to 3D, so we stop: {exception.Message}");
+            _lifter.Dispose();
+            _lifter = null;
+        }
+    }
+
+    /// <summary>
+    /// The pose of the player in 3D: [the 17 joints of Human3.6M in the mirrored
+    /// picture (normalized), the same joints in 3D (meters, relative to the pelvis;
+    /// x right in the picture which is not mirrored, y down, z away from the
+    /// camera)]; empty without it (see <see cref="PoseLifter"/>).
+    /// </summary>
+    public Godot.Collections.Array GetPose3D()
+    {
+        if (_lifter == null || Now - _liftedAt > 1.0 || _liftedPicture.X <= 0)
+        {
+            return new Godot.Collections.Array();
+        }
+
+        var points = new Vector2[PoseLifter.JointCount];
+        var joints = new Vector3[PoseLifter.JointCount];
+        for (int j = 0; j < PoseLifter.JointCount; j++)
+        {
+            points[j] = new Vector2(1f - _lifted2d[j].X / _liftedPicture.X, _lifted2d[j].Y / _liftedPicture.Y);
+            joints[j] = new Vector3(_lifted3d[j].X, _lifted3d[j].Y, _lifted3d[j].Z);
+        }
+
+        return new Godot.Collections.Array { points, joints };
+    }
+
+    /// <summary>Classify the moves of the player on his newest pose (see <see cref="MoveClassifier"/>).</summary>
     private void ClassifyMoves(double t, Pose? pose)
     {
         if (_classifier == null)
@@ -523,6 +602,7 @@ public partial class VisionService : Node
             return;
         }
 
+        LiftPose(snapshot, pose);
         _poseCues.SetPose(pose, 0.4f);
         Joystick.ObserveCues(snapshot.Timestamp, _poseCues);
 
@@ -591,7 +671,7 @@ public partial class VisionService : Node
 
     // NOTE (mristin):
     // The getters below are the API for GDScript. The positions are normalized to
-    // [0, 1] of the *mirrored* camera picture, as the player sees herself.
+    // [0, 1] of the *mirrored* camera picture, as the player sees himself.
 
     public string GetStatus() => Status.ToString();
 
@@ -639,6 +719,19 @@ public partial class VisionService : Node
 
     public bool IsReplaying() => _replay != null;
 
+    /// <summary>
+    /// Start (and loop) the replay from the time, in seconds from its first frame, e.g.,
+    /// to test on the free fighting at the end of a recording.
+    /// </summary>
+    public void ReplayFrom(double seconds)
+    {
+        _replayFrom = Math.Max(0.0, seconds);
+        if (_replay != null)
+        {
+            RestartReplay();
+        }
+    }
+
     /// <summary>The time of the replay (from its first frame) and its length, in seconds.</summary>
     public Vector2 GetReplayTime()
     {
@@ -659,7 +752,23 @@ public partial class VisionService : Node
         _replayPose = 0;
         _replayFrame = 0;
         _replayShown = -1;
-        _replayClock = _replay!.Faces[0].Timestamp;
+        _replayClock = _replay!.Faces[0].Timestamp + _replayFrom;
+        // NOTE (mristin):
+        // Skip what comes before the start, without feeding it.
+        while (_replayFace < _replay.Faces.Count && _replay.Faces[_replayFace].Timestamp < _replayClock)
+        {
+            _replayFace++;
+        }
+
+        while (_replayPose < _replay.Poses.Count && _replay.Poses[_replayPose].Timestamp < _replayClock)
+        {
+            _replayPose++;
+        }
+
+        while (_replayFrame < _replay.Frames.Count && _replay.Frames[_replayFrame].Time < _replayClock)
+        {
+            _replayFrame++;
+        }
     }
 
     /// <summary>Feed the snapshots of the replay up to now, in the order of their time, and show the frame.</summary>
@@ -773,7 +882,7 @@ public partial class VisionService : Node
     public Vector2 GetStick() => new(Joystick.Stick.X, Joystick.Stick.Y);
 
     /// <summary>
-    /// Where the player stands against home: x sideways in units (to her
+    /// Where the player stands against home: x sideways in units (to his
     /// right), y the depth (towards the camera); zero before the calibration.
     /// </summary>
     public Vector2 GetRoomOffset() => new(Joystick.Sideways, Joystick.Depth);
@@ -793,7 +902,7 @@ public partial class VisionService : Node
     /// <summary>How far the head is below home, in units (positive down).</summary>
     public float GetHeadDown() => Joystick.Down;
 
-    /// <summary>Whether the player covers her head now (see <see cref="MoveClassifier"/>).</summary>
+    /// <summary>Whether the player covers his head now (see <see cref="MoveClassifier"/>).</summary>
     public bool IsCovering() => _classifier?.Covering ?? false;
 
     /// <summary>The classes of the move classifier; empty without it.</summary>
@@ -803,12 +912,12 @@ public partial class VisionService : Node
     public float[] GetMoveProbabilities() => _classifier?.Probabilities ?? Array.Empty<float>();
 
     /// <summary>
-    /// How far the player leans against where she stood lately, in units
-    /// (positive to her right); see <see cref="LeanGauge"/>.
+    /// How far the player leans against where he stood lately, in units
+    /// (positive to his right); see <see cref="LeanGauge"/>.
     /// </summary>
     public float GetLean() => Lean.Lean;
 
-    /// <summary>-1 while the player slips to her left, 1 to her right, else 0.</summary>
+    /// <summary>-1 while the player slips to his left, 1 to his right, else 0.</summary>
     public int GetSlip() => Lean.Slip;
 
     /// <summary>The box around the head in the mirrored picture, normalized; empty if not seen.</summary>
@@ -860,12 +969,12 @@ public partial class VisionService : Node
 
     /// <summary>
     /// The hands of the player in the mirrored picture, normalized: [left,
-    /// right], each null if not seen (left and right of her body).
+    /// right], each null if not seen (left and right of his body).
     /// </summary>
     public Godot.Collections.Array GetPlayerHands() =>
         new() { Mirrored(_smoothedHands[0]), Mirrored(_smoothedHands[1]) };
 
-    /// <summary>The player's 17 key points in the mirrored picture, normalized; empty without her.</summary>
+    /// <summary>The player's 17 key points in the mirrored picture, normalized; empty without him.</summary>
     public Vector2[] GetKeypoints()
     {
         var snapshot = Latest;
@@ -1464,7 +1573,7 @@ public partial class VisionService : Node
                 // NOTE (mristin):
                 // While RTMPose follows the player, it runs on every frame (about
                 // 13 ms); RTMO (about 70 ms) runs only to find the player at the
-                // start or when she was lost. Without RTMPose, RTMO runs only now
+                // start or when he was lost. Without RTMPose, RTMO runs only now
                 // and then with the face tracker, and leaves the processor to the
                 // faces and the hands.
                 bool following = topDown != null && topDown.Tracking;
@@ -1582,6 +1691,8 @@ public partial class VisionService : Node
         StopRecording();
         _classifier?.Dispose();
         _classifier = null;
+        _lifter?.Dispose();
+        _lifter = null;
         _running = false;
         _poseSlot.Ready.Set();
         _faceSlot.Ready.Set();

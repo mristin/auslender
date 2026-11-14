@@ -6,10 +6,10 @@ extends Node3D
 ##
 ## The player never walks: the scientist steps in to attack and steps back
 ## out. Every frame, we take the moves of the vision (or of the keyboard),
-## throw her punches and kicks at him (if he is within their reach), and
-## decide whether his attacks hit her: a jab is stopped by covering the head
-## with both gloves, a hook is slipped by leaning away from it, anything high
-## is ducked, and a low sweep is jumped.
+## throw the player's punches and kicks at the scientist (if he is within
+## their reach), and decide whether the scientist's attacks hit the player:
+## a jab is stopped by covering the head with both gloves, a hook is slipped
+## by leaning away from it, anything high is ducked, and a low sweep is jumped.
 ##
 ## The move classifier of the vision (see MoveClassifier) tells the
 ## straights, the hooks, the uppercuts and the kicks (a knee raised high:
@@ -17,8 +17,8 @@ extends Node3D
 ## ducks, the jumps and the cover from the whole body.
 ##
 ## A panel in the upper left (see [CameraPanel]) shows the player how the game
-## sees her: the camera picture, her body pose as a wire, and on top the
-## command which her body gives now.
+## sees him: the camera picture, his body pose as a wire, and on top the
+## command which his body gives now.
 ##
 ## Start it with [code]-- --replay=<recording.jsonl>[/code] to play a recorded
 ## video instead of the camera (see dev/replay/).
@@ -36,6 +36,7 @@ extends Node3D
 ## C                          set the home spot again
 ## R                          fight again
 ## F1                         hide or show the camera panel
+## F3                         the next look of the hero
 ## Escape                     quit
 ## [/codeblock]
 
@@ -59,7 +60,7 @@ const SLIP_FROM := 0.5
 const JUMP_WINDOW := 0.45
 
 ## With the move classifier, a duck or a slip counts this long after it was
-## found, in seconds: the classifier finds the move, not how long she holds it.
+## found, in seconds: the classifier finds the move, not how long he holds it.
 const DUCK_HOLD := 0.7
 const SLIP_HOLD := 0.6
 
@@ -88,7 +89,7 @@ const _KEYS_PUNCH := {
 
 const _HELP := (
     "Keys: J K punch, U I hook, H L uppercut, N M kick, Q E slip, Z duck, B cover, X jump,"
-    + " C home, R again, F1 camera"
+    + " C home, R again, F1 camera, F3 hero"
 )
 
 ## How long a strike shows as the command of the body, in seconds.
@@ -129,8 +130,8 @@ func _ready() -> void:
     panel = CameraPanel.new()
     layer.add_child(panel)
     # NOTE (mristin):
-    # In the upper left, under the health bar: the lower corners are where her
-    # arms swing and her knees come up.
+    # In the upper left, under the health bar: the lower corners are where his
+    # arms swing and his knees come up.
     panel.position = Vector2(24, 140)
     hud = Hud.new()
     add_child(hud)
@@ -215,8 +216,8 @@ func _process(delta: float) -> void:
         if lean == 0.0:
             # NOTE (mristin):
             # The lean against where the player stood lately (see
-            # LeanGauge), in units, positive to her right: not against the
-            # home spot, since she drifts off it.
+            # LeanGauge), in units, positive to his right: not against the
+            # home spot, since he drifts off it.
             lean = vision.GetLean()
         # NOTE (mristin):
         # The classifier finds the slips, the ducks and the jumps from the
@@ -241,8 +242,6 @@ func _process(delta: float) -> void:
     boxer.jumping = jumping
     boxer.covering = covering
     boxer.face(scientist.global_position, delta)
-    if vision != null:
-        boxer.set_hands(vision.GetPlayerHands(), vision.GetHeadRect())
 
     _update_hud(lean, ducking, jumping, covering)
 
@@ -324,14 +323,15 @@ func _on_struck(attack: String) -> void:
 
 
 ## How the player dodged the attack ("SLIPPED!", "DUCKED!", "JUMPED!"), or ""
-## if she did not.
+## if he did not.
 func _dodge(attack: String) -> String:
     if attack == "sweep":
         var jumped := boxer.jumping or _time - _last_jump_at <= JUMP_WINDOW
         return "JUMPED!" if jumped else ""
 
     # NOTE (mristin):
-    # A hook from her left is slipped by leaning away from it, to her right;
+    # A hook from the player's left is slipped by leaning away from it, to the
+    # player's right;
     # a jab by leaning to either side.
     var away := {"jab": 0.0, "hook_left": 1.0, "hook_right": -1.0}
     var direction: float = away[attack]
@@ -367,5 +367,9 @@ func _unhandled_input(event: InputEvent) -> void:
             _start()
         KEY_F1:
             panel.visible = not panel.visible
+        KEY_F3:
+            RiggedFigure.chosen = RiggedFigure.next_hero()
+            panel.rebuild_figure()
+            hud.say(RiggedFigure.chosen.to_upper(), Hud.GOLD)
         KEY_ESCAPE:
             get_tree().quit()

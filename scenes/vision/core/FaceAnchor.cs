@@ -12,7 +12,7 @@ namespace Auslender.Vision
     /// </summary>
     /// <remarks>
     /// The anchor is in the pixels of the <em>mirrored</em> frame, as the player
-    /// sees herself, so that the game can draw on it directly.
+    /// sees himself, so that the game can draw on it directly.
     /// </remarks>
     public readonly struct FaceAnchor
     {

@@ -16,7 +16,7 @@ For the walking in place, we measure the rhythm of the steps (from the bob of
 the head on every frame, and from the knees and the ankles of the pose) in
 windows, and compare standing, walking slowly and walking fast. For the
 turns, we compare a dozen measures of the posture while the player faces the
-camera, is turned to her left, and to her right, and rank them by how well
+camera, is turned to his left, and to his right, and rank them by how well
 they tell the three apart.
 
 Run with numpy (and matplotlib for --plot):

@@ -7,7 +7,7 @@ using System.Collections.Generic;
 
 namespace Auslender.Vision
 {
-    /// <summary>Enumerate the sides of the body, of the player herself.</summary>
+    /// <summary>Enumerate the sides of the body, of the player himself.</summary>
     public enum HandSide
     {
         Left = 0,
@@ -247,7 +247,7 @@ namespace Auslender.Vision
 
                     // NOTE (mristin):
                     // The pose decides about the hands of its player: a hand which
-                    // it does not match is not hers.
+                    // it does not match is not his.
                     tracks[index] = default;
                     var expected = Expected(pose, side);
                     if (expected == null)

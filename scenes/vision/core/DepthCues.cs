@@ -6,13 +6,13 @@ using System;
 
 namespace Auslender.Vision
 {
-    /// <summary>Enumerate the sizes of the player which tell how far from the camera she stands.</summary>
+    /// <summary>Enumerate the sizes of the player which tell how far from the camera he stands.</summary>
     public enum DepthCue
     {
-        /// <summary>The distance between the eyes; shrinks as she turns her head.</summary>
+        /// <summary>The distance between the eyes; shrinks as he turns his head.</summary>
         Eyes = 0,
 
-        /// <summary>From the middle of the eyes to the middle of the mouth; shrinks as she nods.</summary>
+        /// <summary>From the middle of the eyes to the middle of the mouth; shrinks as he nods.</summary>
         EyesToMouth = 1,
 
         /// <summary>The width of the face box of the face landmarks.</summary>
@@ -24,10 +24,10 @@ namespace Auslender.Vision
         /// <summary>The height of the head box of the head detector.</summary>
         HeadHeight = 4,
 
-        /// <summary>The width of the shoulders, from the pose; shrinks as she twists in a punch.</summary>
+        /// <summary>The width of the shoulders, from the pose; shrinks as he twists in a punch.</summary>
         Shoulders = 5,
 
-        /// <summary>From the middle of the shoulders to the middle of the hips, from the pose; shrinks as she ducks.</summary>
+        /// <summary>From the middle of the shoulders to the middle of the hips, from the pose; shrinks as he ducks.</summary>
         Torso = 6,
 
         /// <summary>The width of the hips, from the pose.</summary>

@@ -23,7 +23,7 @@ namespace Auslender.Vision
     /// </para>
     /// <para>
     /// The size of the head alone is easily fooled: the eyes come closer as the
-    /// player turns her head. So the depth combines several sizes of the player
+    /// player turns his head. So the depth combines several sizes of the player
     /// (see <see cref="DepthCues"/>, observed with <see cref="ObserveCues"/>):
     /// each is compared with its size at home, and the depth is the median of
     /// them, which one or two fooled sizes do not move. Without any cues (e.g.,
@@ -31,7 +31,7 @@ namespace Auslender.Vision
     /// </para>
     /// <para>
     /// The positions are in the pixels of the (not mirrored) frame. The stick is
-    /// in the terms of the player's body: x is positive to her right, and y is
+    /// in the terms of the player's body: x is positive to his right, and y is
     /// positive forward, towards the camera.
     /// </para>
     /// <para>
@@ -114,7 +114,7 @@ namespace Auslender.Vision
         /// <summary>The stick: x to the player's right, y forward, each in [-1, 1].</summary>
         public (float X, float Y) Stick { get; private set; }
 
-        /// <summary>Whether the player ducks now: her head is clearly below home.</summary>
+        /// <summary>Whether the player ducks now: his head is clearly below home.</summary>
         public bool Ducking => Calibrated && Down >= DuckFrom;
 
         /// <summary>Whether the player is in a jump now.</summary>

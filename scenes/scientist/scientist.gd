@@ -5,17 +5,19 @@ extends Node3D
 ## his lab coat, his goggles and his purple lab gloves, built of flat-shaded
 ## boxes and low-poly balls.
 ##
-## The player stays on her spot, so he does the moving (see DESIGN.md): he
-## waits out of the reach of her punches (only her kicks reach him there),
+## The player stays on his spot, so the scientist does the moving (see
+## DESIGN.md): he waits out of the reach of the player's punches (only the
+## player's kicks reach him there),
 ## steps in, attacks once or a few times, and steps back out. A kick drives
 ## him out early.
 ##
-## His attacks (see [constant ATTACKS]) are a jab straight at her face (cover,
-## slip or duck), a hook from her left (slip to the right or duck), a hook from
-## her right (slip to the left or duck), and a low sweep of his leg (jump).
-## Each winds up first, long enough for the player to react with her body
+## His attacks (see [constant ATTACKS]) are a jab straight at the player's
+## face (cover, slip or duck), a hook from the player's left (slip to the right
+## or duck), a hook from the player's right (slip to the left or duck), and a
+## low sweep of his leg (jump).
+## Each winds up first, long enough for the player to react with his body
 ## ([member windup_seconds]); after it, he stands open for a moment, longer if
-## she dodged it ([method dodged]). He faces the player all the time; his front
+## he dodged it ([method dodged]). He faces the player all the time; his front
 ## is -Z, as in Godot.
 ##
 ## The fight decides whether his attacks hit (see [signal struck]), and he
@@ -39,10 +41,10 @@ const ATTACKS := {
     "sweep": 0.2,
 }
 
-## Where he stands while he attacks: within the reach of her punches, in meters.
+## Where he stands while he attacks: within the reach of his punches, in meters.
 const IN_DISTANCE := 1.3
 
-## Where he waits: within the reach of her kicks only, in meters.
+## Where he waits: within the reach of his kicks only, in meters.
 const OUT_DISTANCE := 2.2
 
 const MAX_HEALTH := 100.0
@@ -185,7 +187,7 @@ func take_hit(kind: String, power: float) -> Dictionary:
         knocked_out.emit()
     elif kind == "kick":
         # NOTE (mristin):
-        # A kick drives him out of the reach of her punches; he needs a while
+        # A kick drives him out of the reach of his punches; he needs a while
         # to come back in.
         _stagger_push = maxf(0.0, OUT_DISTANCE - distance()) + 0.1
         _in = false
@@ -211,7 +213,7 @@ func _process(delta: float) -> void:
     if state == State.WINDUP:
         # NOTE (mristin):
         # The wind-up glows red, brighter as it comes, so that the player sees
-        # it even when she looks at herself in the camera picture.
+        # it even when he looks at himself in the camera picture.
         glow = maxf(glow, 0.25 + 0.5 * windup_progress())
         color = Color("ff3b2f") if _flash <= 0.0 else _flash_color
     for material in _flashing:

@@ -10,7 +10,7 @@ The game runs it in `scenes/vision/core/MoveClassifier.cs`, with the model in
 ## How it works
 
 1. **The poses.** RTMPose-t (top-down, `RtmPoseTracker`) follows the player
-   on every camera frame; RTMO only finds her at the start or when she was
+   on every camera frame; RTMO only finds him at the start or when he was
    lost.
 2. **The features** (`MoveFeatures`, the same as `moves_ml.sequences`): the
    last 4 poses, 0.1 s apart (linearly interpolated, so the frame rate does

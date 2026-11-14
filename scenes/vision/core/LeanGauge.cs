@@ -8,24 +8,24 @@ namespace Auslender.Vision
 {
     /// <summary>
     /// Measure how far the player leans to the side, to slip a punch, against
-    /// where she stood lately rather than against the home spot.
+    /// where he stood lately rather than against the home spot.
     /// </summary>
     /// <remarks>
     /// <para>
     /// On the recording of a fight (dev/moves/plans/fight.csv), the slips moved
     /// the head 1.2 to 2.4 units from where it was. But the player drifted
-    /// half a unit off her home spot over two minutes, so against home she
-    /// "slipped" all the time while she ducked, jumped or punched.
+    /// half a unit off his home spot over two minutes, so against home he
+    /// "slipped" all the time while he ducked, jumped or punched.
     /// </para>
     /// <para>
-    /// So we follow where she stands with a slow baseline (the time constant
-    /// <see cref="Tau"/>), which does not follow while she leans (beyond
-    /// <see cref="Freeze"/>, so that a held slip stays a slip), unless she
-    /// stays there longer than a slip lasts (<see cref="HoldMax"/>: she
+    /// So we follow where he stands with a slow baseline (the time constant
+    /// <see cref="Tau"/>), which does not follow while he leans (beyond
+    /// <see cref="Freeze"/>, so that a held slip stays a slip), unless he
+    /// stays there longer than a slip lasts (<see cref="HoldMax"/>: he
     /// stepped, or the home spot was set again). The lean is the sideways
     /// offset against that baseline. On that recording, a slip from
     /// <see cref="SlipFrom"/> on found 12 of the 13 slips (the 13th hardly
-    /// moved), and no false slip while she stood in her guard, covered,
+    /// moved), and no false slip while he stood in his guard, covered,
     /// punched or ducked; turning the head to look around still leans a
     /// fifth of the time.
     /// </para>
@@ -54,7 +54,7 @@ namespace Auslender.Vision
         /// <summary>The lean against the baseline, in units, positive to the player's right.</summary>
         public float Lean { get; private set; }
 
-        /// <summary>-1 while the player slips to her left, 1 to her right, else 0.</summary>
+        /// <summary>-1 while the player slips to his left, 1 to his right, else 0.</summary>
         public int Slip => Lean <= -SlipFrom ? -1 : (Lean >= SlipFrom ? 1 : 0);
 
         private double _lastTime = double.NaN;

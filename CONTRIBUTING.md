@@ -8,7 +8,7 @@ This guide explains how to set up the development environment, how to run and ch
 The game is made with [Godot] 4.6 (.NET), written in GDScript and C#:
 
 * The vision runs in C# (`scenes/vision/`), all on the CPU through ONNX Runtime:
-  * RTMPose-t follows the player's body pose on every camera frame (`RtmPoseTracker`); RTMO-t only finds her at the start or when she was lost.
+  * RTMPose-t follows the player's body pose on every camera frame (`RtmPoseTracker`); RTMO-t only finds him at the start or when he was lost.
   * YOLOX finds the head and the hands, and YuNet the face landmarks, for the looks over the face (the unibrow and the mladež) on another thread.
   * The **move classifier** (`MoveClassifier`) reads the last few poses and gives the moves: the straights, the hooks, the uppercuts and the kicks (a kick is a knee raised high, since the camera need not see the whole leg), left or right, the ducks, the jumps, the slips and the cover. It is an XGBoost model, evaluated in plain C# (`GradientBoostedTrees`), trained on labelled recordings (see [Recording and retraining the moves](#recording-and-retraining-the-moves)).
 

@@ -18,6 +18,7 @@ namespace Auslender.Tests
     {
         public const string Rtmo = "rtmo_t_body7_416x416.onnx";
         public const string RtmPose = "rtmpose_t_body7_256x192.onnx";
+        public const string Lifter = "videopose3d_h36m_1frame.onnx";
         public const string Yolox = "yolox_n_body_head_hand_Nx3xHxW.onnx";
         public const string YuNet = "face_detection_yunet_2023mar_dynamic.onnx";
 

@@ -20,7 +20,7 @@ namespace Auslender.Tests
             void Set(BodyPart part, float px, float py) => points[(int)part] = new Keypoint(px, py, 0.9f);
 
             // NOTE (mristin):
-            // The player faces the camera: her left is on the right of the frame.
+            // The player faces the camera: his left is on the right of the frame.
             Set(BodyPart.Nose, x, headY);
             Set(BodyPart.LeftEye, x + 10f, headY - 5f);
             Set(BodyPart.RightEye, x - 10f, headY - 5f);
@@ -67,7 +67,7 @@ namespace Auslender.Tests
                 double t = i / Fps;
 
                 // NOTE (mristin):
-                // Her left hand (on the right of the frame) rises; her right hand
+                // His left hand (on the right of the frame) rises; his right hand
                 // stays.
                 tracker.Observe(t, new[] { Box(240f, 300f), Box(400f, 300f - i * 10f) });
                 if (i == 7)

@@ -121,8 +121,8 @@ namespace Auslender.Vision
     /// <summary>
     /// Find the moves of the player (the punches by type and side, the kicks (a
     /// knee raised high: the camera need not see the whole leg),
-    /// the ducks, the jumps and the slips) and whether she covers her head,
-    /// from her poses on every frame, with a model trained on labelled
+    /// the ducks, the jumps and the slips) and whether he covers his head,
+    /// from his poses on every frame, with a model trained on labelled
     /// recordings (dev/moves/ml).
     /// </summary>
     /// <remarks>
@@ -172,7 +172,7 @@ namespace Auslender.Vision
         /// <summary>The probabilities of the classes of the newest pose.</summary>
         public readonly float[] Probabilities;
 
-        /// <summary>Whether the player covers her head now.</summary>
+        /// <summary>Whether the player covers his head now.</summary>
         public bool Covering { get; private set; }
 
         private enum Phase

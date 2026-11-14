@@ -68,7 +68,7 @@ The home spot slowly follows the player while they stand still, so that a player
 
 ### Fight
 
-The player boxes against one opponent, in the first person: the opponent stands in front of the camera, and the player's red gloves are in the foreground.
+The player boxes against one opponent, in the first person: the opponent stands in front of the camera, and the player's blue gloves are in the foreground: drawn as in 4D Sports Boxing (sleeved arms with elbows, gloves with thumbs), bouncing in the guard, with a fixed animation for every move which the classifier reads (a straight turns the fist palm down, a hook swings across with the elbow up, an uppercut rises with the palm towards him, a kick shoots the whole leg out). They do not follow his body: the camera panel shows that.
 The player stays on their spot; the **opponent** moves: he steps in to attack and steps back out.
 
 #### The player's moves
@@ -179,7 +179,7 @@ Enemy and obstacle design principles:
 
 ## Presentation
 
-- **Fights:** the first person, with the gloves in the foreground following the player's hands, and the opponent close in front.
+- **Fights:** the first person, with the gloves in the foreground playing an animation for every move read, and the opponent close in front.
 - **Race, sledge, run:** the third person, from behind and above the hero, so that the player sees the road ahead and the hero mirrors their moves.
 - **The camera picture:** a panel in the upper left corner (under the health bar; the lower corners are where the hero's arms swing and knees come up), as in Bird Dog: the mirrored webcam picture, the player's body pose drawn on it as a wire, and a circle around the head with the hero's unibrow and mladež (mole). On top of the panel stands, big, the command which the body gives now: a strike for a moment ("LEFT HOOK", in gold), the dodge which counts ("COVER", "SLIP LEFT", "DUCK", "JUMP", in green), else "READY" (nothing going on; not "GUARD", which sounded like a defense next to "COVER"); "STEP IN FRONT" when the camera does not see the player, and "HOLD STILL" while the game sets the home spot (with an arc filling up around the head). The circle glows orange while an attack winds up and turns green while a dodge counts. A full-screen dim mirror, as in Splash 'n' Splat, was tried first, but the body was not visible enough on it. F1 hides the panel.
 - **Art style:** flat-shaded, low-poly shapes in strong colours, built in code from boxes and balls; cheap to produce, readable at a glance, and comedic.
@@ -193,7 +193,7 @@ We reuse the vision of The Steppe Rescue (`scenes/vision/` there): ONNX Runtime 
 - **YOLOX-Body-Head-Hand** (nano, Apache-2.0) finds the head and the hands on **every camera frame** (about 15 ms). The overlay on the face, the wheel and the sledge arms are read from it.
 - **YuNet** (MIT) gives the face landmarks: the eyes give the player's unit of length and the height of the head, as in `HeadGauge`.
 - **RTMPose-t** (Apache-2.0, top-down) gives the 17 key points of the body on **every camera frame**: it only looks at the box around the player, which it takes from its own pose of the previous frame (`RtmPoseTracker`), in about 13 ms on a 2-core laptop from 2016 (an i7-6600U).
-- **RTMO-t** (Apache-2.0) finds the persons in the whole picture, but takes about 70 ms (100 ms next to the face tracker), so it only runs to find the player at the start or when she was lost.
+- **RTMO-t** (Apache-2.0) finds the persons in the whole picture, but takes about 70 ms (100 ms next to the face tracker), so it only runs to find the player at the start or when he was lost.
 - **The move classifier** (XGBoost, evaluated in plain C#, `MoveClassifier`) reads the last 4 poses, 0.1 s apart, normalised by the torso length (so it is scale invariant, for children and adults alike), and gives the punches by type and side, the knees, the ducks, the jumps, the slips and the cover. It takes less than 0.1 ms. See `dev/moves/ml/README.md` for the training and the evaluation.
 
 Consequences for the design:

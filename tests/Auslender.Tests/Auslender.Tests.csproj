@@ -19,6 +19,7 @@
   <ItemGroup>
     <None Include="../../scenes/vision/rtmo/model/*.onnx" LinkBase="data" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../scenes/vision/rtmpose/model/*.onnx" LinkBase="data" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../scenes/vision/lifting/model/*.onnx" LinkBase="data" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../scenes/vision/moves/model/*.json" LinkBase="data" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../scenes/vision/yunet/model/*.onnx" LinkBase="data" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../scenes/vision/yolox/model/*.onnx" LinkBase="data" CopyToOutputDirectory="PreserveNewest" />

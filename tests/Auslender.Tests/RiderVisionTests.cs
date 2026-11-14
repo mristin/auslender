@@ -40,7 +40,7 @@ namespace Auslender.Tests
             Assert.InRange(head!.Value.X, 150f, 400f);
             Assert.InRange(head.Value.Y, 50f, 260f);
 
-            // Her right eye is on the left of the (not mirrored) frame.
+            // His right eye is on the left of the (not mirrored) frame.
             Assert.True(player.Has(BodyPart.LeftEye, vision.KeypointThreshold));
             Assert.True(player.Has(BodyPart.RightEye, vision.KeypointThreshold));
             Assert.True(player[BodyPart.RightEye].X < player[BodyPart.LeftEye].X);
@@ -50,7 +50,7 @@ namespace Auslender.Tests
             // NOTE (mristin):
             // Without the hint, the tracker takes the largest head; with it, the
             // nearest one; and then it follows the face without the head detector.
-            // All are hers.
+            // All are his.
             var detected = tracker.Track(frame);
             var followed = tracker.Track(TestData.LoadFrame("astronaut_640x480.png", 0.1));
             var rechecked = tracker.Track(
