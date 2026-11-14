@@ -1,13 +1,13 @@
 class_name Boxer
 extends Node3D
 
-## The player in the ring, in the first person: the camera at the height of her
-## eyes, looking where she heads, and her two red gloves in front of it.
+## The player in a fight, in the first person: the camera at the height of her
+## eyes, looking at the opponent, and her two red gloves in front of it.
 ##
-## She walks in place to walk forward where she heads, and turns her body to
-## turn ([method walk]). Ducking lowers the camera, and a jump lifts it. The
-## gloves follow her hands in the camera picture and fly forward with each
-## punch; a kick shows her shoe.
+## She stays on her spot (see DESIGN.md): leaning moves the camera to the
+## side, ducking lowers it, and a jump lifts it. The gloves follow her hands in
+## the camera picture, fly forward with each punch, and come up in front of the
+## face while she blocks; a kick shows her shoe.
 
 const MAX_HEALTH := 100.0
 
@@ -18,28 +18,22 @@ const SHOE := Color("23252b")
 ## The height of the eyes, in meters.
 const EYES := 1.62
 
-## She walks at most this fast, in meters per second.
-@export var walk_speed := 1.4
-
-## She circles at most this fast, in meters per second.
-@export var circle_speed := 1.6
-
-## She turns at most this fast, in radians per second.
-@export var turn_speed := 1.6
-
-## She stands at least this far from the opponent, in meters.
-@export var closest := 0.8
+## A full lean moves the eyes this far to the side, in meters.
+const LEAN_SHIFT := 0.35
 
 var health := MAX_HEALTH
 
-## Where she heads: the angle around the vertical, 0 towards -Z.
-var heading := 0.0
+## How far she leans, in [-1, 1]: negative to her left, positive to her right.
+var lean := 0.0
 
 ## How far she ducks, in [0, 1].
 var duck := 0.0
 
 ## Whether she is in a jump now.
 var jumping := false
+
+## Whether she holds both gloves up in front of her face.
+var blocking := false
 
 var camera: Camera3D
 
@@ -79,83 +73,27 @@ func _ready() -> void:
     _shoe.visible = false
 
 
-## Start the fight again at the position, facing the point.
-func reset(at: Vector3, facing: Vector3) -> void:
+## Start the fight again: full health, standing straight.
+func reset() -> void:
     health = MAX_HEALTH
-    global_position = at
+    lean = 0.0
     duck = 0.0
-    var towards := facing - at
-    heading = atan2(-towards.x, -towards.z)
+    jumping = false
+    blocking = false
 
 
-## The direction where she heads, on the floor.
-func forward() -> Vector3:
-    return Vector3(-sin(heading), 0, -cos(heading))
-
-
-## Walk forward at the speed (in [0, 1]) and turn by the turn (in [-1, 1],
-## negative to her left), keeping out of the opponent at [param opponent].
-func walk(speed: float, turn: float, delta: float, opponent: Vector3) -> void:
-    heading -= turn * turn_speed * delta
-    var moved := global_position + forward() * speed * walk_speed * delta
-    var away := moved - opponent
-    away.y = 0.0
-    if away.length() < closest:
-        moved = opponent + away.normalized() * closest
-    moved.y = 0.0
-    global_position = Arena.clamp_inside(moved)
-
-
-## Whether the point is within the angle (in radians) to either side of where she heads.
-func facing(point: Vector3, angle: float) -> bool:
-    var towards := point - global_position
-    towards.y = 0.0
-    if towards.length() < 0.01:
-        return true
-    return forward().angle_to(towards.normalized()) <= angle
-
-
-## Move by the stick (x to her right, y forward, each in [-1, 1]) around the
-## opponent at [param opponent].
-func steer(stick: Vector2, delta: float, opponent: Vector3) -> void:
-    var to_opponent := opponent - global_position
-    to_opponent.y = 0.0
-    var distance := to_opponent.length()
-    if distance < 0.001:
-        return
-    var forward := to_opponent / distance
-    var right := forward.cross(Vector3.UP)
-
-    var moved := global_position + right * stick.x * circle_speed * delta
-    # NOTE (mristin):
-    # Circling keeps the distance to the opponent, as if on a circle around
-    # him, unless she also steps forward or back.
-    var around := moved - opponent
-    around.y = 0.0
-    if around.length() > 0.001:
-        moved = opponent + around.normalized() * distance
-    moved += forward * stick.y * walk_speed * delta
-
-    var away := moved - opponent
-    away.y = 0.0
-    if away.length() < closest:
-        moved = opponent + away.normalized() * closest
-    moved.y = 0.0
-    global_position = Arena.clamp_inside(moved)
-
-
-## Look where she heads (with [param at_opponent], at the opponent's head
-## instead), and set the height of the eyes from the duck and the jump.
-func face(opponent: Vector3, delta: float, at_opponent := false) -> void:
+## Look at the opponent at [param opponent], and set the eyes from the lean,
+## the duck and the jump.
+func face(opponent: Vector3, delta: float) -> void:
     _jump_height = lerpf(_jump_height, 0.25 if jumping else 0.0, minf(1.0, delta * 12.0))
-    var height := EYES - duck * 0.45 + _jump_height
     var shake := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * _shake * 0.03
-    camera.position = Vector3(0, height, 0) + shake
-    var look := global_position + forward() * 3.0 + Vector3(0, 1.45, 0)
-    if at_opponent:
-        look = opponent + Vector3(0, 1.55, 0)
+    camera.position = Vector3(lean * LEAN_SHIFT, EYES - duck * 0.45 + _jump_height, 0) + shake
+    var look := opponent + Vector3(0, 1.45, 0)
     if camera.global_position.distance_to(look) > 0.1:
         camera.look_at(look, Vector3.UP)
+    # NOTE (mristin):
+    # Tilt the head a little into the lean, as one does when slipping a punch.
+    camera.rotate_object_local(Vector3.BACK, -lean * 0.12)
 
 
 ## Set where the hands are, in the mirrored camera picture (normalized, each
@@ -185,11 +123,11 @@ func kick(side: int) -> void:
     _kick_side = -1.0 if side == 0 else 1.0
 
 
-## Take the damage of a hit: shake and flash.
-func take_damage(damage: float) -> void:
+## Take the damage of a hit: shake and flash (less if it only hit the gloves).
+func take_damage(damage: float, blocked := false) -> void:
     health = maxf(0.0, health - damage)
-    _shake = 1.0
-    _hurt = 1.0
+    _shake = 0.4 if blocked else 1.0
+    _hurt = 0.3 if blocked else 1.0
 
 
 ## How red the screen flashes now, in [0, 1].
@@ -209,14 +147,21 @@ func _process(delta: float) -> void:
     if _shoe.visible:
         var p := 1.0 - _kick_left / 0.35
         var out := sin(p * PI)
-        _shoe.position = Vector3(0.12 * _kick_side, lerpf(-0.75, -0.3, out), lerpf(-0.4, -0.85, out))
+        _shoe.position = Vector3(
+            0.12 * _kick_side, lerpf(-0.75, -0.3, out), lerpf(-0.4, -0.85, out)
+        )
 
 
 func _place_glove(i: int, delta: float) -> void:
     var sign_x := -1.0 if i == 0 else 1.0
     var rest := Vector3(0.16 * sign_x, -0.21, -0.55)
     var hand: Variant = _hands[i]
-    if hand != null:
+    if blocking:
+        # NOTE (mristin):
+        # The gloves cover the face, close together, so that the player sees
+        # that the block counts.
+        rest = Vector3(0.065 * sign_x, -0.04, -0.3)
+    elif hand != null:
         # NOTE (mristin):
         # Her left hand is on the left of the mirrored picture.
         var relative: Vector2 = hand

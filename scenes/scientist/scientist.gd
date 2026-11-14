@@ -5,24 +5,45 @@ extends Node3D
 ## his lab coat, his goggles and his purple lab gloves, built of flat-shaded
 ## boxes and low-poly balls.
 ##
-## He keeps his distance to the player, guards his face, and now and then
-## attacks: a high punch (duck or step aside), or a low sweep of his leg (jump
-## or step back). Each attack winds up first, long enough for the player to
-## react with her body ([member windup_seconds]); after it, he stands open for
-## a moment. He faces the player all the time; his front is -Z, as in Godot.
+## The player stays on her spot, so he does the moving (see DESIGN.md): he
+## waits out of the reach of her punches (only her kicks reach him there),
+## steps in, attacks once or a few times, and steps back out. A kick drives
+## him out early.
 ##
-## The ring decides whether his attacks hit (see [signal struck]), and he
+## His attacks (see [constant ATTACKS]) are a jab straight at her face (block,
+## slip or duck), a hook from her left (slip to the right or duck), a hook from
+## her right (slip to the left or duck), and a low sweep of his leg (jump).
+## Each winds up first, long enough for the player to react with her body
+## ([member windup_seconds]); after it, he stands open for a moment, longer if
+## she dodged it ([method dodged]). He faces the player all the time; his front
+## is -Z, as in Godot.
+##
+## The fight decides whether his attacks hit (see [signal struck]), and he
 ## takes the player's punches and kicks with [method take_hit].
 
-## He winds up an attack; [param high] is a punch, else a low sweep.
-signal winding_up(high: bool)
+## He winds up the attack (one of [constant ATTACKS]).
+signal winding_up(attack: String)
 
-## His attack lands now, aimed at where the player stood when he wound up.
-signal struck(high: bool, aimed_at: Vector3)
+## His attack lands now.
+signal struck(attack: String)
 
 signal knocked_out
 
 enum State { GUARD, WINDUP, STRIKE, RECOVER, STAGGER, KNOCKED_OUT }
+
+## His attacks, and how often he picks each.
+const ATTACKS := {
+    "jab": 0.3,
+    "hook_left": 0.25,
+    "hook_right": 0.25,
+    "sweep": 0.2,
+}
+
+## Where he stands while he attacks: within the reach of her punches, in meters.
+const IN_DISTANCE := 1.3
+
+## Where he waits: within the reach of her kicks only, in meters.
+const OUT_DISTANCE := 2.2
 
 const MAX_HEALTH := 100.0
 
@@ -42,30 +63,30 @@ const BADGE := Color("1f8f8a")
 ## How long he winds up, in seconds: the time the player has to react.
 @export var windup_seconds := 0.9
 
-## He likes to stand this far from the player, in meters.
-@export var preferred_distance := 1.35
+## How long he stands open after an attack, in seconds; twice as long after a dodge.
+@export var open_seconds := 0.8
 
 ## He walks at most this fast, in meters per second.
-@export var walk_speed := 0.7
-
-## He attacks only from within this distance, in meters.
-@export var attack_range := 1.95
+@export var walk_speed := 1.6
 
 var health := MAX_HEALTH
 var state := State.GUARD
 
-## Where the player is, which the ring tells him on every frame.
+## The attack which he winds up or strikes now ("" if none).
+var attack := ""
+
+## Where the player is, which the fight tells him on every frame.
 var target := Vector3.ZERO
 
 var _state_left := 2.0
-var _high := true
-var _aimed_at := Vector3.ZERO
+var _in := false
+var _attacks_left := 0
 var _random := RandomNumberGenerator.new()
-var _circle := 1.0
 var _time := 0.0
 var _flash := 0.0
 var _flash_color := Color.WHITE
-var _stagger_push := Vector3.ZERO
+var _stagger_push := 0.0
+var _sway := 0.0
 
 var _body: Node3D
 var _torso: Node3D
@@ -83,12 +104,15 @@ func _ready() -> void:
     _enter(State.GUARD)
 
 
-## Start the fight again: full health, on his feet.
+## Start the fight again: full health, on his feet, out of reach.
 func reset() -> void:
     health = MAX_HEALTH
     _body.rotation = Vector3.ZERO
     _body.position = Vector3.ZERO
+    _in = false
+    attack = ""
     _enter(State.GUARD)
+    _state_left = 2.0
 
 
 ## Whether he guards his face now (straight punches mostly bounce off).
@@ -101,9 +125,9 @@ func is_open() -> bool:
     return state == State.RECOVER or state == State.STAGGER
 
 
-## Whether he winds up an attack now, and which: true for high.
-func windup_high() -> Variant:
-    return _high if state == State.WINDUP else null
+## The attack which he winds up now ("" if none).
+func windup_attack() -> String:
+    return attack if state == State.WINDUP else ""
 
 
 ## How far the wind-up got, in [0, 1]; 0 outside of it.
@@ -111,6 +135,19 @@ func windup_progress() -> float:
     if state != State.WINDUP:
         return 0.0
     return 1.0 - _state_left / windup_seconds
+
+
+## How far he stands from the player, on the floor, in meters.
+func distance() -> float:
+    var between := target - global_position
+    between.y = 0.0
+    return between.length()
+
+
+## The player dodged his last attack: he stumbles past and stays open longer.
+func dodged() -> void:
+    if state == State.RECOVER:
+        _state_left = open_seconds * 2.0
 
 
 ## Take a punch or a kick of the player; return what came of it: "blocked",
@@ -123,8 +160,7 @@ func take_hit(kind: String, power: float) -> Dictionary:
         "straight": 6.0,
         "hook": 8.0,
         "uppercut": 10.0,
-        "front_kick": 12.0,
-        "side_kick": 12.0,
+        "kick": 9.0,
     }
     var damage: float = base.get(kind, 6.0) * lerpf(0.6, 1.2, power)
     var result := "hit"
@@ -144,12 +180,20 @@ func take_hit(kind: String, power: float) -> Dictionary:
     _flash_color = Color.WHITE
     _flash = 1.0
     if health <= 0.0:
+        attack = ""
         _enter(State.KNOCKED_OUT)
         knocked_out.emit()
-    elif result != "blocked" and (kind.ends_with("kick") or kind == "uppercut" or power > 0.8):
-        var away := global_position - target
-        away.y = 0.0
-        _stagger_push = away.normalized() * (0.5 if kind.ends_with("kick") else 0.3)
+    elif kind == "kick":
+        # NOTE (mristin):
+        # A kick drives him out of the reach of her punches; he needs a while
+        # to come back in.
+        _stagger_push = maxf(0.0, OUT_DISTANCE - distance()) + 0.1
+        _in = false
+        attack = ""
+        _enter(State.STAGGER)
+    elif result != "blocked" and (kind == "uppercut" or power > 0.8):
+        _stagger_push = 0.25
+        attack = ""
         _enter(State.STAGGER)
     else:
         _head.rotation.x = -0.35
@@ -182,50 +226,82 @@ func _think(delta: float) -> void:
     _face_target()
     var to_target := target - global_position
     to_target.y = 0.0
-    var distance := to_target.length()
-    var forward := to_target / maxf(distance, 0.001)
+    var forward := to_target / maxf(to_target.length(), 0.001)
 
     match state:
         State.GUARD:
-            # NOTE (mristin):
-            # He keeps his distance and circles a little, changing the
-            # direction now and then, as a boxer does.
-            var step := (distance - preferred_distance) * 1.5
-            var side := forward.cross(Vector3.UP) * _circle * 0.25
-            var velocity := forward * clampf(step, -walk_speed, walk_speed) + side
-            global_position = Arena.clamp_inside(global_position + velocity * delta)
-            if _random.randf() < delta * 0.3:
-                _circle = -_circle
-            if _state_left <= 0.0:
-                if distance <= attack_range:
-                    _high = _random.randf() < 0.7
-                    _aimed_at = target
-                    _enter(State.WINDUP)
-                    winding_up.emit(_high)
-                else:
-                    _state_left = 0.3
+            _walk(forward, delta)
+            if _state_left > 0.0:
+                pass
+            elif not _in:
+                # NOTE (mristin):
+                # He steps in for one to three attacks, more as he gets angrier.
+                _in = true
+                var most := 2 if health > MAX_HEALTH * 0.5 else 3
+                _attacks_left = _random.randi_range(1, most)
+                _state_left = 0.4
+            elif absf(distance() - IN_DISTANCE) < 0.15:
+                attack = _pick_attack()
+                _enter(State.WINDUP)
+                winding_up.emit(attack)
+            else:
+                _state_left = 0.1
         State.WINDUP:
             if _state_left <= 0.0:
                 _enter(State.STRIKE)
-                struck.emit(_high, _aimed_at)
+                struck.emit(attack)
         State.STRIKE:
             if _state_left <= 0.0:
                 _enter(State.RECOVER)
         State.RECOVER:
             if _state_left <= 0.0:
+                attack = ""
+                _attacks_left -= 1
                 _enter(State.GUARD)
+                if _attacks_left <= 0:
+                    _in = false
+                    _state_left = _random.randf_range(1.8, 3.2) * _pace()
+                else:
+                    _state_left = _random.randf_range(0.4, 0.9) * _pace()
         State.STAGGER:
-            global_position = Arena.clamp_inside(global_position + _stagger_push * delta * 3.0)
-            _stagger_push = _stagger_push.lerp(Vector3.ZERO, delta * 6.0)
+            var step := minf(_stagger_push, delta * 2.5)
+            _stagger_push -= step
+            global_position = Arena.clamp_inside(global_position - forward * step)
             if _state_left <= 0.0:
                 _enter(State.GUARD)
+                _state_left = _random.randf_range(1.0, 2.0) * _pace()
 
+
+## Step towards where he wants to stand (in or out), swaying a little sideways.
+func _walk(forward: Vector3, delta: float) -> void:
+    var wanted := IN_DISTANCE if _in else OUT_DISTANCE
+    var step := clampf((distance() - wanted) * 3.0, -walk_speed, walk_speed)
+    var side := forward.cross(Vector3.UP)
     # NOTE (mristin):
-    # He never walks into the player.
-    var away := global_position - target
-    away.y = 0.0
-    if away.length() < 0.75:
-        global_position = Arena.clamp_inside(target + away.normalized() * 0.75)
+    # He sways around the line in front of the player, but never far from it,
+    # so the player never has to turn.
+    var sway := sin(_time * 1.3) * 0.25
+    var sideways := (sway - _sway) * 2.0
+    _sway += sideways * delta
+    var velocity := forward * step + side * sideways
+    global_position = Arena.clamp_inside(global_position + velocity * delta)
+
+
+## How much faster he gets as he loses health: 1 at full health, less later.
+func _pace() -> float:
+    return lerpf(0.6, 1.0, health / MAX_HEALTH)
+
+
+func _pick_attack() -> String:
+    var total := 0.0
+    for weight in ATTACKS.values():
+        total += weight
+    var roll := _random.randf() * total
+    for name in ATTACKS:
+        roll -= ATTACKS[name]
+        if roll <= 0.0:
+            return name
+    return "jab"
 
 
 func _face_target() -> void:
@@ -244,7 +320,7 @@ func _enter(next: State) -> void:
         State.STRIKE:
             _state_left = 0.18
         State.RECOVER:
-            _state_left = 0.8
+            _state_left = open_seconds
         State.STAGGER:
             _state_left = 0.45
         State.KNOCKED_OUT:
@@ -253,8 +329,9 @@ func _enter(next: State) -> void:
 
 ## Move the limbs towards the pose of the state.
 func _animate(delta: float) -> void:
-    # Each arm: [shoulder pitch, shoulder roll, elbow pitch]; each leg: [hip pitch, knee pitch].
-    var arm_left := [0.55, -0.25, 1.95]
+    # Each arm: [shoulder pitch, shoulder roll (outwards), elbow pitch]; each
+    # leg: [hip pitch, knee pitch]. His right arm is on the player's left.
+    var arm_left := [0.55, 0.25, 1.95]
     var arm_right := [0.55, 0.25, 1.95]
     var leg_left := [0.0, 0.0]
     var leg_right := [0.0, 0.0]
@@ -267,34 +344,50 @@ func _animate(delta: float) -> void:
     match state:
         State.WINDUP:
             var p := windup_progress()
-            if _high:
-                arm_right = [0.2, 0.5, 2.4]
-                torso_yaw = -0.45 * p
-            else:
-                leg_right = [-0.6 * p, 0.9 * p]
-                torso_pitch = -0.1
+            match attack:
+                "jab":
+                    arm_left = [0.3, 0.1, 2.4]
+                    torso_yaw = 0.25 * p
+                "hook_left":
+                    arm_right = [0.5, 0.9 + 0.3 * p, 1.4]
+                    torso_yaw = -0.5 * p
+                "hook_right":
+                    arm_left = [0.5, 0.9 + 0.3 * p, 1.4]
+                    torso_yaw = 0.5 * p
+                "sweep":
+                    leg_right = [-0.6 * p, 0.9 * p]
+                    torso_pitch = -0.1
             speed = 6.0
         State.STRIKE:
-            if _high:
-                arm_right = [1.6, 0.05, 0.05]
-                torso_yaw = 0.35
-                lunge = 0.55
-            else:
-                leg_right = [1.1, 0.1]
-                lunge = 0.4
-                torso_pitch = -0.2
+            match attack:
+                "jab":
+                    arm_left = [1.6, 0.0, 0.05]
+                    torso_yaw = -0.2
+                    lunge = 0.5
+                "hook_left":
+                    arm_right = [1.45, -0.5, 1.2]
+                    torso_yaw = 0.5
+                    lunge = 0.35
+                "hook_right":
+                    arm_left = [1.45, -0.5, 1.2]
+                    torso_yaw = -0.5
+                    lunge = 0.35
+                "sweep":
+                    leg_right = [1.1, 0.1]
+                    lunge = 0.4
+                    torso_pitch = -0.2
             speed = 30.0
         State.RECOVER:
-            arm_left = [0.25, -0.15, 0.8]
+            arm_left = [0.25, 0.15, 0.8]
             arm_right = [0.25, 0.15, 0.8]
             torso_pitch = 0.15
             speed = 6.0
         State.STAGGER:
-            arm_left = [0.1, -0.5, 0.6]
+            arm_left = [0.1, 0.5, 0.6]
             arm_right = [0.1, 0.5, 0.6]
             torso_pitch = -0.3
         State.KNOCKED_OUT:
-            arm_left = [-0.2, -1.2, 0.3]
+            arm_left = [-0.2, 1.2, 0.3]
             arm_right = [-0.2, 1.2, 0.3]
             _body.rotation.x = lerpf(_body.rotation.x, PI * 0.5, minf(1.0, delta * 3.0))
             _body.position.y = lerpf(_body.position.y, 0.15, minf(1.0, delta * 3.0))
@@ -302,8 +395,11 @@ func _animate(delta: float) -> void:
     var weight := minf(1.0, delta * speed)
     for i in range(2):
         var arm: Array = arm_left if i == 0 else arm_right
+        # NOTE (mristin):
+        # The roll is outwards for both arms: negative for the left one.
+        var outwards := -1.0 if i == 0 else 1.0
         _arms[i].rotation.x = lerpf(_arms[i].rotation.x, arm[0], weight)
-        _arms[i].rotation.z = lerpf(_arms[i].rotation.z, arm[1], weight)
+        _arms[i].rotation.z = lerpf(_arms[i].rotation.z, arm[1] * outwards, weight)
         _elbows[i].rotation.x = lerpf(_elbows[i].rotation.x, arm[2], weight)
         var leg: Array = leg_left if i == 0 else leg_right
         _legs[i].rotation.x = lerpf(_legs[i].rotation.x, leg[0], weight)
@@ -331,8 +427,12 @@ func _build() -> void:
 
     _torso = _pivot(_body, Vector3(0, 0.95, 0))
     # The lab coat: the skirt down to the knees, the chest, the lapels.
-    _flashing.append(_own(Flat.box(_torso, Vector3(0.5, 0.45, 0.3), Vector3(0, -0.18, 0), COAT, true)))
-    _flashing.append(_own(Flat.box(_torso, Vector3(0.52, 0.62, 0.3), Vector3(0, 0.33, 0), COAT, true)))
+    _flashing.append(
+        _own(Flat.box(_torso, Vector3(0.5, 0.45, 0.3), Vector3(0, -0.18, 0), COAT, true))
+    )
+    _flashing.append(
+        _own(Flat.box(_torso, Vector3(0.52, 0.62, 0.3), Vector3(0, 0.33, 0), COAT, true))
+    )
     Flat.box(_torso, Vector3(0.16, 0.36, 0.01), Vector3(0, 0.44, -0.152), SHIRT)
     Flat.box(_torso, Vector3(0.05, 0.3, 0.01), Vector3(0, 0.42, -0.158), TIE)
     Flat.box(_torso, Vector3(0.02, 0.5, 0.01), Vector3(-0.1, 0.36, -0.155), COAT_SHADE)

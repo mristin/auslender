@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
@@ -25,8 +26,8 @@ using Auslender.Vision;
 /// that we never queue frames (and latency) nor copy frames nobody processes.
 /// The threads publish immutable snapshots (<see cref="VisionSnapshot"/> and
 /// <see cref="FaceSnapshot"/>), which the main thread feeds into the
-/// <see cref="RoomJoystick"/>, the <see cref="PunchDetector"/>s and the
-/// <see cref="KickDetector"/>s in <see cref="_Process"/>.
+/// <see cref="RoomJoystick"/>, the <see cref="LeanGauge"/> and the
+/// <see cref="MoveClassifier"/> in <see cref="_Process"/>.
 /// </para>
 /// <para>
 /// There is one player. The game (GDScript) uses only the plain getters, and
@@ -47,6 +48,12 @@ public partial class VisionService : Node
     }
 
     public const string PoseModelPath = "res://scenes/vision/rtmo/model/rtmo_t_body7_416x416.onnx";
+
+    /// <summary>The description of the move classifier (see <see cref="MoveClassifier"/>).</summary>
+    public const string MovesModelPath = "res://scenes/vision/moves/model/moves.json";
+
+    /// <summary>The top-down pose which follows the player on every frame (see <see cref="RtmPoseTracker"/>).</summary>
+    public const string TopDownModelPath = "res://scenes/vision/rtmpose/model/rtmpose_t_body7_256x192.onnx";
 
     public const string HeadModelPath =
         "res://scenes/vision/yolox/model/yolox_n_body_head_hand_Nx3xHxW.onnx";
@@ -94,13 +101,12 @@ public partial class VisionService : Node
 
     public readonly RoomJoystick Joystick = new();
 
+    /// <summary>The lean of the player to slip a punch, against where she stood lately.</summary>
+    public readonly LeanGauge Lean = new();
+
     /// <summary>The sizes of the player in the latest face frame and the latest pose, for the depth.</summary>
     private readonly DepthCues _faceCues = new();
     private readonly DepthCues _poseCues = new();
-
-    public readonly PunchDetector[] Punches = { new(HandSide.Left), new(HandSide.Right) };
-
-    public readonly KickDetector[] Kicks = { new(HandSide.Left), new(HandSide.Right) };
 
     /// <summary>The walking in place, from the knees.</summary>
     public readonly WalkMeter Walk = new();
@@ -108,21 +114,12 @@ public partial class VisionService : Node
     /// <summary>The turn of the body, which steers the walking.</summary>
     public readonly TurnGauge Turn = new();
 
-    /// <summary>The punches from the pose: the wrist shoots up from the guard.</summary>
-    public readonly PosePunchDetector[] PosePunches = { new(HandSide.Left), new(HandSide.Right) };
-
-    /// <summary>
-    /// Whether the punches also come from the growing boxes of the fists (see
-    /// <see cref="PunchDetector"/>); off, since they jittered too much on the
-    /// recordings at 15 frames a second.
-    /// </summary>
-    [Export]
-    public bool UseBoxPunches = false;
 
     /// <summary>The recording which we play instead of the camera (see <see cref="StartReplay"/>), or null.</summary>
     private RecordingReader? _replay;
     private string _replayFrames = "";
     private int _replayFace;
+    private int _replayFrame;
     private int _replayPose;
     private int _replayShown = -1;
     private double _replayClock;
@@ -157,8 +154,21 @@ public partial class VisionService : Node
     /// <summary>The recording of the vision (see dev/moves/), or null.</summary>
     private VisionRecorder? _recorder;
 
+    /// <summary>How many poses a second came lately (smoothed).</summary>
+    private double _poseRate;
+
+    /// <summary>The trained classifier of the moves, or null without its model.</summary>
+    private MoveClassifier? _classifier;
+    private readonly List<ClassifiedMove> _classified = new();
+    private readonly float[] _poseNumbers = new float[51];
+
+    /// <summary>The camera frames to save as pictures while recording with frames, or null.</summary>
+    private BlockingCollection<(byte[] Rgb, int Width, int Height, string Path)>? _frameQueue;
+    private Thread? _frameWriter;
+    private string _framesDirectory = "";
+    private int _framesSaved;
+
     /// <summary>The jumps of the joystick which became moves.</summary>
-    private int _jumpsSeen;
 
     /// <summary>The time between two camera frames, smoothed, in seconds; NaN before two frames.</summary>
     private double _frameSeconds = double.NaN;
@@ -260,9 +270,19 @@ public partial class VisionService : Node
 
     public override void _Ready()
     {
+        // NOTE (mristin):
+        // The replays need the classifier, too, though they switch the camera off.
+        LoadMoveClassifier();
+
         if (!UseCamera)
         {
             SetStatus(ServiceStatus.Disabled, "The camera is switched off.");
+            return;
+        }
+
+        if (_classifier == null)
+        {
+            SetStatus(ServiceStatus.ModelsMissing, $"The move classifier {MovesModelPath} is missing.");
             return;
         }
 
@@ -375,6 +395,12 @@ public partial class VisionService : Node
         var snapshot = Latest;
         if (snapshot != null && !ReferenceEquals(snapshot, _consumed))
         {
+            if (_consumed != null && snapshot.Timestamp > _consumed.Timestamp)
+            {
+                double rate = 1.0 / (snapshot.Timestamp - _consumed.Timestamp);
+                _poseRate = _poseRate <= 0.0 ? rate : _poseRate * 0.9 + rate * 0.1;
+            }
+
             _consumed = snapshot;
             ConsumePose(snapshot);
             _recorder?.RecordPose(snapshot, _poseCues);
@@ -411,20 +437,87 @@ public partial class VisionService : Node
         if (Head.Measure(face.Timestamp, landmarks, head, face.HeadCount >= 0))
         {
             Joystick.Observe(face.Timestamp, Head.X, Head.Y, Head.RawUnit);
+            ObserveLean(face.Timestamp);
             Hands.SetUnit(0, Head.Unit);
-            ObserveJumps(face.Timestamp);
         }
 
         if (face.Hands != null)
         {
             Hands.Observe(face.Timestamp, face.Hands);
-            ObservePunches(face.Timestamp);
+        }
+    }
+
+    private void LoadMoveClassifier()
+    {
+        if (!FileAccess.FileExists(MovesModelPath))
+        {
+            GD.PushError($"The move classifier {MovesModelPath} is missing; run `git lfs pull`.");
+            return;
+        }
+
+        try
+        {
+            string directory = MovesModelPath.GetBaseDir();
+            _classifier = MoveClassifier.FromDescription(
+                FileAccess.GetFileAsString(MovesModelPath),
+                file => FileAccess.GetFileAsBytes($"{directory}/{file}"));
+        }
+        catch (Exception exception)
+        {
+            GD.PushError($"Could not load the move classifier: {exception.Message}");
+            _classifier = null;
+        }
+    }
+
+    /// <summary>Classify the moves of the player on her newest pose (see <see cref="MoveClassifier"/>).</summary>
+    private void ClassifyMoves(double t, Pose? pose)
+    {
+        if (_classifier == null)
+        {
+            return;
+        }
+
+        if (pose == null)
+        {
+            _classifier.Reset();
+            return;
+        }
+
+        for (int i = 0; i < Pose.KeypointCount; i++)
+        {
+            _poseNumbers[i * 3] = pose.Keypoints[i].X;
+            _poseNumbers[i * 3 + 1] = pose.Keypoints[i].Y;
+            _poseNumbers[i * 3 + 2] = pose.Keypoints[i].Score;
+        }
+
+        _classified.Clear();
+        _classifier.Observe(t, _poseNumbers, _classified);
+        foreach (var move in _classified)
+        {
+            // NOTE (mristin):
+            // "hook_left" is the kind "hook" of the side "left"; "duck" and
+            // "jump" have no side.
+            string name = move.Class;
+            HandSide? side = null;
+            if (name.EndsWith("_left", StringComparison.Ordinal))
+            {
+                side = HandSide.Left;
+                name = name[..^5];
+            }
+            else if (name.EndsWith("_right", StringComparison.Ordinal))
+            {
+                side = HandSide.Right;
+                name = name[..^6];
+            }
+
+            AddMove(move.Time, name, side, move.Probability);
         }
     }
 
     private void ConsumePose(VisionSnapshot snapshot)
     {
         var pose = snapshot.Players.Count > 0 ? snapshot.Players[0] : null;
+        ClassifyMoves(snapshot.Timestamp, pose);
         if (pose == null)
         {
             return;
@@ -446,69 +539,23 @@ public partial class VisionService : Node
             if (head != null && unit != null)
             {
                 Joystick.Observe(snapshot.Timestamp, head.Value.X, head.Value.Y, unit.Value);
-                ObserveJumps(snapshot.Timestamp);
+                ObserveLean(snapshot.Timestamp);
             }
         }
 
         Walk.Observe(snapshot.Timestamp, pose);
         Turn.Observe(snapshot.Timestamp, pose);
-        foreach (var detector in PosePunches)
-        {
-            var punch = detector.Observe(snapshot.Timestamp, pose);
-            if (punch != null)
-            {
-                AddMove(punch.Value.Time, "straight", punch.Value.Side, punch.Value.Power);
-            }
-        }
-
-        foreach (var detector in Kicks)
-        {
-            var kick = detector.Observe(snapshot.Timestamp, pose);
-            if (kick != null)
-            {
-                AddMove(kick.Value.Time, kick.Value.Kind == KickKind.Side ? "side_kick" : "front_kick",
-                    kick.Value.Side, kick.Value.Power);
-            }
-        }
     }
 
-    /// <summary>Find the punches of both hands, which the hand tracker follows.</summary>
-    private void ObservePunches(double t)
+    private void ObserveLean(double t)
     {
-        if (!UseBoxPunches || float.IsNaN(Head.Y) || float.IsNaN(Head.Unit))
+        if (Joystick.Calibrated)
         {
-            return;
+            Lean.Observe(t, Joystick.Sideways);
         }
-
-        foreach (var detector in Punches)
+        else
         {
-            var hand = Hands.Hand(0, detector.Side, t);
-            var size = Hands.HandSize(0, detector.Side, t);
-            if (hand == null || size == null || Hands.HandSeenAt(0, detector.Side) != t)
-            {
-                continue;
-            }
-
-            var punch = detector.Observe(t, hand.Value.X, hand.Value.Y, size.Value, Head.Y, Head.Unit);
-            if (punch != null)
-            {
-                string kind = punch.Value.Kind switch
-                {
-                    PunchKind.Hook => "hook",
-                    PunchKind.Uppercut => "uppercut",
-                    _ => "straight",
-                };
-                AddMove(punch.Value.Time, kind, punch.Value.Side, punch.Value.Power);
-            }
-        }
-    }
-
-    private void ObserveJumps(double t)
-    {
-        if (Joystick.Jumps != _jumpsSeen)
-        {
-            _jumpsSeen = Joystick.Jumps;
-            AddMove(t, "jump", null, 1f);
+            Lean.Reset();
         }
     }
 
@@ -610,6 +657,7 @@ public partial class VisionService : Node
         Hands.Reset();
         _replayFace = 0;
         _replayPose = 0;
+        _replayFrame = 0;
         _replayShown = -1;
         _replayClock = _replay!.Faces[0].Timestamp;
     }
@@ -652,7 +700,20 @@ public partial class VisionService : Node
             }
         }
 
+        // NOTE (mristin):
+        // A recording with its frames lists when each picture was taken; a
+        // video replayed offline (dev/replay/) has one picture per face frame.
         int shown = _replayFace - 1;
+        if (replay.Frames.Count > 0)
+        {
+            while (_replayFrame + 1 < replay.Frames.Count && replay.Frames[_replayFrame + 1].Time <= _replayClock)
+            {
+                _replayFrame++;
+            }
+
+            shown = replay.Frames[_replayFrame].Time <= _replayClock ? replay.Frames[_replayFrame].Index - 1 : -1;
+        }
+
         if (shown >= 0 && shown != _replayShown)
         {
             _replayShown = shown;
@@ -690,10 +751,11 @@ public partial class VisionService : Node
 
     /// <summary>
     /// Take the moves found since the last call, oldest first: each a
-    /// dictionary with "kind" ("straight", "hook", "uppercut", "front_kick" or
-    /// "side_kick", "jump"), "side" ("left" or "right", of the player's body;
-    /// "" for a jump) and
-    /// "power" (in [0, 1]).
+    /// dictionary with "kind", "side" ("left" or "right", of the player's
+    /// body; "" for a duck or a jump) and "power" (in [0, 1]; the probability
+    /// with the classifier). The kinds are "straight", "hook", "uppercut",
+    /// "kick" (a knee raised high: the camera need not see the whole leg),
+    /// "slip", "duck" and "jump".
     /// </summary>
     public Godot.Collections.Array PollMoves()
     {
@@ -731,7 +793,23 @@ public partial class VisionService : Node
     /// <summary>How far the head is below home, in units (positive down).</summary>
     public float GetHeadDown() => Joystick.Down;
 
-    public bool IsDucking() => Joystick.Ducking;
+    /// <summary>Whether the player covers her head now (see <see cref="MoveClassifier"/>).</summary>
+    public bool IsCovering() => _classifier?.Covering ?? false;
+
+    /// <summary>The classes of the move classifier; empty without it.</summary>
+    public string[] GetMoveClasses() => _classifier?.Classes ?? Array.Empty<string>();
+
+    /// <summary>The probability of each class of the move classifier on the newest pose; empty without it.</summary>
+    public float[] GetMoveProbabilities() => _classifier?.Probabilities ?? Array.Empty<float>();
+
+    /// <summary>
+    /// How far the player leans against where she stood lately, in units
+    /// (positive to her right); see <see cref="LeanGauge"/>.
+    /// </summary>
+    public float GetLean() => Lean.Lean;
+
+    /// <summary>-1 while the player slips to her left, 1 to her right, else 0.</summary>
+    public int GetSlip() => Lean.Slip;
 
     /// <summary>The box around the head in the mirrored picture, normalized; empty if not seen.</summary>
     public Rect2 GetHeadRect()
@@ -837,19 +915,14 @@ public partial class VisionService : Node
             && scores[(int)BodyPart.LeftKnee] >= 0.3f && scores[(int)BodyPart.RightKnee] >= 0.3f;
     }
 
-    /// <summary>How high each knee is above the other, as a share of the thigh: (left, right); NaN if unknown.</summary>
-    public Vector2 GetFootLifts() => new(Kicks[0].Lift, Kicks[1].Lift);
-
     /// <summary>How long the latest pose took, in milliseconds.</summary>
     public double GetInferenceMs() => Latest?.InferenceMs ?? 0.0;
 
     /// <summary>How many times a second the body pose runs now (see <see cref="PoseRate"/>).</summary>
-    public double GetPoseRate() => _faceTracking ? 1.0 / PoseRate.Interval : 0.0;
+    public double GetPoseRate() => _poseRate;
 
     /// <summary>How long the latest heads and faces took, in milliseconds.</summary>
     public double GetFaceMs() => LatestFace?.InferenceMs ?? 0.0;
-
-    public bool IsJumping() => Joystick.Jumping;
 
     /// <summary>How fast the player walks in place, in [0, 1].</summary>
     public float GetWalkSpeed() => Walk.Speed;
@@ -888,14 +961,31 @@ public partial class VisionService : Node
     /// see <see cref="VisionRecorder"/>; only numbers, never the pictures).
     /// Return whether it started.
     /// </summary>
-    public bool StartRecording(string path)
+    public bool StartRecording(string path) => StartRecordingWithFrames(path, false);
+
+    /// <summary>
+    /// Record what the vision measures into <paramref name="path"/>; with
+    /// <paramref name="frames"/>, also save every camera frame as a picture
+    /// into <c>&lt;recording&gt;.frames/</c> (00001.jpg, ...).
+    /// </summary>
+    /// <remarks>
+    /// The pictures are only for developing the vision (see
+    /// dev/moves/record_moves.gd, <c>--frames</c>): the game never saves them.
+    /// </remarks>
+    public bool StartRecordingWithFrames(string path, bool frames)
     {
         StopRecording();
         try
         {
-            _recorder = new VisionRecorder(ProjectSettings.GlobalizePath(path));
+            string global = ProjectSettings.GlobalizePath(path);
+            _recorder = new VisionRecorder(global);
             var size = GetPictureSize();
             _recorder.RecordStart(Now, (int)size.X, (int)size.Y);
+            if (frames)
+            {
+                StartFrameWriter(System.IO.Path.ChangeExtension(global, null) + ".frames");
+            }
+
             return true;
         }
         catch (Exception exception)
@@ -903,6 +993,50 @@ public partial class VisionService : Node
             GD.PushError($"Could not record into {path}: {exception.Message}");
             _recorder = null;
             return false;
+        }
+    }
+
+    private void StartFrameWriter(string directory)
+    {
+        System.IO.Directory.CreateDirectory(directory);
+        _framesDirectory = directory;
+        _framesSaved = 0;
+
+        // NOTE (mristin):
+        // Encoding a picture takes a few milliseconds, so a thread of its own
+        // does it; if it falls behind, we rather drop frames than the vision.
+        var queue = new BlockingCollection<(byte[] Rgb, int Width, int Height, string Path)>(boundedCapacity: 90);
+        _frameQueue = queue;
+        _frameWriter = new Thread(() =>
+        {
+            foreach (var (rgb, width, height, file) in queue.GetConsumingEnumerable())
+            {
+                var image = Image.CreateFromData(width, height, false, Image.Format.Rgb8, rgb);
+                image.SaveJpg(file, 0.9f);
+            }
+        })
+        {
+            Name = "Frame writer",
+            IsBackground = true,
+            Priority = ThreadPriority.BelowNormal,
+        };
+        _frameWriter.Start();
+    }
+
+    /// <summary>Save the camera frame as a picture, if we record with frames.</summary>
+    private void SaveFrame(Frame frame)
+    {
+        if (_frameQueue == null || _recorder == null)
+        {
+            return;
+        }
+
+        int index = _framesSaved + 1;
+        string file = $"{_framesDirectory}/{index:00000}.jpg";
+        if (_frameQueue.TryAdd((frame.Rgb, frame.Width, frame.Height, file)))
+        {
+            _framesSaved = index;
+            _recorder.RecordFrame(frame.Timestamp, index);
         }
     }
 
@@ -926,6 +1060,15 @@ public partial class VisionService : Node
             return 0;
         }
 
+        if (_frameQueue != null)
+        {
+            _frameQueue.CompleteAdding();
+            _frameWriter?.Join();
+            _frameQueue.Dispose();
+            _frameQueue = null;
+            _frameWriter = null;
+        }
+
         int lines = _recorder.Lines;
         _recorder.Dispose();
         _recorder = null;
@@ -936,24 +1079,11 @@ public partial class VisionService : Node
     public void ResetPlayer()
     {
         Joystick.Reset();
-        foreach (var detector in Punches)
-        {
-            detector.Reset();
-        }
-
-        foreach (var detector in Kicks)
-        {
-            detector.Reset();
-        }
-
+        Lean.Reset();
+        _classifier?.Reset();
         _moves.Clear();
-        _jumpsSeen = 0;
         Walk.Reset();
         Turn.Reset();
-        foreach (var detector in PosePunches)
-        {
-            detector.Reset();
-        }
     }
 
     private void SearchCamera(double now)
@@ -1077,9 +1207,17 @@ public partial class VisionService : Node
         SetStatus(ServiceStatus.LoadingModels, "Loading the models...");
 
         byte[] poseModel = FileAccess.GetFileAsBytes(PoseModelPath);
+        byte[]? topDownModel = FileAccess.FileExists(TopDownModelPath)
+            ? FileAccess.GetFileAsBytes(TopDownModelPath)
+            : null;
+        if (topDownModel == null)
+        {
+            GD.PushWarning($"The top-down pose model {TopDownModelPath} is missing; the pose runs only a few times a second.");
+        }
+
         int threads = Threads;
         _running = true;
-        StartThread("Pose", () => PoseLoop(poseModel, threads));
+        StartThread("Pose", () => PoseLoop(poseModel, topDownModel, threads));
 
         if (FileAccess.FileExists(HeadModelPath) && FileAccess.FileExists(FaceModelPath))
         {
@@ -1129,7 +1267,12 @@ public partial class VisionService : Node
         bool forPose = _poseSlot.Requested;
         bool forFace = _faceSlot.Requested;
         bool twoPlanes = _feed.GetDatatype() == CameraFeed.FeedDataType.YcbcrSep;
-        if (!forPose && !forFace && !twoPlanes)
+
+        // NOTE (mristin):
+        // While we save the frames, we take every frame of the camera, so
+        // that the pictures are the whole video, not only what the vision saw.
+        bool forFrames = _frameQueue != null;
+        if (!forPose && !forFace && !twoPlanes && !forFrames)
         {
             return;
         }
@@ -1160,7 +1303,7 @@ public partial class VisionService : Node
                 _ycbcrPreview.Update(preview);
             }
 
-            if (!forPose && !forFace)
+            if (!forPose && !forFace && !forFrames)
             {
                 return;
             }
@@ -1188,6 +1331,7 @@ public partial class VisionService : Node
         // never touch any engine objects. The threads only read the frame, so
         // they can share it.
         var frame = new Frame(rgb, width, height, Now);
+        SaveFrame(frame);
         if (forPose)
         {
             _poseSlot.Put(frame);
@@ -1261,22 +1405,31 @@ public partial class VisionService : Node
         return slot.Take();
     }
 
-    private void PoseLoop(byte[] poseModel, int threads)
+    private void PoseLoop(byte[] poseModel, byte[]? topDownModel, int threads)
     {
         RiderVision? vision = null;
+        RtmPoseTracker? topDown = null;
         try
         {
             vision = new RiderVision(poseModel, threads);
+            if (topDownModel != null)
+            {
+                topDown = new RtmPoseTracker(topDownModel, 1);
+            }
+
             Callable.From(() => SetStatus(ServiceStatus.Running, "")).CallDeferred();
 
             var started = Stopwatch.StartNew();
             while (_running)
             {
                 // NOTE (mristin):
-                // With the face tracker, the pose only tells the hands apart and
-                // dresses the bodies, so it runs only now and then, and leaves the
-                // processor to the faces and the hands.
-                if (_faceTracking)
+                // While RTMPose follows the player, it runs on every frame (about
+                // 13 ms); RTMO (about 70 ms) runs only to find the player at the
+                // start or when she was lost. Without RTMPose, RTMO runs only now
+                // and then with the face tracker, and leaves the processor to the
+                // faces and the hands.
+                bool following = topDown != null && topDown.Tracking;
+                if (_faceTracking && !following)
                 {
                     int wait = (int)((PoseRate.Interval - started.Elapsed.TotalSeconds) * 1000.0);
                     if (wait > 0)
@@ -1287,11 +1440,36 @@ public partial class VisionService : Node
 
                 started.Restart();
                 var frame = NextFrame(_poseSlot);
-                if (frame != null)
+                if (frame == null)
                 {
-                    var snapshot = vision.Process(frame, PlayerCount);
-                    PoseRate.ObservePose(snapshot.InferenceMs);
-                    Volatile.Write(ref _latest, snapshot);
+                    continue;
+                }
+
+                if (following)
+                {
+                    var pose = topDown!.Track(frame);
+                    if (pose != null)
+                    {
+                        Volatile.Write(ref _latest, new VisionSnapshot
+                        {
+                            Timestamp = frame.Timestamp,
+                            Width = frame.Width,
+                            Height = frame.Height,
+                            Players = new Pose?[] { pose },
+                            PersonCount = 1,
+                            InferenceMs = started.Elapsed.TotalMilliseconds,
+                        });
+                    }
+
+                    continue;
+                }
+
+                var snapshot = vision.Process(frame, PlayerCount);
+                PoseRate.ObservePose(snapshot.InferenceMs);
+                Volatile.Write(ref _latest, snapshot);
+                if (topDown != null && PlayerCount == 1 && snapshot.Player != null)
+                {
+                    topDown.Seed(snapshot.Player);
                 }
             }
         }
@@ -1303,6 +1481,7 @@ public partial class VisionService : Node
         }
         finally
         {
+            topDown?.Dispose();
             vision?.Dispose();
         }
     }
@@ -1362,6 +1541,8 @@ public partial class VisionService : Node
     public override void _ExitTree()
     {
         StopRecording();
+        _classifier?.Dispose();
+        _classifier = null;
         _running = false;
         _poseSlot.Ready.Set();
         _faceSlot.Ready.Set();

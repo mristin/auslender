@@ -5,7 +5,7 @@ extends SceneTree
 ##
 ## [codeblock]
 ## $GODOT --path . --windowed --resolution 1920x1080 \
-##     --script dev/pictures/screenshot.gd -- res://scenes/ring/ring.tscn shot.png [frames] \
+##     --script dev/pictures/screenshot.gd -- res://scenes/fight/fight.tscn shot.png [frames] \
 ##     [--press=<keys>] --no-camera
 ## [/codeblock]
 ##

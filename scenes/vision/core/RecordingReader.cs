@@ -22,6 +22,12 @@ namespace Auslender.Vision
         /// <summary>The pose snapshots, in the order of time.</summary>
         public readonly List<VisionSnapshot> Poses = new();
 
+        /// <summary>
+        /// The saved camera frames (the time and the number of the picture),
+        /// if recorded with the frames (see VisionService.StartRecordingWithFrames).
+        /// </summary>
+        public readonly List<(double Time, int Index)> Frames = new();
+
         public int Width { get; private set; } = 640;
         public int Height { get; private set; } = 480;
 
@@ -49,11 +55,15 @@ namespace Auslender.Vision
                     case "pose":
                         reader.Poses.Add(reader.ReadPose(row));
                         break;
+                    case "frame":
+                        reader.Frames.Add((row.GetProperty("t").GetDouble(), row.GetProperty("index").GetInt32()));
+                        break;
                 }
             }
 
             reader.Faces.Sort((a, b) => a.Timestamp.CompareTo(b.Timestamp));
             reader.Poses.Sort((a, b) => a.Timestamp.CompareTo(b.Timestamp));
+            reader.Frames.Sort((a, b) => a.Time.CompareTo(b.Time));
             return reader;
         }
 

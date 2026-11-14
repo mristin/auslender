@@ -248,7 +248,7 @@ def smoke_scenes(godot: str, jobs: int) -> int:
     the scenes which do not even start.
     """
     scenes = [
-        REPO_ROOT / "scenes" / "ring" / "ring.tscn",
+        REPO_ROOT / "scenes" / "fight" / "fight.tscn",
     ]
     scenes.extend(sorted((REPO_ROOT / "scenes" / "tests").rglob("*.tscn")))
     print(f"Starting {len(scenes)} scene(s) headless...", flush=True)

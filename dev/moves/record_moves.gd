@@ -6,7 +6,7 @@ extends SceneTree
 ##
 ## [codeblock]
 ## $GODOT --path . --script dev/moves/record_moves.gd -- \
-##     [--plan=res://dev/moves/plans/moves.csv] [--quick] [<recording.jsonl>]
+##     [--plan=res://dev/moves/plans/moves.csv] [--quick] [--frames] [<recording.jsonl>]
 ## [/codeblock]
 ##
 ## The plan is a CSV file with a header and one step per row: the label which
@@ -26,6 +26,11 @@ extends SceneTree
 ## The screen shows the camera picture with what the vision sees (the
 ## skeleton, the hands, the unibrow), the room pad, the depth of each cue and
 ## the moves which the game detected, so you see at once what works.
+##
+## With [code]--frames[/code], it also saves every camera frame as a picture
+## into [code]<recording>.frames/[/code] (00001.jpg, ...; each written as a
+## "frame" line with its time), to replay the session frame by frame offline.
+## Only for developing the vision: the game itself never saves the pictures.
 ##
 ## Escape stops early; what was recorded so far is kept. [code]--quick[/code]
 ## makes every step ten times shorter, to try the tool (e.g., with --no-camera).
@@ -57,6 +62,7 @@ var _detected: Array[String] = []
 
 var _overlay: CameraOverlay
 var _hud: Hud
+var _frames := false
 var _title: Label
 var _text: Label
 var _count: Label
@@ -71,6 +77,8 @@ func _initialize() -> void:
     for arg in OS.get_cmdline_user_args():
         if arg == "--quick":
             _quick = true
+        elif arg == "--frames":
+            _frames = true
         elif arg.begins_with("--plan="):
             plan = arg.trim_prefix("--plan=")
         elif not arg.begins_with("--"):
@@ -94,8 +102,8 @@ func _initialize() -> void:
                 "title": "Get ready",
                 "text":
                 (
-                    "Put the camera at the height of your hips, and step back (2.5 to 3 m) until "
-                    + "it sees you from your head down to below your knees, with room above your head."
+                    "Step back (2.5 to 3 m) until the camera sees you from your head down to "
+                    + "below your knees, with room above your head."
                 ),
                 "calls": [],
             }
@@ -236,7 +244,7 @@ func _go_to(step: int) -> void:
         following = "Next: %s." % _steps[step + 1]["title"]
     _next.text = following
     if step == 1:
-        if not _service.StartRecording(_path):
+        if not _service.StartRecordingWithFrames(_path, _frames):
             _title.text = "Could not record into %s" % _path
             _done = true
             return
@@ -298,18 +306,14 @@ func _process(delta: float) -> bool:
     return false
 
 
-## Show what the vision measures now: the room pad, the cues of the depth and
+## Show what the vision measures now: the offsets of the head, the cues of the depth and
 ## the moves which the game detected lately.
 func _update_readout() -> void:
-    _hud.calibrated = _service.IsCalibrated()
-    _hud.calibration_progress = _service.GetCalibrationProgress()
+    _overlay.calibrated = _service.IsCalibrated()
+    _overlay.calibration_progress = _service.GetCalibrationProgress()
+    _overlay.pose = "COVER" if _service.IsCovering() else ""
     _hud.sees_player = _service.HasPlayer() or _service.GetStatus() == "Disabled"
     _hud.sees_feet = _service.SeesFeet() or _service.GetStatus() == "Disabled"
-    _hud.room_offset = _service.GetRoomOffset()
-    _hud.stick_limits = _service.GetStickLimits()
-    _hud.stick = _service.GetStick()
-    _hud.ducking = _service.IsDucking()
-    _hud.jumping = _service.IsJumping()
     _hud.status = VisionStatus.new().text(_service, true)
 
     for move in _service.PollMoves():
@@ -324,10 +328,7 @@ func _update_readout() -> void:
     var offset: Vector2 = _service.GetRoomOffset()
     var stick: Vector2 = _service.GetStick()
     lines.append(
-        (
-            "sideways %+.2f   depth %+.3f   down %+.2f"
-            % [offset.x, offset.y, _service.GetHeadDown()]
-        )
+        "sideways %+.2f   depth %+.3f   down %+.2f" % [offset.x, offset.y, _service.GetHeadDown()]
     )
     lines.append("stick (%+.2f, %+.2f)" % [stick.x, stick.y])
     var names: PackedStringArray = _service.GetCueNames()
@@ -337,7 +338,12 @@ func _update_readout() -> void:
         var value := "  -  " if is_nan(depths[i]) else "%+.3f" % depths[i]
         cues += "%-12s %s\n" % [names[i], value]
     lines.append("depth of each cue:\n" + cues)
-    var lifts: Vector2 = _service.GetFootLifts()
-    lines.append("knee up: left %.2f, right %.2f" % [lifts.x, lifts.y])
+    var classes: PackedStringArray = _service.GetMoveClasses()
+    var probabilities: PackedFloat32Array = _service.GetMoveProbabilities()
+    var likely := ""
+    for i in range(probabilities.size()):
+        if probabilities[i] >= 0.2:
+            likely += "%s %.2f  " % [classes[i], probabilities[i]]
+    lines.append("classifier: " + likely)
     lines.append("detected: " + ", ".join(_detected))
     _readout.text = "\n".join(lines)

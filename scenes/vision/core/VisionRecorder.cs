@@ -176,6 +176,15 @@ namespace Auslender.Vision
             });
         }
 
+        /// <summary>
+        /// Write that the camera frame <paramref name="index"/> (from 1 on) was
+        /// saved as a picture, taken at the time <paramref name="t"/>.
+        /// </summary>
+        public void RecordFrame(double t, int index)
+        {
+            Write(new Dictionary<string, object?> { ["kind"] = "frame", ["t"] = t, ["label"] = Label, ["index"] = index });
+        }
+
         /// <summary>Write a mark at the time <paramref name="t"/>, e.g., when the player was called to jab.</summary>
         public void RecordMark(double t, string name)
         {
