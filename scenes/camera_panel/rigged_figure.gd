@@ -1,9 +1,9 @@
 class_name RiggedFigure
 extends Node3D
 
-## A rigged 3D model of the hero (model/hero_classic.glb, or the prehistoric
-## one: skinned meshes on a humanoid skeleton with the usual names of the
-## bones), posed on the joints of the pose lifted to 3D (see PoseLifter).
+## A rigged 3D model of the hero (one of HEROES: skinned meshes on a humanoid
+## skeleton with the usual names of the bones), posed on the joints of the
+## pose lifted to 3D (see PoseLifter).
 ##
 ## We turn each bone of the skeleton, from the hips outwards: the hips, the
 ## spine and the chest with the torso (the hips, the chest and the shoulders);
@@ -17,7 +17,6 @@ extends Node3D
 ## (x right, y up, z towards the camera): so give the joints as in the picture
 ## which is not mirrored, and mirror the rendered picture.
 
-## The rigged models of the hero, and the one to show.
 ## The rigged models of the hero, by name; the player picks one (F3 in the
 ## fight), which every figure shows (see [member chosen]).
 const HEROES := {
@@ -48,10 +47,6 @@ const THIGH_FORWARD := 100.0
 const THIGH_BACKWARD := 25.0
 const THIGH_OUTWARD := 40.0
 const THIGH_INWARD := 10.0
-
-## How to turn a model without a skeleton to stand upright and face +z,
-## before it is rigged (see AutoRig); none needs it now.
-const TURNS := {}
 
 ## The bones of a humanoid skeleton, and their names in the models (the
 ## names of the usual conventions; the first which a model has counts; each
@@ -89,20 +84,6 @@ static var chosen := "classic"
 ## hangs down, as at rest.
 var legs_seen: Array[bool] = [true, true]
 
-## How far each hand is twisted about its forearm ([left, right], radians;
-## positive turns the thumb outwards, mirrored for the right hand by the
-## caller), e.g., for the punches.
-var hand_roll: Array[float] = [0.0, 0.0]
-
-## Whether to hide the head (shrink it to nothing), for looking through the
-## figure's eyes in the first person.
-var hide_head := false
-
-## Whether to show only the arms (the upper arms, the forearms, the gloves and
-## the thumbs; the model must have them as parts of their own), for the first
-## person.
-var only_arms := false
-
 var _model: Node3D
 var _skeleton: Skeleton3D
 var _bones := {}
@@ -110,14 +91,8 @@ var _bones := {}
 var _rest := {}
 ## The global poses which we give the bones this frame.
 var _pose := {}
-var _head_turn := Basis.IDENTITY
 var _skeleton_in_model := Transform3D.IDENTITY
 var _skeleton_turn := Basis.IDENTITY
-var _legs: Array[MeshInstance3D] = []
-var _by_parts := false
-## The kick to show: which leg (0 left, 1 right; -1 none), and how far it is.
-var _kick_leg := -1
-var _kick_share := 0.0
 
 
 func _ready() -> void:
@@ -138,18 +113,11 @@ func rebuild() -> void:
     _bones.clear()
     _rest.clear()
     _pose.clear()
-    _legs.clear()
     _build()
 
 
 func _build() -> void:
     _model = (load(HEROES[chosen]) as PackedScene).instantiate()
-    if _model.find_children("*", "Skeleton3D", true, false).is_empty():
-        # NOTE (mristin):
-        # A model without a skeleton is rigged here (once; see AutoRig).
-        var rigged := AutoRig.rig(_model, TURNS.get(chosen, Basis.IDENTITY), HEROES[chosen])
-        _model.free()
-        _model = rigged
     add_child(_model)
     _skeleton = _model.find_children("*", "Skeleton3D", true, false)[0]
     # NOTE (mristin):
@@ -161,33 +129,16 @@ func _build() -> void:
         _skeleton_in_model = (above as Node3D).transform * _skeleton_in_model
         above = above.get_parent()
     _skeleton_turn = _skeleton_in_model.basis.orthonormalized()
-    for player in _model.find_children("*", "AnimationPlayer", true, false):
-        (player as AnimationPlayer).stop()
     # NOTE (mristin):
-    # The engine culls a skinned mesh by its box at rest; posed (e.g., a leg
-    # kicked up into the view from below), it may be seen where its rest is
-    # not. So every part gets a box which holds all its poses.
+    # The engine culls a skinned mesh by its box at rest; posed (e.g., an
+    # arm stretched out), it may be seen where its rest is not. So every part
+    # gets a box which holds all its poses.
     for node in _model.find_children("*", "MeshInstance3D", true, false):
         # NOTE (mristin):
         # Three meters around, in the mesh's own units (centimeters in Mixamo).
         var units := 1.0 / maxf(_mesh_scale(node as Node3D), 1e-6)
         var reach := 3.0 * units
         (node as MeshInstance3D).custom_aabb = AABB(-Vector3.ONE * reach, Vector3.ONE * 2.0 * reach)
-    # NOTE (mristin):
-    # A model of parts (the classic one) shows only its arms by hiding the
-    # rest; a model of one mesh shrinks its head and its legs instead (see
-    # set_joints()), and shows its torso.
-    var meshes := _model.find_children("*", "MeshInstance3D", true, false)
-    _by_parts = meshes.any(func(node: Node) -> bool: return String(node.name).begins_with("glove"))
-    if only_arms and _by_parts:
-        for node in meshes:
-            var part := String(node.name)
-            var arm := ["upper_arm", "forearm", "glove", "thumb"].any(
-                func(prefix: String) -> bool: return part.begins_with(prefix)
-            )
-            (node as MeshInstance3D).visible = arm
-            if part.begins_with("continuous_trousers") or part.begins_with("shoe"):
-                _legs.append(node)
     for name in BONE_NAMES:
         var bone := -1
         for candidate in BONE_NAMES[name]:
@@ -248,12 +199,6 @@ func set_joints(joints: Array[Vector3]) -> void:
     var neck := _towards("Neck", "Head", joints[HEAD] - joints[THORAX], torso)
     _turn("Neck", neck)
     _turn("Head", neck)
-    _head_turn = neck
-    if hide_head:
-        # NOTE (mristin):
-        # Shrink the neck, and the head with it: some models weight the face,
-        # the hat and the beard to the neck, too.
-        _skeleton.set_bone_pose_scale(_bones["Neck"], Vector3.ONE * 0.001)
 
     for entry in [
         ["Left", LEFT_SHOULDER, LEFT_ELBOW, LEFT_WRIST],
@@ -270,18 +215,8 @@ func set_joints(joints: Array[Vector3]) -> void:
         var lower := _towards(
             key + "LowerArm", key + "Hand", joints[entry[3]] - joints[entry[2]], upper
         )
-        # NOTE (mristin):
-        # The twist of the fist about the forearm (e.g., the palm towards him
-        # in an uppercut): the whole forearm turns with it, as an arm does, so
-        # that the cuff does not wring (the twist sits at the elbow).
-        var axis := (joints[entry[3]] - joints[entry[2]]).normalized()
-        var roll: float = hand_roll[0 if key == "Left" else 1]
-        if axis.is_finite() and axis.length_squared() > 0.5 and absf(roll) > 1e-3:
-            _turn(key + "LowerArm", Basis(axis, roll) * lower)
-            _turn(key + "Hand", Basis(axis, roll) * lower)
-        else:
-            _turn(key + "LowerArm", lower)
-            _turn(key + "Hand", lower)
+        _turn(key + "LowerArm", lower)
+        _turn(key + "Hand", lower)
 
     for entry in [["Left", LEFT_HIP, LEFT_KNEE, 0, 1.0], ["Right", RIGHT_HIP, RIGHT_KNEE, 1, -1.0]]:
         var key: String = entry[0]
@@ -292,26 +227,17 @@ func set_joints(joints: Array[Vector3]) -> void:
         var thigh := frame * limit_thigh(frame.inverse() * wanted, entry[4])
         # NOTE (mristin):
         # The lower leg goes on straight from the thigh (the ankles are
-        # guessed), and the foot with it; but in a kick, both do the kick.
-        var shin := thigh
-        if _kick_leg == entry[3]:
-            var kick := kick_directions(_kick_share)
-            thigh = frame * (kick[0] as Vector3)
-            shin = frame * (kick[1] as Vector3)
+        # guessed), and the foot with it.
         var upper := _towards(key + "UpperLeg", key + "LowerLeg", thigh, torso)
         _turn(key + "UpperLeg", upper)
-        var lower := _towards(key + "LowerLeg", key + "Foot", shin, upper)
+        var lower := _towards(key + "LowerLeg", key + "Foot", thigh, upper)
         _turn(key + "LowerLeg", lower)
         _turn(key + "Foot", lower)
-        if only_arms and not _by_parts and _kick_leg < 0:
-            # NOTE (mristin):
-            # One mesh: hide the legs (but in a kick) by shrinking them.
-            _skeleton.set_bone_pose_scale(_bones[key + "UpperLeg"], Vector3.ONE * 0.001)
 
 
 ## The spine and the chest from the skeleton itself: the chest is the parent of
 ## the neck, the spine the child of the hips on the way up (the names differ:
-## Spine and Spine2 in Mixamo, Spine02 and Spine in Meshy's own).
+## e.g., Spine and Spine2 in Mixamo).
 func _find_spine() -> void:
     if not _bones.has("Neck") or not _bones.has("Hips"):
         return
@@ -326,49 +252,6 @@ func _find_spine() -> void:
     _bones["Spine"] = chain[-1]
     _rest["Chest"] = _skeleton.get_bone_global_rest(chain[0])
     _rest["Spine"] = _skeleton.get_bone_global_rest(chain[-1])
-
-
-## Show a kick of a leg (0 left, 1 right; -1 for none) at the share of it:
-## the knee up, the shin out to the opponent, a moment there, and back. With
-## [member only_arms], it shows the legs while it lasts.
-func set_kick(leg: int, share: float) -> void:
-    _kick_leg = leg
-    _kick_share = share
-    for part in _legs:
-        part.visible = leg >= 0
-
-
-## The directions of the thigh and the shin in a kick at the share of it, in
-## the frame of the torso (x his left, y up, z forward).
-static func kick_directions(share: float) -> Array:
-    var down := Vector3.DOWN
-    # NOTE (mristin):
-    # A high kick: the knee above the hip, the leg rising to his belly, so
-    # that it shows in the first person (the legs are short, the view looks
-    # ahead).
-    var knee_up := Vector3(0.0, 0.8, 0.6)
-    var thigh_out := Vector3(0.0, 0.7, 0.71)
-    var shin_out := Vector3(0.0, 0.6, 0.8)
-    if share < 0.3:
-        var t := smoothstep(0.0, 1.0, share / 0.3)
-        return [down.slerp(knee_up, t), down]
-    if share < 0.55:
-        var t := smoothstep(0.0, 1.0, (share - 0.3) / 0.25)
-        return [knee_up.slerp(thigh_out, t), down.slerp(shin_out, t)]
-    if share < 0.7:
-        return [thigh_out, shin_out]
-    var t := smoothstep(0.0, 1.0, (share - 0.7) / 0.3)
-    return [thigh_out.slerp(down, t), shin_out.slerp(down, t)]
-
-
-## Where the figure's eyes are now, in its own space: in front of the head and
-## a little above it (in the model's own size), turned with the head.
-func eyes() -> Vector3:
-    var head: Transform3D = _pose.get(_bones["Head"], _rest["Head"])
-    return (
-        _model.transform
-        * (_skeleton_in_model * head.origin + _head_turn * Vector3(0.0, 0.07, 0.11))
-    )
 
 
 ## Clamp the direction of a thigh (in the frame of the torso: x to his left, y

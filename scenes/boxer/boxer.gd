@@ -226,10 +226,9 @@ func face(opponent: Vector3, delta: float) -> void:
 
 
 ## How his body moves with his punches and kicks, as one sees it through his
-## eyes (after the moves which Meshy animated for the hero): [the shift of the
-## eyes, the turn about up, the tilt up, the roll]. A jab steps in and leans
-## into the punch; a hook twists the body with the swing; an uppercut dips and
-## rises; a kick leans back.
+## eyes: [the shift of the eyes, the turn about up, the tilt up, the roll]. A
+## jab steps in and leans into the punch; a hook twists the body with the
+## swing; an uppercut dips and rises; a kick leans back.
 func _body_motion() -> Array:
     var shift := Vector3.ZERO
     var yaw := 0.0
