@@ -4,11 +4,18 @@ extends Button
 ## A big button which a hand cursor clicks by holding on it for three seconds
 ## (see HandCursor), as in The Steppe Rescue; the mouse and the keys click it,
 ## too.
-## A ring fills while the hand holds on it.
+## A ring fills while the hand holds on it. While a cursor (a hand or the
+## mouse) is over it, or it has the focus of the keys, it glows (see
+## hover.gdshader): a gold rim and a sheen sweeping across.
 
 ## How long a hand holds on it to click it, in seconds (as in The Steppe
 ## Rescue).
 const DWELL_SECONDS := 3.0
+
+const _HOVER := preload("res://scenes/menu/hover.gdshader")
+
+## How far the glow of the hover reaches past the edge, in pixels.
+const _GLOW_MARGIN := 18.0
 
 const PAPER := Color("f1f0ea")
 const INK := Color("0c0e14")
@@ -34,6 +41,9 @@ var primary := false:
         primary = value
         _style()
 
+var _hover := 0.0
+var _glow: ColorRect
+
 
 func _init(label := "", at := Vector2.ZERO, extent := Vector2(600, 110), font_size := 44) -> void:
     text = label
@@ -42,6 +52,35 @@ func _init(label := "", at := Vector2.ZERO, extent := Vector2(600, 110), font_si
     add_theme_font_size_override("font_size", font_size)
     add_to_group("dwell")
     _style()
+
+
+func _ready() -> void:
+    _glow = ColorRect.new()
+    _glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    var material := ShaderMaterial.new()
+    material.shader = _HOVER
+    _glow.material = material
+    _glow.visible = false
+    add_child(_glow)
+    resized.connect(_place_glow)
+    _place_glow()
+
+
+func _process(delta: float) -> void:
+    # NOTE (mristin):
+    # A hand on it shows as its dwell (see HandCursor); the mouse, as hovered.
+    var over := not disabled and (dwell > 0.0 or is_hovered() or has_focus())
+    _hover = lerpf(_hover, 1.0 if over else 0.0, 1.0 - exp(-delta * 12.0))
+    _glow.visible = _hover > 0.01
+    (_glow.material as ShaderMaterial).set_shader_parameter("hover", _hover)
+
+
+func _place_glow() -> void:
+    _glow.position = -Vector2.ONE * _GLOW_MARGIN
+    _glow.size = size + Vector2.ONE * _GLOW_MARGIN * 2.0
+    var material := _glow.material as ShaderMaterial
+    material.set_shader_parameter("button_size", size)
+    material.set_shader_parameter("rect_size", _glow.size)
 
 
 ## Click it (as the hand does).
