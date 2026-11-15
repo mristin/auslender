@@ -51,3 +51,4 @@ __pycache__/
 # .NET build outputs of the development tools
 dev/**/bin/
 dev/**/obj/
+build/
