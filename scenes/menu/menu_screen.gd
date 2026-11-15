@@ -1,8 +1,9 @@
 class_name MenuScreen
 extends Control
 
-## The base of the menu screens: the dark background, the title, the hand
-## cursor (see HandCursor), and Esc: back, or on the first screen twice to quit
+## The base of the menu screens: the dark background, the camera picture dim
+## behind the buttons (see CameraMirror), the title, the hand cursors (see
+## HandCursor), and Esc: back, or on the first screen twice to quit
 ## (see QuitHint).
 
 const PAPER := Color("f1f0ea")
@@ -19,6 +20,10 @@ func _ready() -> void:
     background.set_anchors_preset(Control.PRESET_FULL_RECT)
     background.mouse_filter = Control.MOUSE_FILTER_IGNORE
     add_child(background)
+    # NOTE (mristin):
+    # The player in the camera, dim behind the buttons, so that he sees where
+    # his hands point.
+    add_child(CameraMirror.new())
     _build()
     _quit = QuitHint.new()
     add_child(_quit)

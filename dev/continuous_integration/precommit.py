@@ -241,14 +241,19 @@ def run_godot_tests(godot: str, jobs: int, only: Optional[Sequence[str]], verbos
 
 def smoke_scenes(godot: str, jobs: int) -> int:
     """
-    Start the main scene and every test screen of scenes/tests/ headless for a
-    moment, without the camera, and fail on any error.
+    Start the screens of the menus, a fight, a run and every test screen of
+    scenes/tests/ headless for a moment, without the camera, and fail on any
+    error.
 
     The test screens show the parts of the game in isolation, so this catches
     the scenes which do not even start.
     """
     scenes = [
+        REPO_ROOT / "scenes" / "menu" / "sessions.tscn",
+        REPO_ROOT / "scenes" / "menu" / "session_name.tscn",
+        REPO_ROOT / "scenes" / "menu" / "level_select.tscn",
         REPO_ROOT / "scenes" / "fight" / "fight.tscn",
+        REPO_ROOT / "scenes" / "run" / "run.tscn",
     ]
     scenes.extend(sorted((REPO_ROOT / "scenes" / "tests").rglob("*.tscn")))
     print(f"Starting {len(scenes)} scene(s) headless...", flush=True)

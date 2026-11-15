@@ -1,12 +1,14 @@
 class_name DwellButton
 extends Button
 
-## A big button which the hand cursor clicks by holding still on it (see
-## HandCursor), as in The Steppe Rescue; the mouse and the keys click it, too.
+## A big button which a hand cursor clicks by holding on it for three seconds
+## (see HandCursor), as in The Steppe Rescue; the mouse and the keys click it,
+## too.
 ## A ring fills while the hand holds on it.
 
-## How long the hand holds still on it to click it, in seconds.
-const DWELL_SECONDS := 2.0
+## How long a hand holds on it to click it, in seconds (as in The Steppe
+## Rescue).
+const DWELL_SECONDS := 3.0
 
 const PAPER := Color("f1f0ea")
 const INK := Color("0c0e14")

@@ -3,13 +3,14 @@ extends RefCounted
 
 ## The way through the screens (as in The Steppe Rescue): the sessions (see
 ## Sessions), the naming of a new one (see SessionName), the levels of a
-## session (see LevelSelect), and a level (see Fight), whose end leads back to
+## session (see LevelSelect), and a level (see Fight and Run), whose end leads back to
 ## the levels, or on to the next one.
 
 const SESSIONS := "res://scenes/menu/sessions.tscn"
 const SESSION_NAME := "res://scenes/menu/session_name.tscn"
 const LEVEL_SELECT := "res://scenes/menu/level_select.tscn"
-const LEVEL := "res://scenes/fight/fight.tscn"
+const FIGHT := "res://scenes/fight/fight.tscn"
+const RUN := "res://scenes/run/run.tscn"
 
 ## The level to play (see Levels).
 static var level_id := ""
@@ -36,4 +37,5 @@ static func play(tree: SceneTree, id: String) -> void:
         return
     Engine.time_scale = 1.0
     level_id = id
-    tree.change_scene_to_file.call_deferred(LEVEL)
+    var run: bool = Levels.ALL_LEVELS[index]["kind"] == "run"
+    tree.change_scene_to_file.call_deferred(RUN if run else FIGHT)

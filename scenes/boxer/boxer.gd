@@ -157,6 +157,7 @@ var _shake := 0.0
 var _hurt := 0.0
 var _jump_height := 0.0
 var _flight := -1.0
+var _was_jumping := false
 
 
 func _ready() -> void:
@@ -273,7 +274,10 @@ func face(opponent: Vector3, delta: float) -> void:
         # NOTE (mristin):
         # A jump of a run: a flight up and down over jump_seconds, as in
         # Quake, once it starts.
-        if jumping and _flight < 0.0:
+        # NOTE (mristin):
+        # Only as the jump starts: he counts as jumping as long as he flies,
+        # so that a flight must not start again as it lands.
+        if jumping and not _was_jumping and _flight < 0.0:
             _flight = 0.0
         if _flight >= 0.0:
             _flight += delta / jump_seconds
@@ -281,6 +285,7 @@ func face(opponent: Vector3, delta: float) -> void:
             if _flight >= 1.0:
                 _flight = -1.0
                 _jump_height = 0.0
+        _was_jumping = jumping
     else:
         _jump_height = lerpf(_jump_height, jump_height if jumping else 0.0, minf(1.0, delta * 10.0))
     var shake := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * _shake * 0.03

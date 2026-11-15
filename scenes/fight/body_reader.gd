@@ -28,7 +28,7 @@ const JUMP_HOLD := 0.5
 
 ## How long a found jump keeps him in the air in a run, in seconds: a flight,
 ## as in Quake (see Boxer.jump_seconds).
-const RUN_JUMP_HOLD := 2.0
+const RUN_JUMP_HOLD := 1.5
 
 ## How far from the middle of the picture (a share of its width) his torso
 ## moves him a lane's width over, and how far beyond the outer lanes he may go
