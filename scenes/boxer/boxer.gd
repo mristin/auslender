@@ -118,6 +118,10 @@ var duck := 0.0
 ## How far he stands to the side of his spot, in meters (in a run: his lane).
 var shift := 0.0
 
+## Whether he looks straight ahead, level, rather than at the opponent's head
+## (in a run): the view does not tilt as he ducks and jumps.
+var level_gaze := false
+
 ## How many steps a second he runs (in a run; 0 in a fight): his arms pump
 ## as a runner's, not in the guard.
 var running_steps := 0.0
@@ -291,6 +295,12 @@ func face(opponent: Vector3, delta: float) -> void:
     var shake := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * _shake * 0.03
     var eyes := Vector3(shift + lean * LEAN_SHIFT, EYES - duck * DUCK_DROP + _jump_height, 0)
     var look := opponent + Vector3(0, 1.45, 0)
+    if level_gaze:
+        # NOTE (mristin):
+        # He looks straight ahead as he ducks and jumps: the view goes down and
+        # up with him, without tilting, so that the world stays where it is
+        # (a branch over the road passes over his head).
+        look.y = global_position.y + eyes.y - 0.17
     var body := _body_motion()
     camera.position = eyes + shake + (body[0] as Vector3)
     if camera.global_position.distance_to(look) > 0.1:

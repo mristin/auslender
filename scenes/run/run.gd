@@ -5,9 +5,9 @@ extends RhythmLevel
 ## penguin of Antarctic Adventure: the land rolls towards the player on the
 ## beat, and its obstacles come as notes. He steers continuously with his
 ## torso across the camera picture (see BodyReader): obstacles leave a free
-## gap of their own width anywhere across the road, with a coin in it (see
-## RhythmNote); he jumps over holes and fallen trees (a flight, as in Quake)
-## and ducks under branches. A run has no punches. A strip on the floor shows
+## gap of their own width anywhere across the road (see RhythmNote); he
+## jumps over holes and fallen trees (a flight, as in Quake) and ducks under
+## branches, looking straight ahead (the view does not tilt). A run has no punches. A strip on the floor shows
 ## the path he is heading on (see PathStrip), and the camera picture lies
 ## faintly over the scene, so that he sees where he stands (see CameraVeil).
 
@@ -44,6 +44,7 @@ func _build() -> void:
     boxer.jump_height = JUMP_HEIGHT
     boxer.jump_seconds = BodyReader.RUN_JUMP_HOLD
     boxer.running_steps = float(level["bpm"]) / 60.0
+    boxer.level_gaze = true
     hud.opponent_name = ""
     _strip = PathStrip.new()
     add_child(_strip)

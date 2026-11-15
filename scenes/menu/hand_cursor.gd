@@ -1,41 +1,30 @@
 class_name HandCursor
 extends Control
 
-## Cursors which the player's raised hands move, seen by the camera (as in The
-## Steppe Rescue): each hand above his shoulders moves a glove of its own
-## across the screen; a hand below the shoulders does not count. A hand held on
-## a button (see DwellButton) for its dwell (three seconds) clicks it.
+## Cursors on the player's hands, as the hand detector of the vision finds
+## them (see VisionService.GetPlayerHands: the hands in the mirrored camera
+## picture, smoothed with a 1€ filter): each glove is drawn exactly where its
+## hand is in the camera picture behind the menu (see CameraMirror), so that
+## the player sees where he points. A hand held on a button (see DwellButton)
+## for its dwell (three seconds) clicks it (as in The Steppe Rescue).
 ##
-## The gloves are calm and sticky: a glove glides towards its hand instead of
-## jumping; on a button it sticks, staying well inside it (it moves only a
-## share of the hand's way from the middle of the button), and leaves it only
-## when the hand goes clearly beyond its edge.
+## The choice of the button is sticky: a hand stays on its button until it
+## goes clearly beyond its edge, so that a trembling hand does not lose it. A
+## hand below his hips (resting) is drawn dim and does not click.
 
-## How far the hand moves (a share of the picture's width, around the
-## shoulder) to cross the whole screen.
-const REACH := 0.35
-
-## A glove on a button leaves it only when the hand is this far beyond its
-## edge, in pixels (at most a share of the button's smaller side).
+## A hand leaves its button only when it is this far beyond its edge, in
+## pixels (at most a share of the button's smaller side).
 const STICKY_MARGIN := 48.0
 const STICKY_MARGIN_SHARE := 0.35
 
-## On a button, the glove moves only this share of the way of the hand from
-## the middle of the button.
-const STICKY_SHARE := 0.35
-
-## The time constant of the glove gliding, in seconds.
-const GLIDE_SECONDS := 0.1
-
-## The COCO points of the shoulders and the wrists.
-const _SHOULDERS := [5, 6]
-const _WRISTS := [9, 10]
+## The COCO points of the hips.
+const _HIPS := [11, 12]
 
 var _vision: Node
-## Per hand (left, right): where its glove is, whether the hand is raised, and
-## the button it sticks to.
-var _gloves: Array[Vector2] = [Vector2(-1, -1), Vector2(-1, -1)]
-var _raised: Array[bool] = [false, false]
+## Per hand (left, right): where it is on the screen (negative if not seen),
+## whether it may click, and the button it is on.
+var _hands: Array[Vector2] = [Vector2(-1, -1), Vector2(-1, -1)]
+var _active: Array[bool] = [false, false]
 var _stuck: Array = [null, null]
 
 
@@ -49,18 +38,13 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-    var hands := _raised_hands()
+    _read_hands()
     var held := {}
     for i in range(2):
-        var target: Vector2 = hands[i]
-        _raised[i] = target.x >= 0.0
-        if not _raised[i]:
+        if _hands[i].x < 0.0 or not _active[i]:
             _stuck[i] = null
-            _gloves[i] = Vector2(-1, -1)
             continue
-        if _gloves[i].x < 0.0:
-            _gloves[i] = target
-        _gloves[i] = _glide(i, target, delta)
+        _stuck[i] = _button_for(i)
         if _stuck[i] != null:
             held[_stuck[i]] = true
     # NOTE (mristin):
@@ -71,17 +55,37 @@ func _process(delta: float) -> void:
             button.dwell += delta / DwellButton.DWELL_SECONDS
             if button.dwell >= 1.0:
                 button.click()
-                for i in range(2):
-                    _stuck[i] = null
+                _stuck = [null, null]
         elif button.dwell > 0.0:
             button.dwell = 0.0
     queue_redraw()
 
 
-## The glove glides towards its hand, and sticks to the button under it.
-func _glide(i: int, target: Vector2, delta: float) -> Vector2:
-    var glide := 1.0 - exp(-delta / GLIDE_SECONDS)
-    var button: DwellButton = null
+## Where the hands are on the screen: exactly where they are in the mirrored
+## camera picture, which fills the screen.
+func _read_hands() -> void:
+    _hands = [Vector2(-1, -1), Vector2(-1, -1)]
+    _active = [false, false]
+    if _vision == null or _vision.GetStatus() == "Disabled":
+        return
+    var screen := get_viewport_rect().size
+    var found: Array = _vision.GetPlayerHands()
+    var hips := -1.0
+    var points: PackedVector2Array = _vision.GetKeypoints()
+    if points.size() > _HIPS[1]:
+        hips = (points[_HIPS[0]].y + points[_HIPS[1]].y) * 0.5
+    for i in range(mini(2, found.size())):
+        if found[i] == null:
+            continue
+        var hand: Vector2 = found[i]
+        _hands[i] = Vector2(hand.x * screen.x, hand.y * screen.y)
+        _active[i] = hips < 0.0 or hand.y < hips
+
+
+## The button the hand is on: the one it was on while it stays near it, else
+## the one under it.
+func _button_for(i: int) -> DwellButton:
+    var at := _hands[i]
     var stuck: Variant = _stuck[i]
     if is_instance_valid(stuck):
         var held := stuck as DwellButton
@@ -89,19 +93,10 @@ func _glide(i: int, target: Vector2, delta: float) -> Vector2:
         if (
             held.is_visible_in_tree()
             and not held.disabled
-            and held.get_global_rect().grow(margin).has_point(target)
+            and held.get_global_rect().grow(margin).has_point(at)
         ):
-            button = held
-    if button == null:
-        button = _button_at(target)
-    _stuck[i] = button
-    if button == null:
-        return _gloves[i].lerp(target, glide)
-    var middle := button.get_global_rect().get_center()
-    var wanted := middle + (target - middle) * STICKY_SHARE
-    if not button.get_global_rect().has_point(wanted):
-        wanted = middle
-    return _gloves[i].lerp(wanted, glide)
+            return held
+    return _button_at(at)
 
 
 ## The smallest open, visible button under the point, or null.
@@ -118,39 +113,18 @@ func _button_at(point: Vector2) -> DwellButton:
     return best
 
 
-## Where each raised hand (left, right) points on the screen (negative if the
-## hand is not raised).
-func _raised_hands() -> Array[Vector2]:
-    var none: Array[Vector2] = [Vector2(-1, -1), Vector2(-1, -1)]
-    if _vision == null or _vision.GetStatus() == "Disabled":
-        return none
-    var points: PackedVector2Array = _vision.GetKeypoints()
-    if points.size() < 11:
-        return none
-    var shoulders := (points[_SHOULDERS[0]] + points[_SHOULDERS[1]]) * 0.5
-    var screen := get_viewport_rect().size
-    var found: Array[Vector2] = []
-    for i in range(2):
-        var wrist: Vector2 = points[_WRISTS[i]]
-        # NOTE (mristin):
-        # Above the shoulders (y grows down).
-        if wrist.y >= shoulders.y:
-            found.append(Vector2(-1, -1))
-            continue
-        var x := 0.5 + (wrist.x - shoulders.x) / REACH
-        var y := 0.5 + (wrist.y - (shoulders.y - REACH * 0.5)) / REACH
-        found.append(Vector2(clampf(x, 0.0, 1.0) * screen.x, clampf(y, 0.0, 1.0) * screen.y))
-    return found
-
-
 func _draw() -> void:
     for i in range(2):
-        if not _raised[i]:
+        var at := _hands[i]
+        if at.x < 0.0:
             continue
-        var at := _gloves[i]
+        var alpha := 1.0 if _active[i] else 0.35
         # NOTE (mristin):
-        # A big glove, its thumb on the inner side.
+        # A big glove, its thumb on the inner side; a gold ring when it is on
+        # a button.
         var inner := 22.0 if i == 0 else -22.0
-        draw_circle(at, 36, Color("0c0e14"))
-        draw_circle(at, 30, Color("2a5bd7"))
-        draw_circle(at + Vector2(inner, -6), 13, Color("3d6fe6"))
+        draw_circle(at, 36, Color(Color("0c0e14"), alpha))
+        draw_circle(at, 30, Color(Color("2a5bd7"), alpha))
+        draw_circle(at + Vector2(inner, -6), 13, Color(Color("3d6fe6"), alpha))
+        if _stuck[i] != null:
+            draw_arc(at, 44, 0, TAU, 40, Color("f2c14e"), 5)

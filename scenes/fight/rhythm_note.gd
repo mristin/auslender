@@ -91,7 +91,6 @@ var _theme := ""
 ## The obstacles of a steering note across the road (from, to; meters from
 ## the middle of the road).
 var _blocks: Array[Vector2] = []
-var _coin: MeshInstance3D
 var _symbol_parts: Array[MeshInstance3D] = []
 
 
@@ -173,10 +172,8 @@ func judge(how: String, now: float) -> void:
     if spans_road():
         # NOTE (mristin):
         # An obstacle of a run stays as it is and rolls on past him (he
-        # ducked under it, or jumped over it); only its coin goes when he
-        # grabbed it, and its marks.
-        if how != "miss" and _coin != null:
-            _coin.visible = false
+        # ducked under it, jumped over it, or ran through its gap); only its
+        # marks go.
         _label.visible = false
         _symbol_parts_hide()
         return
@@ -413,21 +410,8 @@ func blocks(x: float, half: float) -> bool:
 
 ## The obstacles of a steering note: blocks of varied widths across the road,
 ## but in its free gap (anywhere, of any width: as the holes of Antarctic
-## Adventure, the road is not cut into lanes), and a golden coin to grab in
-## the middle of the gap.
+## Adventure, the road is not cut into lanes).
 func _build_lanes(color: Color) -> void:
-    var coin := MeshInstance3D.new()
-    _coin = coin
-    var disc := CylinderMesh.new()
-    disc.top_radius = 0.16
-    disc.bottom_radius = 0.16
-    disc.height = 0.04
-    disc.radial_segments = 20
-    coin.mesh = disc
-    coin.rotation.x = PI * 0.5
-    coin.position = Vector3(gap, 0.5, 0)
-    coin.material_override = _material(Color("f2c14e"), false)
-    _shape.add_child(coin)
     var half := ROAD * 0.5
     for segment in [Vector2(-half, gap - gap_width * 0.5), Vector2(gap + gap_width * 0.5, half)]:
         var length: float = segment.y - segment.x

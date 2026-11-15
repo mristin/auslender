@@ -486,8 +486,8 @@ func _learn_latency(seen_after: float) -> void:
 func _met(note: RhythmNote, how: String) -> void:
     note.judge(how, _now)
     _scoring.met(how)
-    var coin := note.kind.begins_with("lane_")
-    var texts := {"perfect": "PERFECT!", "good": "GOOD", "dodged": "COIN!" if coin else "DODGED!"}
+    var gap := note.kind.begins_with("lane_")
+    var texts := {"perfect": "PERFECT!", "good": "GOOD", "dodged": "CLEAR!" if gap else "DODGED!"}
     hud.say(texts[how], Hud.GOLD if how == "perfect" else Hud.GREEN)
     match how:
         "perfect":
@@ -496,7 +496,7 @@ func _met(note: RhythmNote, how: String) -> void:
         "good":
             _play("hit")
         "dodged":
-            _play("perfect" if coin else "dodge")
+            _play("dodge")
 
 
 func _miss(note: RhythmNote) -> void:
