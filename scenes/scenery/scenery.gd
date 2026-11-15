@@ -46,6 +46,16 @@ const ROWS := {
     "far": [Vector2(5.5, 11.5), Vector2(6.0, 10.0)],
 }
 
+## The dusty paths of the prehistoric runs (no lanes then): their earth, their
+## dust and their stones.
+const DUSTY := {
+    "jungle": [Color("6a4a2c"), Color("8a6a44"), Color("3a2c20")],
+    "ice": [Color("c8dce8"), Color("eef4fa"), Color("8aa4b8")],
+    "cave": [Color("4a3a2e"), Color("6a5644"), Color("2a221c")],
+}
+
+const _DUST := preload("res://scenes/scenery/road_dust.gdshader")
+
 ## How far the edge of the ground of a fight is from the middle, in meters.
 const FIGHT_EDGE := 1.4
 
@@ -114,6 +124,8 @@ var spot := Vector3.ZERO
 
 var _look := "savannah"
 var _edge := FIGHT_EDGE
+var _dust: ShaderMaterial
+var _scrolled := 0.0
 var _props: Array[Node3D] = []
 var _random := RandomNumberGenerator.new()
 
@@ -131,8 +143,19 @@ func setup(look: String, player_spot: Vector3, road: bool) -> void:
     if road or _look == "city":
         var width := _edge * 2.0 - 0.2
         var middle := spot + Vector3(0, 0.0, (BEHIND - AHEAD) * 0.5)
-        Flat.box(self, Vector3(width, 0.02, AHEAD + BEHIND), middle, colors["road"])
-        if road:
+        var strip := Flat.box(self, Vector3(width, 0.02, AHEAD + BEHIND), middle, colors["road"])
+        if DUSTY.has(_look):
+            # NOTE (mristin):
+            # No lanes in prehistoric times: a dusty path (see
+            # road_dust.gdshader), which rolls with the run.
+            _dust = ShaderMaterial.new()
+            _dust.shader = _DUST
+            var tones: Array = DUSTY[_look]
+            _dust.set_shader_parameter("base", tones[0])
+            _dust.set_shader_parameter("dust", tones[1])
+            _dust.set_shader_parameter("stone", tones[2])
+            strip.material_override = _dust
+        elif road:
             # NOTE (mristin):
             # The dashes between the lanes, which roll with the run.
             for x in [-LANE * 0.5, LANE * 0.5]:
@@ -159,6 +182,9 @@ func setup(look: String, player_spot: Vector3, road: bool) -> void:
 ## Roll the props towards the player by [param distance] meters (a run); those
 ## behind him come round again from far ahead.
 func scroll(distance: float) -> void:
+    _scrolled += distance
+    if _dust != null:
+        _dust.set_shader_parameter("scroll", _scrolled)
     for node in _props:
         node.position.z += distance
         if node.position.z > spot.z + BEHIND:

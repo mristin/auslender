@@ -100,6 +100,10 @@ const KICK_SECONDS := 0.65
 ## The height of the eyes, in meters.
 const EYES := 1.62
 
+## A full duck lowers the eyes this far, in meters: way down, so that one
+## feels it.
+const DUCK_DROP := 0.9
+
 ## A full lean moves the eyes this far to the side, in meters.
 const LEAN_SHIFT := 0.35
 
@@ -113,6 +117,13 @@ var duck := 0.0
 
 ## How far he stands to the side of his spot, in meters (in a run: his lane).
 var shift := 0.0
+
+## How many steps a second he runs (in a run; 0 in a fight): his arms pump
+## as a runner's, not in the guard.
+var running_steps := 0.0
+
+## How high he flies in a jump, in meters (higher in a run).
+var jump_height := 0.25
 
 ## Whether he is in a jump now.
 var jumping := false
@@ -253,9 +264,9 @@ func reset() -> void:
 ## Look at the opponent at [param opponent], and set the eyes from the lean,
 ## the duck and the jump.
 func face(opponent: Vector3, delta: float) -> void:
-    _jump_height = lerpf(_jump_height, 0.25 if jumping else 0.0, minf(1.0, delta * 12.0))
+    _jump_height = lerpf(_jump_height, jump_height if jumping else 0.0, minf(1.0, delta * 10.0))
     var shake := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * _shake * 0.03
-    var eyes := Vector3(shift + lean * LEAN_SHIFT, EYES - duck * 0.45 + _jump_height, 0)
+    var eyes := Vector3(shift + lean * LEAN_SHIFT, EYES - duck * DUCK_DROP + _jump_height, 0)
     var look := opponent + Vector3(0, 1.45, 0)
     var body := _body_motion()
     camera.position = eyes + shake + (body[0] as Vector3)
@@ -417,6 +428,12 @@ static func _span(segment: MeshInstance3D, a: Vector3, b: Vector3, limb := true)
 ## of the face while he covers.
 func _rest(i: int) -> Vector3:
     var sign_x := -1.0 if i == 0 else 1.0
+    if running_steps > 0.0:
+        # NOTE (mristin):
+        # Running: the fists low at his sides, pumping forward and back, one
+        # against the other, a step on every beat.
+        var swing := sin(_clock * running_steps * PI + (0.0 if i == 0 else PI))
+        return Vector3(sign_x * 0.22, -0.34 + 0.09 * swing, -0.42 - 0.18 * swing)
     if covering:
         # NOTE (mristin):
         # The gloves cover the face, close together, so that the player sees

@@ -90,15 +90,13 @@ A classifier trained on labelled recordings finds all of these from the body pos
 
 #### The opponent and the chart
 
-The opponent bobs to the beat; for every attack note he winds up in the last stretch before its beat and strikes on it, glowing red, while the screen calls the dodge with an arrow from where it comes. A punch which lands snaps his head (aside from a hook, back from a straight, up from an uppercut). He is never still: he bounces on the beat and sways over the bars, steps in as he winds up, slips aside mocking when the player misses, stumbles past when the player dodges, throws up his arms when his attack lands, and beckons the player in during the breathers, with a line now and then.
+A fight has no jumps and no ducks (they are the runs'): the player punches, slips and covers. The opponent bobs to the beat; for every attack note he winds up in the last stretch before its beat and strikes on it, glowing red, while the screen calls the dodge with an arrow from where it comes. A punch which lands snaps his head (aside from a hook, back from a straight, up from an uppercut). He is never still: he bounces on the beat and sways over the bars, steps in as he winds up, slips aside mocking when the player misses, stumbles past when the player dodges, throws up his arms when his attack lands, and beckons the player in during the breathers, with a line now and then.
 
 | Attack | Note | Dodge |
 |---|---|---|
 | Jab | a purple glove at the face | Cover |
 | Hook from the left | a purple glove from the left | Slip right |
 | Hook from the right | a purple glove from the right | Slip left |
-| Haymaker | a purple bar at head height | Duck |
-| Sweep | a purple bar low over the floor | Jump |
 
 The song (synthesized in code, 90 BPM, about two and a half minutes) **teaches the moves one by one**: after a count-in, each section brings one move only (jabs, hooks, uppercuts, ducks, jumps, slips, the cover), then a section mixes them, and the final round, too: one a bar, each move twice in a row (in a play-test, every player-move learned alone was met, but a new move in every bar, and two a bar in the final round, were mostly missed). A section has six bars, five with a note and a breather. Every note has a symbol: an arrow of the punch's path (a jab straight at him, a hook sweeping in from the side, an uppercut up) or of the dodge (a slip to the side, a duck down, a jump up, the cover two gloves up). The notes are a bar (2.7 s) apart and show two seconds ahead; in the play-tests, a note on every beat, and then on every other beat, was too fast. There are no kicks: the vision saw them too late and too seldom.
 
@@ -138,7 +136,8 @@ The hero runs straight ahead into the picture, towards the horizon, as the pengu
 
 - **Running:** the hero runs by himself, at the pace of the song.
 - **Left and right:** absolute, as a mouse: where the player's torso is across the camera picture is where the hero is across the wide road (three lanes), continuously; in the middle of the picture, he runs in the middle lane. The camera picture lies faintly over the whole scene, with the lanes marked on it, so that he sees where he stands. Obstacles block two lanes (boulders, ice blocks, barriers with cones, snowmen), and a coin waits in the free one.
-- **Jump:** over holes in the road (crevasses on the ice). **Duck:** under branches across the road (in the city, a striped beam). **Punches:** at the rings, as in the fights.
+- **Jump:** over holes in the road (crevasses on the ice); a jump keeps the hero in the air for a while (1.2 s), so that it is forgiving. **Duck:** under branches across the road (in the city, a striped beam); a duck goes way down. **No boxing:** a run has no punches.
+- **The road:** in the prehistoric runs (the jungle, the glacier, the cave) a dusty path without lanes (a shader of dust, stones and worn tracks); in the city and the suburbs, a road with its dashes.
 - **Energy:** an obstacle which the player does not jump, duck or steer around costs energy (as an attack in a fight), breaks the combo and costs the grade; with no energy left he is down. The run is won with a grade of C or better.
 - **Fitness:** steps, jumps and squats, the most cardio-heavy scene.
 
@@ -163,9 +162,9 @@ Each world parodies a facet of Swiss life (or of what came before it), has its h
 
 | World | Hero | Surroundings | Levels | Satirical target |
 |---|---|---|---|---|
-| Ice Age | prehistoric | the jungle and the cave (the runs), the glacier (the mammoth), the savannah (the tiger), the cave (the bear) | the run through the jungle; the mammoth (jab, jump, duck); the sabre-tooth tiger (hook, slip, cover); the run through the cave; **boss:** the cave bear, in his cave | Prehistoric "we were here first" thinking |
-| Switzerland | the classic hero in his yellow suit | the city (the run and the street fights), the Rochartis laboratory | the run through the streets; the laundry-room Bünzli (jab, cover, duck); the nationalist (hook, slip, jump); the Rochartis scientist (uppercut, duck, cover); **boss:** the Rochartis CEO | Bünzli conformity, nationalism, big pharma greed (a fictional company) |
-| Winter | Samichlaus | the suburbs on a winter's evening | the run through the gardens; the snow-shovel Bünzli (jab, duck, jump); the hedge Bünzli (hook, cover, slip); the white sheep (uppercut, slip, jump); **boss:** the Nörgeli | Neighbourly pettiness, the herd which pushes out the one who differs, and grumbling |
+| Ice Age | prehistoric | the jungle, the glacier and the cave (the runs), the savannah (the tiger), the glacier (the mammoth), the cave (the bear) | the run through the jungle; the sabre-tooth tiger (hook, slip, cover); the run over the glacier; the mammoth (jab, cover, hook); the run through the cave; **boss:** the cave bear, in his cave | Prehistoric "we were here first" thinking |
+| Switzerland | the classic hero in his yellow suit | the city (the run and the street fights), the Rochartis laboratory | the run through the streets; the laundry-room Bünzli (jab, cover, hook); the nationalist (hook, slip, uppercut); the Rochartis scientist (uppercut, cover, slip); **boss:** the Rochartis CEO | Bünzli conformity, nationalism, big pharma greed (a fictional company) |
+| Winter | Samichlaus | the suburbs on a winter's evening | the run through the gardens; the snow-shovel Bünzli (jab, cover, uppercut); the hedge Bünzli (hook, cover, slip); the white sheep (uppercut, slip, hook); **boss:** the Nörgeli | Neighbourly pettiness, the herd which pushes out the one who differs, and grumbling |
 
 The white sheep turns a notorious political poster around (on which white sheep kick out a black one): the player boxes the smug white sheep, and the black sheep cheers him on from his corner.
 

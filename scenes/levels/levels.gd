@@ -18,8 +18,9 @@ const WORLDS := [
     {"id": "winter", "title": "WINTER", "hero": "samichlaus"},
 ]
 
-## The moves of a section which mixes them all.
-const ALL := "straight,hook,uppercut,duck,jump,slip,cover"
+## The moves of a section of a fight which mixes them all: the punches, the
+## slips and the cover (the jumps and the ducks are the runs').
+const ALL := "straight,hook,uppercut,slip,cover"
 
 ## The levels, in the order of play. Each has: its id, its world, its kind
 ## ("run" or "fight"), its title, the opponent ("" in a run; see Opponent),
@@ -38,33 +39,8 @@ const ALL_LEVELS := [
         "bpm": 90.0,
         "progression": 3,
         "transpose": 0,
-        "sections": ["steer", "jump", "duck", "steer,jump,duck", "straight,steer,jump,duck"],
+        "sections": ["steer", "jump", "duck", "steer,jump", "steer,jump,duck"],
         "lines": {},
-    },
-    {
-        "id": "mammoth",
-        "scenery": "ice",
-        "world": "ice_age",
-        "kind": "fight",
-        "title": "THE MAMMOTH",
-        "opponent": "mammoth",
-        "bpm": 86.0,
-        "progression": 0,
-        "transpose": -2,
-        "sections": ["straight", "jump", "duck", "straight,jump,duck", "straight,jump,duck"],
-        "lines":
-        {
-            "section":
-            [
-                "TOOOROOOO!",
-                "This valley is mine since the Ice Age!",
-                "Mind my feet, little monkey!",
-                "We were here first!",
-                "I never forget. Never!",
-            ],
-            "missed": ["Too slow, monkey!", "Ha! Thick skin!", "Was that a fly?"],
-            "landed": ["Stomped!", "Trunk mail!", "Ice cold!"],
-        },
     },
     {
         "id": "sabre_tiger",
@@ -92,6 +68,44 @@ const ALL_LEVELS := [
         },
     },
     {
+        "id": "glacier",
+        "scenery": "ice",
+        "world": "ice_age",
+        "kind": "run",
+        "title": "OVER THE GLACIER",
+        "opponent": "",
+        "bpm": 90.0,
+        "progression": 0,
+        "transpose": 2,
+        "sections": ["steer", "jump", "duck", "steer,duck", "steer,jump,duck"],
+        "lines": {},
+    },
+    {
+        "id": "mammoth",
+        "scenery": "ice",
+        "world": "ice_age",
+        "kind": "fight",
+        "title": "THE MAMMOTH",
+        "opponent": "mammoth",
+        "bpm": 86.0,
+        "progression": 0,
+        "transpose": -2,
+        "sections": ["straight", "cover", "hook", "straight,cover,hook", "straight,hook,cover"],
+        "lines":
+        {
+            "section":
+            [
+                "TOOOROOOO!",
+                "This valley is mine since the Ice Age!",
+                "Mind my feet, little monkey!",
+                "We were here first!",
+                "I never forget. Never!",
+            ],
+            "missed": ["Too slow, monkey!", "Ha! Thick skin!", "Was that a fly?"],
+            "landed": ["Stomped!", "Trunk mail!", "Ice cold!"],
+        },
+    },
+    {
         "id": "cave",
         "scenery": "cave",
         "world": "ice_age",
@@ -101,8 +115,7 @@ const ALL_LEVELS := [
         "bpm": 92.0,
         "progression": 2,
         "transpose": -3,
-        "sections":
-        ["steer", "duck", "jump", "steer,duck,jump", "straight,uppercut,steer,duck,jump"],
+        "sections": ["steer", "duck", "jump", "steer,duck,jump", "steer,jump,duck"],
         "lines": {},
     },
     {
@@ -115,7 +128,7 @@ const ALL_LEVELS := [
         "bpm": 94.0,
         "progression": 0,
         "transpose": -5,
-        "sections": ["uppercut", "straight,hook,uppercut", "duck,jump,slip", ALL, ALL],
+        "sections": ["uppercut", "straight,hook,uppercut", "slip,cover", ALL, ALL],
         "lines":
         {
             "section":
@@ -140,7 +153,7 @@ const ALL_LEVELS := [
         "bpm": 92.0,
         "progression": 1,
         "transpose": 2,
-        "sections": ["steer", "jump", "duck", "hook,steer,jump", "straight,hook,steer,jump,duck"],
+        "sections": ["steer", "jump", "duck", "steer,jump", "steer,jump,duck"],
         "lines": {},
     },
     {
@@ -153,8 +166,7 @@ const ALL_LEVELS := [
         "bpm": 88.0,
         "progression": 3,
         "transpose": 2,
-        "sections":
-        ["straight", "cover", "duck", "straight,cover,duck", "straight,hook,cover,duck"],
+        "sections": ["straight", "cover", "hook", "straight,cover,hook", "straight,hook,cover"],
         "lines":
         {
             "section":
@@ -179,7 +191,8 @@ const ALL_LEVELS := [
         "bpm": 96.0,
         "progression": 3,
         "transpose": 0,
-        "sections": ["hook", "slip", "jump", "hook,slip,jump", "straight,hook,uppercut,slip,jump"],
+        "sections":
+        ["hook", "slip", "uppercut", "hook,slip,uppercut", "straight,hook,uppercut,slip"],
         "lines":
         {
             "section":
@@ -204,7 +217,7 @@ const ALL_LEVELS := [
         "bpm": 98.0,
         "progression": 0,
         "transpose": 0,
-        "sections": ["uppercut", "duck", "cover", "uppercut,duck,cover", ALL],
+        "sections": ["uppercut", "cover", "slip", "uppercut,cover,slip", ALL],
         "lines":
         {
             "section":
@@ -229,7 +242,7 @@ const ALL_LEVELS := [
         "bpm": 100.0,
         "progression": 2,
         "transpose": 3,
-        "sections": ["straight,hook,uppercut", "duck,slip,cover", ALL, ALL, ALL],
+        "sections": ["straight,hook,uppercut", "slip,cover", ALL, ALL, ALL],
         "lines":
         {
             "section":
@@ -254,8 +267,7 @@ const ALL_LEVELS := [
         "bpm": 90.0,
         "progression": 1,
         "transpose": -3,
-        "sections":
-        ["steer", "jump", "duck", "uppercut,steer,jump", "straight,uppercut,steer,jump,duck"],
+        "sections": ["steer", "jump", "duck", "steer,duck", "steer,jump,duck"],
         "lines": {},
     },
     {
@@ -268,7 +280,14 @@ const ALL_LEVELS := [
         "bpm": 88.0,
         "progression": 1,
         "transpose": 5,
-        "sections": ["straight", "duck", "jump", "straight,duck,jump", "straight,hook,duck,jump"],
+        "sections":
+        [
+            "straight",
+            "cover",
+            "uppercut",
+            "straight,cover,uppercut",
+            "straight,hook,uppercut,cover"
+        ],
         "lines":
         {
             "section":
@@ -320,7 +339,7 @@ const ALL_LEVELS := [
         "progression": 3,
         "transpose": 0,
         "sections":
-        ["uppercut", "slip", "jump", "uppercut,slip,jump", "straight,hook,uppercut,slip,jump"],
+        ["uppercut", "slip", "hook", "uppercut,slip,hook", "straight,hook,uppercut,slip"],
         "lines":
         {
             "section":
@@ -345,8 +364,7 @@ const ALL_LEVELS := [
         "bpm": 100.0,
         "progression": 2,
         "transpose": -2,
-        "sections":
-        ["hook", "uppercut", "slip", "hook,uppercut,slip", "straight,hook,uppercut,slip,duck"],
+        "sections": ["straight,hook,uppercut", "slip,cover", ALL, ALL, ALL],
         "lines":
         {
             "section":
@@ -384,7 +402,7 @@ static func section_title(sections: PackedStringArray, section: int, run: bool) 
     var title := ""
     if moves.size() == 1:
         title = MOVE_TITLES[moves[0]][0]
-    elif moves.size() >= 7:
+    elif moves.size() >= 5:
         title = "EVERYTHING"
     else:
         var names := PackedStringArray()

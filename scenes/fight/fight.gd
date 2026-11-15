@@ -36,6 +36,8 @@ extends Node3D
 ## with [code]-- --replay=<recording.jsonl>[/code] to play a recorded video
 ## instead of the camera (see dev/replay/).
 ##
+## A run has no punches: the player steers, jumps and ducks.
+##
 ## The keyboard plays without the camera, too:
 ## [codeblock]
 ## J, K                       jab left, right
@@ -136,6 +138,7 @@ const CALLS := {
 ## an opponent are purple).
 const OBSTACLES := {
     "jungle": Color("8a5a2a"),
+    "ice": Color("8ac4e0"),
     "cave": Color("7a6a5a"),
     "city": Color("e8701a"),
     "suburbs": Color("c8302c"),
@@ -254,6 +257,10 @@ func _ready() -> void:
     boxer = Boxer.new()
     add_child(boxer)
     boxer.global_position = SPOT
+    _body.running = run
+    if run:
+        boxer.jump_height = 0.45
+        boxer.running_steps = float(level["bpm"]) / 60.0
 
     var layer := CanvasLayer.new()
     layer.layer = 2
@@ -570,6 +577,10 @@ func _spawn(entry: Dictionary) -> void:
 ## "right"), as the vision or the keyboard ([param source]) found it, and
 ## meet the note which it fits.
 func throw(kind: String, side: String, source := "vision") -> void:
+    if run:
+        # NOTE (mristin):
+        # No boxing in a run.
+        return
     var hand := 0 if side == "left" else 1
     _last_strike = "%s %s" % [side.to_upper(), "JAB" if kind == "straight" else kind.to_upper()]
     _last_strike_at = _time

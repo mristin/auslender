@@ -26,6 +26,10 @@ const DUCK_HOLD := 0.7
 const SLIP_HOLD := 0.6
 const JUMP_HOLD := 0.5
 
+## How long a found jump keeps him in the air in a run, in seconds: more
+## forgiving, as the penguin of Antarctic Adventure flies for a while.
+const RUN_JUMP_HOLD := 1.2
+
 ## How far from the middle of the picture (a share of its width) his torso
 ## moves him a lane's width over, and how far beyond the outer lanes he may go
 ## (in lanes).
@@ -58,6 +62,8 @@ var steer := 0.0
 var punches: Array = []
 ## The other moves found since the last read (for the log): [kind, side].
 var others: Array = []
+## Whether it is a run (the jumps last longer, see RUN_JUMP_HOLD).
+var running := false
 
 var _time := 0.0
 var _keyboard_jump_left := 0.0
@@ -72,7 +78,7 @@ func key(code: int) -> void:
         var move: Array = KEYS_PUNCH[code]
         punches.append([move[0], move[1], "keyboard"])
     elif code == KEY_X or code == KEY_SPACE:
-        _keyboard_jump_left = 0.5
+        _keyboard_jump_left = RUN_JUMP_HOLD if running else JUMP_HOLD
         _last_jump_at = _time
 
 
@@ -113,7 +119,7 @@ func read(vision: Node, delta: float) -> void:
             lean = maxf(lean, 0.8)
         ducking = ducking or _time - _last_duck_at <= DUCK_HOLD
         covering = covering or vision.IsCovering()
-    jumping = jumping or _time - _last_jump_at <= JUMP_HOLD
+    jumping = jumping or _time - _last_jump_at <= (RUN_JUMP_HOLD if running else JUMP_HOLD)
     _steer(vision, delta)
 
 
