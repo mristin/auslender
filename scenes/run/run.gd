@@ -2,8 +2,10 @@ class_name Run
 extends RhythmLevel
 
 ## A run through the land of the world (see RhythmLevel and Levels), as the
-## penguin of Antarctic Adventure: the land rolls towards the player on the
-## beat, and its obstacles come as notes. He steers continuously with his
+## penguin of Antarctic Adventure: he runs as fast as he lifts his knees, and
+## the land rolls towards him; its obstacles stand on the road (the chart's
+## notes, placed at the pace of the song), and the song is his time: he must
+## arrive before it ends. He steers continuously with his
 ## torso across the camera picture (see BodyReader): obstacles leave a free
 ## gap of their own width anywhere across the road (see RhythmNote); he
 ## jumps over holes and fallen trees (a flight, as in Quake) and ducks under
@@ -28,12 +30,18 @@ const OBSTACLES := {
 ## How wide the player's body is on each side (meters).
 const BODY_HALF := 0.25
 
+## The knees lifted a second (each knee counts) at which he runs at the pace
+## of the notes, and how many times as fast he may run at most.
+const NORMAL_CADENCE := 2.0
+const FASTEST := 1.5
+
 ## How high he flies in a jump, in meters.
 const JUMP_HEIGHT := 0.8
 
 var _veil: CameraVeil
 var _strip: PathStrip
 var _rolled := 0.0
+var _pace := 0.0
 
 
 func _is_run() -> bool:
@@ -44,7 +52,7 @@ func _build() -> void:
     _body.running = true
     boxer.jump_height = JUMP_HEIGHT
     boxer.jump_seconds = BodyReader.RUN_JUMP_HOLD
-    boxer.running_steps = float(level["bpm"]) / 60.0
+    boxer.running_steps = 0.001
     boxer.level_gaze = true
     hud.opponent_name = ""
     _strip = PathStrip.new()
@@ -61,20 +69,56 @@ func _build() -> void:
 
 
 func _idle_command() -> String:
-    return "RUN!"
+    if _pace < 0.15:
+        return "LIFT YOUR KNEES!"
+    return "RUN! %d%%" % roundi(_pace * 100.0)
 
 
 func _on_frame(delta: float) -> void:
     boxer.shift = lerpf(boxer.shift, _body.steer * Scenery.LANE, minf(1.0, delta * 10.0))
     boxer.face(SPOT + Vector3(boxer.shift, 0, -6.0), delta)
     _veil.steer = _body.steer
+    # NOTE (mristin):
+    # His arms pump at his own steps.
+    boxer.running_steps = maxf(0.001, _pace * NORMAL_CADENCE * 0.5)
     _strip.follow(boxer.shift, _rolled)
 
 
-## The land rolls towards him as fast as the notes.
-func _on_song(played: float, _attack: RhythmNote) -> void:
-    _rolled += played * SPEED
-    _scenery.scroll(played * SPEED)
+## He runs as fast as he lifts his knees (see VisionService.GetCadence: the
+## knees lifted a second): at NORMAL_CADENCE the notes come at their pace,
+## faster quicker (up to FASTEST), slower slower, and standing still stops
+## him. The obstacles stand on the road: he reaches them at his own pace.
+func _advance(played: float) -> void:
+    var cadence := 0.0
+    if vision != null and vision.GetStatus() != "Disabled":
+        cadence = vision.GetCadence()
+    var wanted := clampf(cadence / NORMAL_CADENCE, 0.0, FASTEST)
+    _pace = lerpf(_pace, wanted, minf(1.0, played * 3.0))
+    _t += played * _pace
+    var meters := played * _pace * SPEED
+    _rolled += meters
+    _scenery.scroll(meters)
+
+
+## Arrived at the end of the road: the run is won by the grade; the song (the
+## time) ran out before: too slow.
+func _check_end() -> void:
+    if _t >= _goal():
+        _finish(false)
+    elif _now >= _length:
+        _failed = true
+        _finish(false)
+
+
+## How far the road goes, in the time of the notes: to the end of its last
+## section.
+func _goal() -> float:
+    var bars: int = _core.IntroBars() + _sections.size() * 6
+    return bars * 4.0 * _beat_seconds
+
+
+func _progress() -> float:
+    return clampf(_t / maxf(_goal(), 1.0), 0.0, 1.0)
 
 
 ## The notes which do not span the road (none now; the rings of a fight)
@@ -82,7 +126,7 @@ func _on_song(played: float, _attack: RhythmNote) -> void:
 func _place(note: RhythmNote) -> void:
     if not note.spans_road():
         note.follow = boxer.shift
-    note.place(_now)
+    note.place(_t)
 
 
 func _set_up(note: RhythmNote, kind: String, side: String, at: float, arrive: Vector3) -> void:
@@ -108,7 +152,7 @@ func _set_up(note: RhythmNote, kind: String, side: String, at: float, arrive: Ve
 func _judge(note: RhythmNote) -> bool:
     if not note.kind.begins_with("lane_"):
         return false
-    if _now < note.at + _latency:
+    if _t < note.at + _latency:
         return true
     # NOTE (mristin):
     # Where he is on the road, not where he steers to.
@@ -130,4 +174,6 @@ func _on_hurt(_note: RhythmNote) -> void:
 
 
 func _banner(won: bool) -> String:
+    if _failed:
+        return "TOO SLOW!"
     return "ARRIVED!" if won else "TRY AGAIN"

@@ -130,6 +130,12 @@ var _unseen := 0.0
 var _sections := PackedStringArray()
 ## The song's time now, in seconds, and how long the song is.
 var _now := 0.0
+## The time of the notes, in seconds: in a fight the song's; in a run, how far
+## he ran, at the pace of the notes (see Run: he sets the pace).
+var _t := 0.0
+## Whether he lost before the end (e.g., a run too slow for its time).
+var _failed := false
+var _announced_bar := -1
 var _length := 0.0
 var _beat_seconds := 0.6
 var _intro_bars := 4
@@ -268,6 +274,9 @@ func _start() -> void:
     _chart = _core.Notes(_sections, seed, not _is_run(), not _is_run())
     _next = 0
     _now = 0.0
+    _t = 0.0
+    _failed = false
+    _announced_bar = -1
     _last_beat = -1
     _scoring.reset()
     _in_pose.clear()
@@ -361,8 +370,9 @@ func _run_song(delta: float) -> void:
         else:
             _now = lerpf(_now, heard, 0.1)
 
+    _advance(maxf(0.0, _now - before))
     _on_beats()
-    while _next < _chart.size() and _beat_time(_chart[_next]) - _now <= LEAD:
+    while _next < _chart.size() and _beat_time(_chart[_next]) - _t <= LEAD:
         _spawn(_chart[_next])
         _next += 1
 
@@ -371,25 +381,37 @@ func _run_song(delta: float) -> void:
         _place(note)
         if note.result == "" and not _judge(note):
             if note.side == "":
-                if attack == null and absf(_now - note.at) <= 0.7:
+                if attack == null and absf(_t - note.at) <= 0.7:
                     attack = note
-                _judge_dodge(note, _now >= note.at + _latency + DODGE_LATE)
-            elif _now > note.at + GOOD + _latency:
+                _judge_dodge(note, _t >= note.at + _latency + DODGE_LATE)
+            elif _t > note.at + GOOD + _latency:
                 _miss(note)
-        if note.is_done(_now):
+        if note.is_done(_t):
             _notes.erase(note)
             note.queue_free()
         if _phase == Phase.OVER:
             return
     _on_song(maxf(0.0, _now - before), attack)
+    _check_end()
 
+
+## Move the time of the notes on by the song's [param played] seconds: in a
+## fight, the song's time (a run, see Run, sets its own pace).
+func _advance(_played: float) -> void:
+    _t = _now
+
+
+## End the level when it is over: at the end of the song (in the subclasses,
+## besides).
+func _check_end() -> void:
     if _now >= _length:
         _finish(false)
 
 
-## Place a note at the song time now (the subclasses move some besides).
+## Place a note at the time of the notes now (the subclasses move some
+## besides).
 func _place(note: RhythmNote) -> void:
-    note.place(_now)
+    note.place(_t)
 
 
 ## Judge a note of the kind of level's own (in the subclasses); whether it did.
@@ -417,9 +439,14 @@ func _on_beats() -> void:
         hud.say(counts[in_bar], Hud.GOLD)
         _play("count" if in_bar < 3 else "bell")
     # NOTE (mristin):
-    # Each section is announced a bar ahead.
-    var coming: int = _core.SectionOf(bar + 1, _sections.size())
-    if in_bar == 0 and coming >= 0 and coming != _core.SectionOf(bar, _sections.size()):
+    # Each section is announced a bar ahead, by the time of the notes (in a
+    # run, as far as he ran).
+    var note_bar := floori(_t / (_beat_seconds * 4.0))
+    if note_bar == _announced_bar:
+        return
+    _announced_bar = note_bar
+    var coming: int = _core.SectionOf(note_bar + 1, _sections.size())
+    if coming >= 0 and coming != _core.SectionOf(note_bar, _sections.size()):
         var title := Levels.section_title(_sections, coming, _is_run())
         hud.announce(title, 2.0)
         var lines: Array = level["lines"].get("section", [])
@@ -441,7 +468,7 @@ func _spawn(entry: Dictionary) -> void:
     var note := RhythmNote.new()
     add_child(note)
     _set_up(note, kind, side, _beat_time(entry), SPOT + Vector3(x, offset.y, -offset.z))
-    note.place(_now)
+    note.place(_t)
     _notes.append(note)
 
 
@@ -470,7 +497,7 @@ func _learn_latency(seen_after: float) -> void:
 
 ## A note was met (struck or dodged): its points, the combo and the sound.
 func _met(note: RhythmNote, how: String) -> void:
-    note.judge(how, _now)
+    note.judge(how, _t)
     _scoring.met(how)
     var gap := note.kind.begins_with("lane_")
     var texts := {"perfect": "PERFECT!", "good": "GOOD", "dodged": "CLEAR!" if gap else "DODGED!"}
@@ -486,7 +513,7 @@ func _met(note: RhythmNote, how: String) -> void:
 
 
 func _miss(note: RhythmNote) -> void:
-    note.judge("miss", _now)
+    note.judge("miss", _t)
     _scoring.failed("miss")
     hud.say("MISS", Color(Hud.PAPER, 0.7))
     _play("miss")
@@ -530,7 +557,7 @@ func _on_dodged(_note: RhythmNote) -> void:
 
 ## An attack or an obstacle hit him: it costs him energy.
 func _hurt(note: RhythmNote) -> void:
-    note.judge("miss", _now)
+    note.judge("miss", _t)
     _scoring.failed("hit")
     _play("hurt")
     boxer.take_damage(HURT)
@@ -549,7 +576,7 @@ func _remember_pose() -> void:
     if _phase != Phase.PLAYING:
         return
     for pose in _body.dodges():
-        _in_pose[pose] = _now
+        _in_pose[pose] = _t
 
 
 ## End the level: [param knocked_out] if the player knocked the opponent out
@@ -572,7 +599,7 @@ func _finish(knocked_out: bool) -> void:
         why = "down"
         hud.banner = "DOWN!"
     else:
-        won = grade != "D"
+        won = grade != "D" and not _failed
         hud.banner = _banner(won)
     Profile.finish_level(level["id"], won, grade, _scoring.score)
     hud.results = _scoring.lines()
@@ -605,6 +632,12 @@ func _banner(won: bool) -> String:
     return "YOU WIN!" if won else "TIME!"
 
 
+## How far the level is, in [0, 1] (the song's time; a run, see Run, its
+## way).
+func _progress() -> float:
+    return clampf(_now / maxf(_length, 1.0), 0.0, 1.0)
+
+
 ## The opponent's health (-1 without one).
 func _his_health() -> float:
     return -1.0
@@ -632,7 +665,7 @@ func _update_hud() -> void:
     hud.score = _scoring.score
     hud.combo = _scoring.combo
     hud.multiplier = _scoring.multiplier()
-    hud.progress = clampf(_now / maxf(_length, 1.0), 0.0, 1.0)
+    hud.progress = _progress()
 
     # NOTE (mristin):
     # The call of the next attack or obstacle, in its last beat and a half.
@@ -643,7 +676,7 @@ func _update_hud() -> void:
         for note in _notes:
             if note.side != "" or note.result != "":
                 continue
-            var left := note.at - _now
+            var left := note.at - _t
             if left <= _beat_seconds * 1.5 and left > -0.1:
                 call = CALLS[note.kind][0]
                 call_from = CALLS[note.kind][1]
