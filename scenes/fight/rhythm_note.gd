@@ -91,6 +91,8 @@ var _theme := ""
 ## The obstacles of a steering note across the road (from, to; meters from
 ## the middle of the road).
 var _blocks: Array[Vector2] = []
+var _coin: MeshInstance3D
+var _symbol_parts: Array[MeshInstance3D] = []
 
 
 ## Set the note up: its move, its side ("" for an attack), the song time of
@@ -137,14 +139,15 @@ func spans_road() -> bool:
 ## Place it at the song time [param now], and fade it in and out.
 func place(now: float) -> void:
     var ahead := at - now
-    if result != "" and result != "miss":
+    var obstacle := spans_road()
+    if result != "" and result != "miss" and not obstacle:
         ahead = at - _judged_at
     var distance := ahead * _speed
     var spread := clampf(1.0 - distance / 6.0, 0.0, 1.0)
     var lane := _from.lerp(_arrive, smoothstep(0.0, 1.0, spread))
     position = Vector3(lane.x + follow, lane.y, _arrive.z - distance)
     var alpha := clampf((6.6 - distance) / 1.2, 0.0, 1.0)
-    if result != "":
+    if result != "" and not obstacle:
         var age := (now - _judged_at) / AFTER_SECONDS
         alpha *= clampf(1.0 - age, 0.0, 1.0)
         if result != "miss":
@@ -167,6 +170,16 @@ func place(now: float) -> void:
 func judge(how: String, now: float) -> void:
     result = how
     _judged_at = now
+    if spans_road():
+        # NOTE (mristin):
+        # An obstacle of a run stays as it is and rolls on past him (he
+        # ducked under it, or jumped over it); only its coin goes when he
+        # grabbed it, and its marks.
+        if how != "miss" and _coin != null:
+            _coin.visible = false
+        _label.visible = false
+        _symbol_parts_hide()
+        return
     if how == "miss":
         for material in _materials:
             var a := material.albedo_color.a
@@ -180,6 +193,10 @@ func judge(how: String, now: float) -> void:
 
 ## Whether it is done (judged and faded out), at the song time [param now].
 func is_done(now: float) -> bool:
+    if spans_road():
+        # NOTE (mristin):
+        # Once behind him, out of the view.
+        return result != "" and (now - at) * _speed > 3.0
     return result != "" and now - _judged_at > AFTER_SECONDS
 
 
@@ -355,6 +372,7 @@ func _add_symbol() -> void:
         instance.material_override = material
         instance.position.z = 0.01
         add_child(instance)
+        _symbol_parts.append(instance)
 
 
 ## A thick polyline (wider by [param grow] on each side), ending in an
@@ -399,6 +417,7 @@ func blocks(x: float, half: float) -> bool:
 ## the middle of the gap.
 func _build_lanes(color: Color) -> void:
     var coin := MeshInstance3D.new()
+    _coin = coin
     var disc := CylinderMesh.new()
     disc.top_radius = 0.16
     disc.bottom_radius = 0.16
@@ -425,7 +444,7 @@ func _build_lanes(color: Color) -> void:
 ## city, a beam with warning stripes; in the suburbs, a branch heavy with
 ## snow); to jump over, a hole in the road with a rim (in the ice, a
 ## crevasse).
-func _build_across(color: Color) -> void:
+func _build_across(_color: Color) -> void:
     if kind == "duck":
         var city := _theme == "city"
         var beam := _part(
@@ -450,14 +469,163 @@ func _build_across(color: Color) -> void:
                 )
                 tuft.rotation.z = (k % 3 - 1) * 0.3
         return
+    var random := RandomNumberGenerator.new()
+    random.seed = hash(at)
+    if _theme == "jungle" and random.randf() < 0.5:
+        _build_log(random)
+    else:
+        _build_hole(random)
+
+
+## A hole across the road, as real as flat polygons make it: an irregular pit,
+## its far inner wall showing the layers of the earth (blue ice going dark in
+## a crevasse of the glacier), black at the bottom; clods and stones around
+## its rim. Seen from above and ahead, the near wall hides, the far one shows.
+func _build_hole(random: RandomNumberGenerator) -> void:
+    var ice := _theme == "ice"
+    var earth := Color("6a4a2c")
+    var layers := [Color("7a5634"), Color("5a3c22"), Color("3a2616")]
+    var rim := Color("8a6a44")
+    match _theme:
+        "ice":
+            layers = [Color("9fd0ea"), Color("5a9ac8"), Color("2a5a8a")]
+            rim = Color("eef4fa")
+        "city":
+            layers = [Color("5a5a5e"), Color("6a4a2c"), Color("3a2616")]
+            rim = Color("3a3c42")
+        "suburbs":
+            layers = [Color("eef2f8"), Color("6a4a2c"), Color("3a2616")]
+            rim = Color("f4f7fb")
+        "cave":
+            layers = [Color("4a3a2e"), Color("2e241c"), Color("1a140f")]
+            rim = Color("5a4a3c")
     # NOTE (mristin):
-    # The hole: a dark pit in the road, its rim of earth (or ice) around it.
-    var rim := Color("bfe4f2") if _theme == "ice" else color
-    _part(Vector3(ROAD, 0.03, 0.9), Vector3(0, 0.01, 0), Color("120c08"))
-    for z in [-0.5, 0.5]:
-        _part(Vector3(ROAD + 0.1, 0.1, 0.12), Vector3(0, 0.05, z), rim)
-    for x in [-ROAD * 0.5, ROAD * 0.5]:
-        _part(Vector3(0.12, 0.1, 1.1), Vector3(x, 0.05, 0), rim)
+    # The outline: wobbling, wider than the road at its ends.
+    var half := ROAD * 0.5 + 0.2
+    var near: Array[Vector2] = []
+    var far: Array[Vector2] = []
+    var steps := 12
+    for k in range(steps + 1):
+        var x := lerpf(-half, half, float(k) / steps)
+        var ends := 1.0 - pow(absf(x) / half, 4.0)
+        near.append(Vector2(x, 0.45 * ends + random.randf_range(-0.06, 0.06)))
+        far.append(Vector2(x, -0.45 * ends + random.randf_range(-0.06, 0.06)))
+    # NOTE (mristin):
+    # The far inner wall in bands (the layers), from the far rim towards the
+    # middle; then the black depth.
+    var bands := layers.size()
+    for b in range(bands):
+        var top := float(b) / (bands + 1)
+        var bottom := float(b + 1) / (bands + 1)
+        _ribbon(far, near, top, bottom, layers[b])
+    _ribbon(
+        far, near, float(bands) / (bands + 1), 1.0, Color("0a0806") if not ice else Color("0a1a2a")
+    )
+    # NOTE (mristin):
+    # The rim: clods (or chunks of ice) and stones around it.
+    for k in range(steps + 1):
+        for edge in [near[k], far[k]]:
+            if random.randf() < 0.6:
+                var clod := _ball(
+                    random.randf_range(0.05, 0.12),
+                    Vector3(edge.x, 0.03, edge.y + random.randf_range(-0.08, 0.08)),
+                    rim
+                )
+                clod.scale = Vector3(1.3, 0.5, 1.0)
+    # NOTE (mristin):
+    # A few cracks running out of it.
+    for k in range(4):
+        var crack := _part(
+            Vector3(0.02, 0.012, random.randf_range(0.3, 0.7)),
+            Vector3(random.randf_range(-half, half), 0.02, 0.6 * (1 if k % 2 == 0 else -1)),
+            earth.darkened(0.4)
+        )
+        crack.rotation.y = random.randf_range(-0.6, 0.6)
+
+
+## A band of the hole between two outlines (the far one and the near one), from
+## the share [param top] of the way across to [param bottom].
+func _ribbon(
+    far: Array[Vector2], near: Array[Vector2], top: float, bottom: float, color: Color
+) -> void:
+    var mesh := ImmediateMesh.new()
+    mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+    for k in range(far.size() - 1):
+        var a := far[k].lerp(near[k], top)
+        var b := far[k + 1].lerp(near[k + 1], top)
+        var c := far[k + 1].lerp(near[k + 1], bottom)
+        var d := far[k].lerp(near[k], bottom)
+        for point in [a, b, c, a, c, d]:
+            mesh.surface_add_vertex(Vector3(point.x, 0.015, point.y))
+    mesh.surface_end()
+    var instance := MeshInstance3D.new()
+    instance.mesh = mesh
+    var material := _material(color, false)
+    material.cull_mode = BaseMaterial3D.CULL_DISABLED
+    material.no_depth_test = false
+    material.render_priority = 0
+    instance.material_override = material
+    _shape.add_child(instance)
+
+
+## A fallen tree across the path (in the jungle): a thick trunk of bark, with
+## broken stubs of branches, a tuft of leaves, and its roots at one end.
+func _build_log(random: RandomNumberGenerator) -> void:
+    var bark := Color("5a3e26")
+    var length := ROAD + 1.4
+    var radius := random.randf_range(0.26, 0.34)
+    var trunk := MeshInstance3D.new()
+    var cylinder := CylinderMesh.new()
+    cylinder.top_radius = radius * 0.85
+    cylinder.bottom_radius = radius
+    cylinder.height = length
+    cylinder.radial_segments = 9
+    trunk.mesh = cylinder
+    trunk.rotation.z = PI * 0.5
+    trunk.rotation.y = random.randf_range(-0.12, 0.12)
+    trunk.position = Vector3(0, radius, 0)
+    trunk.material_override = _material(bark, false)
+    _shape.add_child(trunk)
+    # NOTE (mristin):
+    # The bark's grooves along it, the stubs of the branches, moss.
+    for k in range(5):
+        var groove := _part(
+            Vector3(length * 0.9, 0.03, 0.04),
+            Vector3(0, radius + random.randf_range(-0.1, 0.25), random.randf_range(-0.2, 0.2)),
+            bark.darkened(0.35)
+        )
+        groove.rotation.y = trunk.rotation.y
+    for k in range(random.randi_range(2, 4)):
+        var stub := _part(
+            Vector3(0.08, 0.45, 0.08),
+            Vector3(
+                random.randf_range(-length * 0.4, length * 0.4),
+                radius * 2.0 + 0.15,
+                random.randf_range(-0.1, 0.1)
+            ),
+            bark
+        )
+        stub.rotation.z = random.randf_range(-0.6, 0.6)
+    for k in range(3):
+        var at := Vector3(random.randf_range(-length * 0.4, length * 0.4), radius * 1.8, 0)
+        var moss := _ball(random.randf_range(0.12, 0.2), at, Color("4a7a2a"))
+        moss.scale = Vector3(1.5, 0.5, 1.0)
+    var top_end := (1.0 if random.randf() < 0.5 else -1.0) * length * 0.5
+    for k in range(4):
+        _ball(
+            random.randf_range(0.3, 0.5),
+            Vector3(
+                top_end + random.randf_range(-0.3, 0.3),
+                0.5 + random.randf_range(0, 0.4),
+                random.randf_range(-0.4, 0.4)
+            ),
+            Color("3f7a2a")
+        )
+    for k in range(5):
+        var root := _part(
+            Vector3(0.06, 0.6, 0.06), Vector3(-top_end, radius, 0), bark.darkened(0.2)
+        )
+        root.rotation = Vector3(random.randf_range(-1.0, 1.0), 0, random.randf_range(-1.2, 1.2))
 
 
 ## A block in a lane, as the surroundings have it: a boulder (in the jungle
@@ -518,3 +686,10 @@ func _ball(radius: float, at: Vector3, color: Color) -> MeshInstance3D:
     instance.material_override = _material(color, false)
     _shape.add_child(instance)
     return instance
+
+
+## Hide the symbol and the approach ring (once judged).
+func _symbol_parts_hide() -> void:
+    for part in _symbol_parts:
+        part.visible = false
+    _approach.visible = false

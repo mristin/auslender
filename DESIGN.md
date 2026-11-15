@@ -136,7 +136,7 @@ The hero runs straight ahead into the picture, towards the horizon, as the pengu
 
 - **Running:** the hero runs by himself, at the pace of the song.
 - **Left and right:** absolute, as a mouse: where the player's torso is across the camera picture is where the hero is across the wide road (three lanes), continuously; in the middle of the picture, he runs in the middle lane. The camera picture lies faintly over the whole scene, with the lanes marked on it, so that he sees where he stands. Obstacles block two lanes (boulders, ice blocks, barriers with cones, snowmen), and a coin waits in the free one.
-- **Jump:** over holes in the road (crevasses on the ice); a jump keeps the hero in the air for a while (1.2 s), so that it is forgiving. **Duck:** under branches across the road (in the city, a striped beam); a duck goes way down. **No boxing:** a run has no punches.
+- **Jump:** over holes in the road (crevasses on the ice); a jump is a flight of two seconds up and down, as in Quake, so that it is forgiving. The obstacles stay as they are: the hero ducks under a branch and flies over a hole, and they roll on past him. **Duck:** under branches across the road (in the city, a striped beam); a duck goes way down. **No boxing:** a run has no punches.
 - **The road:** in the prehistoric runs (the jungle, the glacier, the cave) a dusty path without lanes (a shader of dust, stones and worn tracks); in the city and the suburbs, a road with its dashes.
 - **Energy:** an obstacle which the player does not jump, duck or steer around costs energy (as an attack in a fight), breaks the combo and costs the grade; with no energy left he is down. The run is won with a grade of C or better.
 - **Fitness:** steps, jumps and squats, the most cardio-heavy scene.

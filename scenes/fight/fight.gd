@@ -259,7 +259,8 @@ func _ready() -> void:
     boxer.global_position = SPOT
     _body.running = run
     if run:
-        boxer.jump_height = 0.45
+        boxer.jump_height = 0.8
+        boxer.jump_seconds = BodyReader.RUN_JUMP_HOLD
         boxer.running_steps = float(level["bpm"]) / 60.0
 
     var layer := CanvasLayer.new()

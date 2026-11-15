@@ -125,6 +125,10 @@ var running_steps := 0.0
 ## How high he flies in a jump, in meters (higher in a run).
 var jump_height := 0.25
 
+## How long a jump flies (in a run; 0 in a fight, where he hops only while
+## he jumps), in seconds.
+var jump_seconds := 0.0
+
 ## Whether he is in a jump now.
 var jumping := false
 
@@ -152,6 +156,7 @@ var _kick_time: Array[float] = [-1.0, -1.0]
 var _shake := 0.0
 var _hurt := 0.0
 var _jump_height := 0.0
+var _flight := -1.0
 
 
 func _ready() -> void:
@@ -264,7 +269,20 @@ func reset() -> void:
 ## Look at the opponent at [param opponent], and set the eyes from the lean,
 ## the duck and the jump.
 func face(opponent: Vector3, delta: float) -> void:
-    _jump_height = lerpf(_jump_height, jump_height if jumping else 0.0, minf(1.0, delta * 10.0))
+    if jump_seconds > 0.0:
+        # NOTE (mristin):
+        # A jump of a run: a flight up and down over jump_seconds, as in
+        # Quake, once it starts.
+        if jumping and _flight < 0.0:
+            _flight = 0.0
+        if _flight >= 0.0:
+            _flight += delta / jump_seconds
+            _jump_height = jump_height * 4.0 * _flight * (1.0 - _flight)
+            if _flight >= 1.0:
+                _flight = -1.0
+                _jump_height = 0.0
+    else:
+        _jump_height = lerpf(_jump_height, jump_height if jumping else 0.0, minf(1.0, delta * 10.0))
     var shake := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * _shake * 0.03
     var eyes := Vector3(shift + lean * LEAN_SHIFT, EYES - duck * DUCK_DROP + _jump_height, 0)
     var look := opponent + Vector3(0, 1.45, 0)

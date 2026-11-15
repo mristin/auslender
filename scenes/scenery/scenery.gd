@@ -56,6 +56,10 @@ const DUSTY := {
 
 const _DUST := preload("res://scenes/scenery/road_dust.gdshader")
 
+## The sidewalks of the city: how wide, and how high over the road (meters).
+const SIDEWALK := 1.3
+const SIDEWALK_HEIGHT := 0.12
+
 ## How far the edge of the ground of a fight is from the middle, in meters.
 const FIGHT_EDGE := 1.4
 
@@ -167,6 +171,8 @@ func setup(look: String, player_spot: Vector3, road: bool) -> void:
                         )
                     )
                     z -= 2.5
+    if _look == "city":
+        _build_sidewalks()
     if _look == "lab":
         _build_lab()
     else:
@@ -226,7 +232,10 @@ func _build_row(row: String) -> void:
             var prop := Node3D.new()
             add_child(prop)
             var x: float = side * (_edge + _random.randf_range(across.x, across.y))
-            prop.position = spot + Vector3(x, 0, z)
+            # NOTE (mristin):
+            # In the city, the small things stand on the sidewalk.
+            var y := SIDEWALK_HEIGHT if _look == "city" and row == "near" else 0.0
+            prop.position = spot + Vector3(x, y, z)
             match _look:
                 "savannah":
                     PropsWild.savannah(prop, _random, row)
@@ -341,3 +350,35 @@ func _build_lab() -> void:
         Flat.box(
             self, Vector3(1.6, 0.06, 0.4), spot + Vector3(0, 3.85, 2.0 - k * 3.5), Color("fffbe8")
         )
+
+
+## The sidewalks along both sides of the city's road: raised pavement, a
+## light curb, and joints which roll with a run.
+func _build_sidewalks() -> void:
+    var length := AHEAD + BEHIND
+    var middle_z := (BEHIND - AHEAD) * 0.5
+    for side in [-1.0, 1.0]:
+        var x: float = side * (_edge + SIDEWALK * 0.5)
+        Flat.box(
+            self,
+            Vector3(SIDEWALK, SIDEWALK_HEIGHT, length),
+            spot + Vector3(x, SIDEWALK_HEIGHT * 0.5, middle_z),
+            Color("b4b0a8")
+        )
+        Flat.box(
+            self,
+            Vector3(0.14, SIDEWALK_HEIGHT + 0.01, length),
+            spot + Vector3(side * (_edge + 0.07), SIDEWALK_HEIGHT * 0.5, middle_z),
+            Color("d8d4cc")
+        )
+        var z := BEHIND
+        while z > -AHEAD:
+            _props.append(
+                Flat.box(
+                    self,
+                    Vector3(SIDEWALK, 0.01, 0.03),
+                    spot + Vector3(x, SIDEWALK_HEIGHT + 0.005, z),
+                    Color("8a867e")
+                )
+            )
+            z -= 1.2
