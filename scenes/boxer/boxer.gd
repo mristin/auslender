@@ -72,8 +72,8 @@ const GUARD := Vector3(0.15, -0.2, -0.5)
 ## The arms: where the shoulders are (from the eyes; x for the right, the left
 ## is mirrored), and how long the upper arm and the forearm are, in meters.
 const SHOULDER := Vector3(0.22, -0.3, -0.02)
-const UPPER_ARM := 0.34
-const FOREARM := 0.4
+const UPPER_ARM := 0.38
+const FOREARM := 0.44
 
 ## The legs: where the hips are, and how long the thigh and the shin are.
 const HIP := Vector3(0.12, -0.75, 0.05)
@@ -490,7 +490,9 @@ func _punch_path(i: int, kind: String, p: float, rest: Vector3) -> Array:
     # NOTE (mristin):
     # A straight: right out to the middle, and back.
     var sign_x := -1.0 if i == 0 else 1.0
-    var far := Vector3(-sign_x * 0.05, -0.1, -0.75)
+    # NOTE (mristin):
+    # At the opponent's face, close in front of him (see Fight).
+    var far := Vector3(-sign_x * 0.08, 0.02, -0.86)
     return [rest.lerp(far, sin(p * PI)), Vector3(sign_x * 0.5, -1.0, 0.0)]
 
 
@@ -547,7 +549,7 @@ func _uppercut_path(i: int, p: float, rest: Vector3) -> Array:
 ## A point on the swing of a hook around the shoulder, at the angle (0 straight
 ## ahead, positive out to the side), at the height of the chin.
 static func _arc(sign_x: float, angle: float) -> Vector3:
-    var radius := 0.6
+    var radius := 0.75
     return Vector3(sign_x * radius * sin(angle), 0.2, -radius * cos(angle))
 
 

@@ -12,8 +12,9 @@ extends RhythmLevel
 ## out in the final section if he met most of the notes. A frame on every beat
 ## rolls towards the player (see BeatTunnel).
 
-## How far the opponent stands in front of the player, in meters.
-const OPPONENT_DISTANCE := 2.0
+## How far the opponent stands in front of the player, in meters: close, so
+## that the punches land on his head.
+const OPPONENT_DISTANCE := 1.05
 
 ## A move this close to a note (in seconds), but not close enough to meet it,
 ## still teaches the latency, and tells the player whether he was late.
@@ -35,6 +36,10 @@ const GOOD_SHARE := 0.85
 ## and his health before the final section (he holds on until then).
 const KNOCK_OUT_SHARE := 0.75
 const HOLDS_ON := 8.0
+
+## How long before a punch's beat he opens his guard where it is to land, in
+## seconds.
+const OPEN_AHEAD := 1.6
 
 ## He counters a wrong move at most this often, in seconds; and a wrong
 ## dodge counts from this long before the attack's beat.
@@ -76,10 +81,6 @@ func _build() -> void:
     add_child(_tunnel)
 
 
-func _help() -> String:
-    return "Keys: J K jab, U I hook, H L uppercut, Q E slip, B cover, R again, Esc Esc leave"
-
-
 func _set_up(note: RhythmNote, kind: String, side: String, at: float, arrive: Vector3) -> void:
     super._set_up(note, kind, side, at, arrive)
     if side == "" and ATTACK_OF.has(kind):
@@ -114,6 +115,19 @@ func _on_song(_played: float, _attack: RhythmNote) -> void:
         if attack[2] and not attack[3] and seconds >= 0.1:
             attack[3] = true
             opponent.stumble()
+    # NOTE (mristin):
+    # He opens his guard where the next punch is to land (see
+    # Opponent.open_for), from a while before its beat.
+    var opening: RhythmNote = null
+    for note in _notes:
+        var ahead := note.at - _now
+        if note.side != "" and note.result == "" and ahead < OPEN_AHEAD and ahead > -0.1:
+            if opening == null or note.at < opening.at:
+                opening = note
+    if opening != null:
+        opponent.open_for(opening.kind, opening.side)
+    else:
+        opponent.open_for("", "")
     if current.is_empty():
         opponent.perform("", 0.0)
     else:
@@ -132,7 +146,7 @@ func _on_song(_played: float, _attack: RhythmNote) -> void:
 
 
 ## Throw a punch of the player ("straight", "hook" or "uppercut"; "left" or
-## "right"), as the vision or the keyboard ([param source]) found it, and
+## "right"), as the vision ([param source]) found it, and
 ## meet the note which it fits.
 func throw(kind: String, side: String, source := "vision") -> void:
     var hand := 0 if side == "left" else 1

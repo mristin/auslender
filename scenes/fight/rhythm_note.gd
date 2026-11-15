@@ -33,6 +33,8 @@ const MISSED := Color(0.55, 0.55, 0.6)
 const LANE := Scenery.LANE
 const ROAD := LANE * 3.0 + 0.4
 
+const _HOLE := preload("res://scenes/run/hole.gdshader")
+
 const LABELS := {
     "lane_left": "",
     "lane_middle": "",
@@ -477,90 +479,42 @@ func _build_across(_color: Color) -> void:
 ## a crevasse of the glacier), black at the bottom; clods and stones around
 ## its rim. Seen from above and ahead, the near wall hides, the far one shows.
 func _build_hole(random: RandomNumberGenerator) -> void:
-    var ice := _theme == "ice"
-    var earth := Color("6a4a2c")
-    var layers := [Color("7a5634"), Color("5a3c22"), Color("3a2616")]
-    var rim := Color("8a6a44")
-    match _theme:
-        "ice":
-            layers = [Color("9fd0ea"), Color("5a9ac8"), Color("2a5a8a")]
-            rim = Color("eef4fa")
-        "city":
-            layers = [Color("5a5a5e"), Color("6a4a2c"), Color("3a2616")]
-            rim = Color("3a3c42")
-        "suburbs":
-            layers = [Color("eef2f8"), Color("6a4a2c"), Color("3a2616")]
-            rim = Color("f4f7fb")
-        "cave":
-            layers = [Color("4a3a2e"), Color("2e241c"), Color("1a140f")]
-            rim = Color("5a4a3c")
     # NOTE (mristin):
-    # The outline: wobbling, wider than the road at its ends.
-    var half := ROAD * 0.5 + 0.2
-    var near: Array[Vector2] = []
-    var far: Array[Vector2] = []
-    var steps := 12
-    for k in range(steps + 1):
-        var x := lerpf(-half, half, float(k) / steps)
-        var ends := 1.0 - pow(absf(x) / half, 4.0)
-        near.append(Vector2(x, 0.45 * ends + random.randf_range(-0.06, 0.06)))
-        far.append(Vector2(x, -0.45 * ends + random.randf_range(-0.06, 0.06)))
-    # NOTE (mristin):
-    # The far inner wall in bands (the layers), from the far rim towards the
-    # middle; then the black depth.
-    var bands := layers.size()
-    for b in range(bands):
-        var top := float(b) / (bands + 1)
-        var bottom := float(b + 1) / (bands + 1)
-        _ribbon(far, near, top, bottom, layers[b])
-    _ribbon(
-        far, near, float(bands) / (bands + 1), 1.0, Color("0a0806") if not ice else Color("0a1a2a")
+    # The colors of the rim, the wall, its layers and the depth, by the
+    # surroundings.
+    var tones := {
+        "ice": [Color("eef4fa"), Color("8ac4e8"), Color("4a8ac0"), Color("06142a")],
+        "city": [Color("3a3c42"), Color("6a4a2c"), Color("4a3220"), Color("080605")],
+        "suburbs": [Color("f4f7fb"), Color("6a4a2c"), Color("4a3220"), Color("080605")],
+        "cave": [Color("5a4a3c"), Color("3e3026"), Color("2a2018"), Color("040302")],
+    }
+    var colors: Array = tones.get(
+        _theme, [Color("8a6a44"), Color("7a5634"), Color("5a3c22"), Color("080605")]
     )
+    var quad := MeshInstance3D.new()
+    var plane := PlaneMesh.new()
+    plane.size = Vector2(ROAD + 1.0, 1.8)
+    quad.mesh = plane
+    quad.position = Vector3(0, 0.02, 0)
+    var material := ShaderMaterial.new()
+    material.shader = _HOLE
+    material.set_shader_parameter("rim", colors[0])
+    material.set_shader_parameter("wall", colors[1])
+    material.set_shader_parameter("strata", colors[2])
+    material.set_shader_parameter("deep", colors[3])
+    material.set_shader_parameter("size", plane.size)
+    material.set_shader_parameter("hole", Vector2(ROAD * 0.5 + 0.1, 0.5))
+    material.set_shader_parameter("seed", random.randf() * 100.0)
+    quad.material_override = material
+    _shape.add_child(quad)
     # NOTE (mristin):
-    # The rim: clods (or chunks of ice) and stones around it.
-    for k in range(steps + 1):
-        for edge in [near[k], far[k]]:
-            if random.randf() < 0.6:
-                var clod := _ball(
-                    random.randf_range(0.05, 0.12),
-                    Vector3(edge.x, 0.03, edge.y + random.randf_range(-0.08, 0.08)),
-                    rim
-                )
-                clod.scale = Vector3(1.3, 0.5, 1.0)
-    # NOTE (mristin):
-    # A few cracks running out of it.
-    for k in range(4):
-        var crack := _part(
-            Vector3(0.02, 0.012, random.randf_range(0.3, 0.7)),
-            Vector3(random.randf_range(-half, half), 0.02, 0.6 * (1 if k % 2 == 0 else -1)),
-            earth.darkened(0.4)
+    # A few stones on its rim, for the depth.
+    for k in range(random.randi_range(4, 8)):
+        var at := Vector3(
+            random.randf_range(-ROAD * 0.5, ROAD * 0.5), 0.04, 0.55 * (1 if k % 2 == 0 else -1)
         )
-        crack.rotation.y = random.randf_range(-0.6, 0.6)
-
-
-## A band of the hole between two outlines (the far one and the near one), from
-## the share [param top] of the way across to [param bottom].
-func _ribbon(
-    far: Array[Vector2], near: Array[Vector2], top: float, bottom: float, color: Color
-) -> void:
-    var mesh := ImmediateMesh.new()
-    mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
-    for k in range(far.size() - 1):
-        var a := far[k].lerp(near[k], top)
-        var b := far[k + 1].lerp(near[k + 1], top)
-        var c := far[k + 1].lerp(near[k + 1], bottom)
-        var d := far[k].lerp(near[k], bottom)
-        for point in [a, b, c, a, c, d]:
-            mesh.surface_add_vertex(Vector3(point.x, 0.015, point.y))
-    mesh.surface_end()
-    var instance := MeshInstance3D.new()
-    instance.mesh = mesh
-    var material := _material(color, false)
-    material.cull_mode = BaseMaterial3D.CULL_DISABLED
-    material.no_depth_test = false
-    material.render_priority = 0
-    instance.material_override = material
-    _shape.add_child(instance)
+        var stone := _ball(random.randf_range(0.05, 0.11), at, colors[0].darkened(0.25))
+        stone.scale = Vector3(1.3, 0.55, 1.0)
 
 
 ## A fallen tree across the path (in the jungle): a thick trunk of bark, with

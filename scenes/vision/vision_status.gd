@@ -23,12 +23,12 @@ func text(service: Node, timing: bool) -> String:
         )
 
     var messages := {
-        "Disabled": tr("The camera is off. Use the keyboard."),
+        "Disabled": tr("The camera is off."),
         "SearchingCamera": tr("Looking for a camera..."),
         "LoadingModels": tr("Loading..."),
         "NoCamera": _no_camera(service),
-        "ModelsMissing": tr("The models are missing. Use the keyboard."),
-        "Failed": tr("The camera failed. Use the keyboard."),
+        "ModelsMissing": tr("The models are missing."),
+        "Failed": tr("The camera failed."),
     }
     return messages.get(status, "")
 
@@ -40,7 +40,7 @@ func _no_camera(service: Node) -> String:
         service.GetNoCameraReason() if service.has_method("GetNoCameraReason") else ""
     )
     if reason == "unsupported":
-        return tr("The camera does not work on Windows yet. Use the keyboard.")
+        return tr("The camera does not work on Windows yet.")
     if reason == "denied":
-        return tr("Windows does not allow the camera. Use the keyboard.")
-    return tr("No camera found. Use the keyboard.")
+        return tr("Windows does not allow the camera.")
+    return tr("No camera found.")

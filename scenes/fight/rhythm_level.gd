@@ -28,22 +28,8 @@ extends Node3D
 ## with [code]-- --replay=<recording.jsonl>[/code] to play a recorded video
 ## instead of the camera (see dev/replay/).
 ##
-## The keyboard plays without the camera, too:
-## [codeblock]
-## J, K                       jab left, right (in a fight)
-## U, I                       hook left, right (in a fight)
-## H, L                       uppercut left, right (in a fight)
-## Q, E (hold)                slip left, right (in a fight)
-## B (hold)                   cover the head (in a fight)
-## Z (hold)                   duck (in a run)
-## X or Space                 jump (in a run)
-## Left, Right (hold)         steer (in a run)
-## C                          set the home spot again
-## R                          play again
-## F1                         hide or show the camera panel
-## F3                         the next look of the hero
-## Esc, Esc                   leave the level
-## [/codeblock]
+## A level is played with the body only, not the keyboard (Esc twice leaves
+## it).
 
 ## The phases of a level.
 enum Phase { WAITING, PLAYING, OVER }
@@ -59,12 +45,18 @@ const SPOT := Vector3(0, 0, 1.5)
 ## How far ahead of the player the notes arrive (most of them), in meters.
 const HIT_AHEAD := 0.75
 
+## How far ahead the punches arrive, in meters: on the face of the opponent,
+## who stands close (see Fight.OPPONENT_DISTANCE).
+const PUNCH_AHEAD := 0.88
+
 ## Where each note arrives, from the player's eyes on the floor (x to his
-## right, y up from the floor, z ahead): the left hand's are mirrored.
+## right, y up from the floor, z ahead): the left hand's are mirrored. The
+## punches arrive on the opponent's head: a jab on his face, a hook at its
+## side, an uppercut at his chin.
 const ARRIVE := {
-    "straight": Vector3(0.28, 1.45, HIT_AHEAD),
-    "hook": Vector3(0.45, 1.5, HIT_AHEAD),
-    "uppercut": Vector3(0.26, 1.15, HIT_AHEAD),
+    "straight": Vector3(0.12, 1.66, PUNCH_AHEAD),
+    "hook": Vector3(0.3, 1.64, PUNCH_AHEAD),
+    "uppercut": Vector3(0.1, 1.5, PUNCH_AHEAD),
     "cover": Vector3(0.0, 1.55, HIT_AHEAD),
     "slip_left": Vector3(0.4, 1.55, HIT_AHEAD),
     "slip_right": Vector3(-0.4, 1.55, HIT_AHEAD),
@@ -189,7 +181,6 @@ func _ready() -> void:
     panel.position = Vector2(24, 140)
     hud = Hud.new()
     add_child(hud)
-    hud.help = _help()
     var overlay := CanvasLayer.new()
     overlay.layer = 3
     add_child(overlay)
@@ -264,11 +255,6 @@ func _is_run() -> bool:
 ## Build what the kind of level has besides (in the subclasses).
 func _build() -> void:
     pass
-
-
-## The keys, as the HUD shows them.
-func _help() -> String:
-    return "Keys: R again, Esc Esc leave"
 
 
 ## Start the level: wait for the player, then play the song from the start.
@@ -737,32 +723,18 @@ func _input_source() -> String:
         return "replay"
     if vision != null and vision.GetStatus() != "Disabled":
         return "camera"
-    return "keyboard"
+    return "none"
 
 
+## The levels are played with the body only: the only key is Esc, twice, to
+## leave the level.
 func _unhandled_input(event: InputEvent) -> void:
     if not event is InputEventKey:
         return
     var key := event as InputEventKey
-    if not key.pressed or key.echo:
+    if not key.pressed or key.echo or key.keycode != KEY_ESCAPE:
         return
-    _body.key(key.keycode)
-    match key.keycode:
-        KEY_C:
-            if vision != null:
-                vision.Recalibrate()
-        KEY_R:
-            if _phase != Phase.OVER:
-                _log.write("fight_end", {"why": "restarted", "song": _now, "score": _scoring.score})
-            _start()
-        KEY_F1:
-            panel.visible = not panel.visible
-        KEY_F3:
-            RiggedFigure.chosen = RiggedFigure.next_hero()
-            panel.rebuild_figure()
-            hud.say(RiggedFigure.chosen.to_upper(), Hud.GOLD)
-        KEY_ESCAPE:
-            if _quit.press():
-                if _phase != Phase.OVER:
-                    _log.write("fight_end", {"why": "left", "song": _now, "score": _scoring.score})
-                Flow.levels(get_tree())
+    if _quit.press():
+        if _phase != Phase.OVER:
+            _log.write("fight_end", {"why": "left", "song": _now, "score": _scoring.score})
+        Flow.levels(get_tree())

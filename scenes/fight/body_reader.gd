@@ -1,8 +1,9 @@
 class_name BodyReader
 extends RefCounted
 
-## Read the player's body for a rhythm level (see Fight), from the vision or
-## the keyboard: the punches which the move classifier found, the dodges he
+## Read the player's body for a rhythm level (see RhythmLevel), from the
+## vision (the levels are played with the body only, not the keyboard): the
+## punches which the move classifier found, the dodges he
 ## is in (the lean, the duck, the jump, the cover), and in a run the lane in
 ## which he stands.
 ##
@@ -14,8 +15,7 @@ extends RefCounted
 ## camera picture (the middle of his shoulders and his hips), absolutely, as a
 ## mouse: in the middle of the picture, he runs in the middle lane; he moves
 ## across the road as he moves across the picture, continuously, as the
-## penguin of Antarctic Adventure. The keyboard steers with the arrows (or A
-## and D), gliding.
+## penguin of Antarctic Adventure.
 
 ## A lean this far (in units, about the shoulder width) is a slip, as
 ## LeanGauge.SlipFrom.
@@ -36,19 +36,6 @@ const RUN_JUMP_HOLD := 1.5
 const STEER_LANE := 0.1
 const STEER_MOST := 1.3
 
-## How fast the keys glide him across, in lanes a second.
-const STEER_KEYS := 2.5
-
-## The keys of the punches.
-const KEYS_PUNCH := {
-    KEY_J: ["straight", "left"],
-    KEY_K: ["straight", "right"],
-    KEY_U: ["hook", "left"],
-    KEY_I: ["hook", "right"],
-    KEY_H: ["uppercut", "left"],
-    KEY_L: ["uppercut", "right"],
-}
-
 ## What he does now (after [method read]).
 var lean := 0.0
 var ducking := false
@@ -66,34 +53,19 @@ var others: Array = []
 var running := false
 
 var _time := 0.0
-var _keyboard_jump_left := 0.0
 var _last_jump_at := -10.0
 var _last_duck_at := -10.0
 var _last_slip_at := {"left": -10.0, "right": -10.0}
 
 
-## A key was pressed: a punch, or the jump.
-func key(code: int) -> void:
-    if KEYS_PUNCH.has(code):
-        var move: Array = KEYS_PUNCH[code]
-        punches.append([move[0], move[1], "keyboard"])
-    elif code == KEY_X or code == KEY_SPACE:
-        _keyboard_jump_left = RUN_JUMP_HOLD if running else JUMP_HOLD
-        _last_jump_at = _time
-
-
-## Read his body now, from the vision (null: the keyboard only).
+## Read his body now, from the vision (null: nothing; the levels are played
+## with the body only, not the keyboard).
 func read(vision: Node, delta: float) -> void:
     _time += delta
-    _keyboard_jump_left = maxf(0.0, _keyboard_jump_left - delta)
     lean = 0.0
-    if Input.is_key_pressed(KEY_Q):
-        lean -= 0.8
-    if Input.is_key_pressed(KEY_E):
-        lean += 0.8
-    ducking = Input.is_key_pressed(KEY_Z)
-    covering = Input.is_key_pressed(KEY_B)
-    jumping = _keyboard_jump_left > 0.0
+    ducking = false
+    covering = false
+    jumping = false
 
     if vision != null:
         for move in vision.PollMoves():
@@ -108,11 +80,10 @@ func read(vision: Node, delta: float) -> void:
                     punches.append([move["kind"], move["side"], "vision"])
             if not move["kind"] in ["straight", "hook", "uppercut"]:
                 others.append([move["kind"], move.get("side", "")])
-        if lean == 0.0:
-            # NOTE (mristin):
-            # The lean against where the player stood lately (see
-            # LeanGauge), in units, positive to his right.
-            lean = vision.GetLean()
+        # NOTE (mristin):
+        # The lean against where the player stood lately (see LeanGauge), in
+        # units, positive to his right.
+        lean = vision.GetLean()
         if _time - _last_slip_at["left"] <= SLIP_HOLD:
             lean = minf(lean, -0.8)
         elif _time - _last_slip_at["right"] <= SLIP_HOLD:
@@ -120,7 +91,7 @@ func read(vision: Node, delta: float) -> void:
         ducking = ducking or _time - _last_duck_at <= DUCK_HOLD
         covering = covering or vision.IsCovering()
     jumping = jumping or _time - _last_jump_at <= (RUN_JUMP_HOLD if running else JUMP_HOLD)
-    _steer(vision, delta)
+    _steer(vision)
 
 
 ## Take the moves found since the last time.
@@ -168,15 +139,9 @@ static func sees(vision: Node) -> bool:
     return vision.HasPlayer()
 
 
-func _steer(vision: Node, delta: float) -> void:
-    var keys := 0
-    if Input.is_key_pressed(KEY_LEFT) or Input.is_key_pressed(KEY_A):
-        keys -= 1
-    if Input.is_key_pressed(KEY_RIGHT) or Input.is_key_pressed(KEY_D):
-        keys += 1
+func _steer(vision: Node) -> void:
     var middle := _body_middle(vision)
-    if keys != 0 or middle < 0.0:
-        steer = clampf(steer + keys * STEER_KEYS * delta, -STEER_MOST, STEER_MOST)
+    if middle < 0.0:
         return
     steer = clampf((middle - 0.5) / STEER_LANE, -STEER_MOST, STEER_MOST)
 

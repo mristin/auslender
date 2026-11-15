@@ -64,6 +64,8 @@ var _stumble_left := 0.0
 var _cheer_left := 0.0
 var _showing_off := false
 var _counter_left := 0.0
+var _open := ""
+var _open_side := ""
 
 var _body: Node3D
 var _torso: Node3D
@@ -101,6 +103,16 @@ func groove(phase: float, bar: float, bar_index: int) -> void:
     _beat = phase
     var over_two := (float(bar_index % 2) + bar) * 0.5
     _sway_x = 0.22 * sin(over_two * TAU)
+
+
+## Open his guard where the player's next punch is to land ([param kind]:
+## "straight", "hook" or "uppercut"; [param side]: the player's hand; "" for
+## his usual guard): for a jab, his arms wide, the middle open; for a hook,
+## one arm covering the other side of his head, the side of the hook open;
+## for an uppercut, a high guard, his gloves at his forehead, the chin open.
+func open_for(kind: String, side: String) -> void:
+    _open = kind
+    _open_side = side
 
 
 ## Show off (in a breather): beckon the player in, and shimmy.
@@ -231,6 +243,26 @@ func _animate(delta: float) -> void:
     _cheer_left = maxf(0.0, _cheer_left - delta)
     _counter_left = maxf(0.0, _counter_left - delta)
 
+    match _open:
+        # NOTE (mristin):
+        # The upper arm forward and up, the elbow out, the forearm upright in
+        # front of the face: a boxer's cover (never up past the shoulder).
+        "straight":
+            arm_left = [0.6, 0.6, 1.6]
+            arm_right = [0.6, 0.6, 1.6]
+        "uppercut":
+            arm_left = [1.2, 0.25, 2.3]
+            arm_right = [1.2, 0.25, 2.3]
+            torso_pitch = -0.05
+        "hook":
+            # NOTE (mristin):
+            # The player's left hook lands on his right side (on the player's
+            # left): his right arm drops, his left one covers his left side;
+            # and the other way round.
+            var cover := [1.1, 0.5, 2.2]
+            var low := [0.35, 0.25, 1.3]
+            arm_left = cover if _open_side == "left" else low
+            arm_right = low if _open_side == "left" else cover
     if _showing_off:
         # NOTE (mristin):
         # He beckons with his left glove (the elbow pumping), and shimmies.

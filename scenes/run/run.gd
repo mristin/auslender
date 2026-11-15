@@ -60,10 +60,6 @@ func _build() -> void:
     layer.add_child(_veil)
 
 
-func _help() -> String:
-    return "Keys: arrows steer, X jump, Z duck, R again, Esc Esc leave"
-
-
 func _idle_command() -> String:
     return "RUN!"
 
