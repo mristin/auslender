@@ -21,6 +21,13 @@ var dwell := 0.0:
         dwell = value
         queue_redraw()
 
+## A small symbol drawn left of the text: "" for none, or "trash" (a bin, for
+## deleting, as in Bird Dog).
+var symbol := "":
+    set(value):
+        symbol = value
+        queue_redraw()
+
 ## Whether it is the main choice of its screen (crimson).
 var primary := false:
     set(value):
@@ -63,6 +70,49 @@ func _style() -> void:
 
 
 func _draw() -> void:
+    if symbol == "trash":
+        var font := get_theme_font("font")
+        var font_size := get_theme_font_size("font_size")
+        var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+        var height := font_size * 1.1
+        _draw_trash(Vector2(size.x * 0.5 - width * 0.5 - height * 0.6, size.y * 0.5), height)
     if dwell > 0.0:
         var center := Vector2(size.x - size.y * 0.5, size.y * 0.5)
         draw_arc(center, size.y * 0.32, -PI * 0.5, -PI * 0.5 + TAU * dwell, 40, GOLD, 10)
+
+
+## A bin centered at the point, about as high as the height: the lid with its
+## handle, and the can, narrower at the bottom, with three grooves (as in Bird
+## Dog).
+func _draw_trash(center: Vector2, height: float) -> void:
+    var h := height
+    var width := maxf(2.0, h * 0.08)
+    var color := Color(PAPER, 0.4) if disabled else PAPER
+    var lid := center.y - h * 0.36
+    draw_line(
+        Vector2(center.x - h * 0.36, lid), Vector2(center.x + h * 0.36, lid), color, width, true
+    )
+    draw_rect(
+        Rect2(Vector2(center.x - h * 0.1, lid - h * 0.1), Vector2(h * 0.2, h * 0.1)),
+        color,
+        false,
+        width * 0.8
+    )
+    var can := PackedVector2Array(
+        [
+            center + Vector2(-h * 0.3, -h * 0.28),
+            center + Vector2(h * 0.3, -h * 0.28),
+            center + Vector2(h * 0.24, h * 0.42),
+            center + Vector2(-h * 0.24, h * 0.42),
+            center + Vector2(-h * 0.3, -h * 0.28),
+        ]
+    )
+    draw_polyline(can, color, width, true)
+    for x in [-0.1, 0.0, 0.1]:
+        draw_line(
+            center + Vector2(h * x, -h * 0.18),
+            center + Vector2(h * x * 0.85, h * 0.32),
+            color,
+            width * 0.7,
+            true
+        )

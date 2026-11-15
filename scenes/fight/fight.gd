@@ -1,323 +1,146 @@
 class_name Fight
 extends RhythmLevel
 
-## A fight against an opponent of the world (see RhythmLevel and Levels): the
-## player boxes him to the beat of the song.
+## The fight against the boss of a world (see Levels), in a level of his own
+## at its end: a free brawl (see Brawl), to music, which goes on until one of
+## the two goes down. No chart and no notes: the boss guards, opens his guard
+## here and there, and attacks when he likes, with a quiet tell (see Brawl).
+## The player wins with the knock-out.
 ##
-## A ring asks for a punch (the move and the hand on it, with an arrow: a jab
-## straight ahead, a hook from the side, an uppercut up); an attack of the
-## opponent asks for a dodge (the cover, or a slip), and he winds up and
-## strikes on its beat (see Opponent). A fight has no jumps and no ducks: they
-## are the runs'. The punches drain his health, so that the player knocks him
-## out in the final section if he met most of the notes. A frame on every beat
-## rolls towards the player (see BeatTunnel).
+## As in a real match, the two circle each other: now and then they turn
+## around the middle between them to another angle, at random, smoothly
+## starting and stopping, so that the land swings past behind the boss. The
+## view stays the hero's own (the first person); the circling slows down
+## while the boss winds up and strikes, so that one sees where his attack
+## comes from.
 
 ## How far the opponent stands in front of the player, in meters: close, so
 ## that the punches land on his head.
 const OPPONENT_DISTANCE := 1.05
 
-## A move this close to a note (in seconds), but not close enough to meet it,
-## still teaches the latency, and tells the player whether he was late.
-const NEAR := 1.0
-
-## The opponent's attack for each dodge.
-const ATTACK_OF := {
-    "cover": "jab",
-    "slip_right": "hook_left",
-    "slip_left": "hook_right",
-    "duck": "haymaker",
-    "jump": "sweep",
-}
-
-## How hard a GOOD hits, against a PERFECT.
-const GOOD_SHARE := 0.85
-
-## The share of the punches which the player needs to meet to knock him out,
-## and his health before the final section (he holds on until then).
-const KNOCK_OUT_SHARE := 0.75
-const HOLDS_ON := 8.0
-
-## How long before a punch's beat he opens his guard where it is to land, in
-## seconds.
-const OPEN_AHEAD := 1.6
-
-## He counters a wrong move at most this often, in seconds; and a wrong
-## dodge counts from this long before the attack's beat.
-const COUNTER_EVERY := 0.6
-const WRONG_DODGE_EARLY := 0.8
-
-## The opponent says a line at most this often, in seconds.
-const QUIP_EVERY := 4.0
+## How far they circle from where they started at most (radians), how fast at
+## most (radians a second), how quickly they get to that speed (1/s), and how
+## long they keep to an angle before they move on (seconds, at random).
+const CIRCLE_MOST := 0.95
+const CIRCLE_SPEED := 0.3
+const CIRCLE_EASE := 1.2
+const CIRCLE_EVERY := Vector2(3.0, 6.5)
 
 var opponent: Opponent
 
-var _punches := 0
-var _tunnel: BeatTunnel
-var _quipped_at := -100.0
-var _black_sheep: Node3D
-var _countered_at := -100.0
-## His attacks to come and of the moment: [the song time of the beat, the
-## attack, whether the player dodged it, whether he stumbled already]. He
-## throws each on its beat, also when the player dodged it early (he misses).
-var _attacks: Array = []
+var _brawl := Brawl.new()
+var _started := false
+## The angle they circled to, where they circle to, how fast, and when they
+## move on.
+var _angle := 0.0
+var _angle_goal := 0.0
+var _angle_speed := 0.0
+var _angle_next := 0.0
 
 
 func _build() -> void:
     opponent = Opponent.new()
-    opponent.look = level["opponent"]
+    opponent.look = Levels.opponent(level["opponents"][0])["look"]
     add_child(opponent)
     opponent.global_position = SPOT + Vector3(0, 0, -OPPONENT_DISTANCE)
     opponent.target = SPOT
-    if level["id"] == "white_sheep":
-        # NOTE (mristin):
-        # The black sheep is in his corner, cheering him on (see DESIGN.md).
-        _black_sheep = Looks.black_sheep()
-        add_child(_black_sheep)
-        _black_sheep.position = SPOT + Vector3(1.7, 0, -2.4)
-        _black_sheep.rotation.y = 0.6
-    hud.opponent_name = str(level["title"]).trim_prefix("THE ")
-    _tunnel = BeatTunnel.new()
-    _tunnel.setup(SPOT + Vector3(0, 1.35, -HIT_AHEAD), LEAD, SPEED, _beat_seconds)
-    add_child(_tunnel)
-
-
-func _set_up(note: RhythmNote, kind: String, side: String, at: float, arrive: Vector3) -> void:
-    super._set_up(note, kind, side, at, arrive)
-    if side == "" and ATTACK_OF.has(kind):
-        _attacks.append([at, ATTACK_OF[kind], false, false])
+    _brawl.setup(hud, boxer, _scoring, _log, play_sound, _beat_seconds)
+    # NOTE (mristin):
+    # The music loops, past its quiet intro, for as long as they box.
+    _music.finished.connect(_loop_music)
 
 
 func _on_start() -> void:
-    _attacks.clear()
-    _punches = _chart.filter(func(n: Dictionary) -> bool: return n["side"] != "").size()
+    _chart = []
+    _started = false
     if opponent != null:
         opponent.reset()
+    _brawl.start(level["opponents"][0], opponent)
 
 
-func _on_frame(delta: float) -> void:
-    boxer.face(opponent.global_position, delta)
-    _tunnel.place(_now, _phase == Phase.PLAYING)
-    if _black_sheep != null:
-        _black_sheep.position.y = 0.12 * absf(sin(_time * PI / _beat_seconds))
+func _holds() -> bool:
+    return true
 
 
-## The opponent moves to the music, and throws his attack of the moment on its
-## beat, dodged or not (if dodged, he misses, and stumbles past after it).
-func _on_song(_played: float, _attack: RhythmNote) -> void:
-    var current: Array = []
-    for attack in _attacks.duplicate():
-        var seconds: float = _now - float(attack[0])
-        if seconds > Opponent.STRIKE_SECONDS:
-            _attacks.erase(attack)
-            continue
-        if current.is_empty() and seconds >= -Opponent.WINDUP_SECONDS:
-            current = attack
-        if attack[2] and not attack[3] and seconds >= 0.1:
-            attack[3] = true
-            opponent.stumble()
-    # NOTE (mristin):
-    # He opens his guard where the next punch is to land (see
-    # Opponent.open_for), from a while before its beat.
-    var opening: RhythmNote = null
-    for note in _notes:
-        var ahead := note.at - _now
-        if note.side != "" and note.result == "" and ahead < OPEN_AHEAD and ahead > -0.1:
-            if opening == null or note.at < opening.at:
-                opening = note
-    if opening != null:
-        opponent.open_for(opening.kind, opening.side)
-    else:
-        opponent.open_for("", "")
-    if current.is_empty():
-        opponent.perform("", 0.0)
-    else:
-        opponent.perform(current[1], _now - float(current[0]))
-    var bar_float := _now / (_beat_seconds * 4.0)
-    opponent.groove(fposmod(_now / _beat_seconds, 1.0), fposmod(bar_float, 1.0), floori(bar_float))
-    # NOTE (mristin):
-    # He shows off in the count-in and the breathers (the bars without notes
-    # ahead).
-    var quiet := true
-    for note in _notes:
-        if note.result == "" and note.at - _now < _beat_seconds * 4.0:
-            quiet = false
-            break
-    opponent.show_off(quiet and current.is_empty())
-
-
-## Throw a punch of the player ("straight", "hook" or "uppercut"; "left" or
-## "right"), as the vision ([param source]) found it, and
-## meet the note which it fits.
-func throw(kind: String, side: String, source := "vision") -> void:
-    var hand := 0 if side == "left" else 1
-    _last_strike = "%s %s" % [side.to_upper(), "JAB" if kind == "straight" else kind.to_upper()]
-    _last_strike_at = _time
-    boxer.punch(hand, kind)
-    if _phase != Phase.PLAYING or _paused:
-        return
-
-    var latency := _latency if source == "vision" else 0.0
-    var when := _now - latency
-    var best: RhythmNote = null
-    var wrong: RhythmNote = null
-    for note in _notes:
-        if note.result != "" or note.side == "":
-            continue
-        # NOTE (mristin):
-        # To be forgiving, a strike meets a note from the moment it shows (a
-        # player strikes as soon as he sees it) until a little after its beat;
-        # but only the move and the hand on it do. The earliest note first.
-        var off := when - note.at
-        if off > GOOD or off < -LEAD:
-            continue
-        if note.kind != kind or note.side != side:
-            if wrong == null or note.at < wrong.at:
-                wrong = note
-            continue
-        if best == null or note.at < best.at:
-            best = note
-    var entry := {"kind": kind, "side": side, "source": source, "song": _now, "latency": latency}
-    if best == null and wrong != null:
-        # NOTE (mristin):
-        # A wrong move does not count: tell him which move was wanted.
-        entry["matched"] = false
-        entry["wanted"] = "%s %s" % [wrong.kind, wrong.side]
-        _log.write("move", entry)
-        var wanted := "%s %s" % [wrong.side.to_upper(), RhythmNote.LABELS[wrong.kind]]
-        _counter("WRONG: " + wanted)
-        return
-    if best == null:
-        entry["matched"] = false
-        _near_miss(when, source, entry)
-        _log.write("move", entry)
-        return
-    var offset := when - best.at
-    var how := "perfect" if absf(offset) <= PERFECT else "good"
-    entry["matched"] = true
-    entry["note"] = best.kind
-    entry["offset"] = offset
-    entry["result"] = how
-    _log.write("move", entry)
-    if source == "vision" and absf(offset) <= GOOD:
-        _learn_latency(_now - best.at)
-    _met(best, how)
-    _hit_opponent(best, how)
-
-
-## He made a wrong move: the opponent counters at once, and it hurts as an
-## attack which he did not dodge (at most every COUNTER_EVERY seconds, so that
-## a misread of the vision does not cost too much).
-func _counter(text: String) -> void:
-    hud.say(text, Color("ff8a65"))
-    if _time - _countered_at < COUNTER_EVERY:
-        _play("miss")
-        return
-    _countered_at = _time
-    opponent.counter()
-    _scoring.failed("hit")
-    _play("hurt")
-    boxer.take_damage(HURT)
-    _quip("landed")
-    _log.write("counter", {"why": text, "song": _now})
+func _hold(delta: float) -> void:
+    if not _started:
+        _started = true
+        hud.announce("BOX!", 1.5)
+    _brawl.step(delta, _body.dodges())
     if boxer.health <= 0.0:
         _finish(false)
-
-
-## A wrong dodge (a slip the wrong way, or a slip for a jab, or the cover for a
-## hook) close to an attack's beat: he counters, and the attack has landed.
-func _judge_wrong_dodge(note: RhythmNote) -> bool:
-    if _now < note.at - WRONG_DODGE_EARLY:
-        return false
-    # NOTE (mristin):
-    # The right dodge, if he made it, counts.
-    var right := float(_in_pose.get(note.kind, -100.0))
-    if right >= note.at - LEAD and right > _dodge_used:
-        return false
-    for pose in ["slip_left", "slip_right", "cover"]:
-        if pose == note.kind:
-            continue
-        var seen := float(_in_pose.get(pose, -100.0))
-        if seen >= note.at - WRONG_DODGE_EARLY and seen > _dodge_used:
-            _dodge_used = seen
-            _log.write("note", {"kind": note.kind, "beat": note.at, "result": "wrong", "by": pose})
-            _counter("WRONG: " + RhythmNote.LABELS[note.kind])
-            note.judge("miss", _now)
-            return true
-    return false
-
-
-## A dodge note: a wrong dodge is countered at once; else as any dodge.
-func _judge(note: RhythmNote) -> bool:
-    if note.side != "" or note.result != "":
-        return false
-    if _judge_wrong_dodge(note):
-        return true
-    return false
-
-
-## A strike near a note which it missed: tell him he was late, and learn from
-## it how he times his moves.
-func _near_miss(when: float, source: String, entry: Dictionary) -> void:
-    var near: RhythmNote = null
-    for note in _notes:
-        if note.result == "" and note.side != "":
-            if near == null or absf(when - note.at) < absf(when - near.at):
-                near = note
-    if near != null and absf(when - near.at) <= NEAR:
-        entry["near"] = when - near.at
-        hud.say("LATE" if when > near.at else "EARLY", Color(Hud.PAPER, 0.8))
-        if source == "vision":
-            _learn_latency(_now - near.at)
-
-
-## The punch landed on the opponent: he flinches and takes its damage.
-func _hit_opponent(note: RhythmNote, how: String) -> void:
-    # NOTE (mristin):
-    # A GOOD hits nearly as hard: striking early is allowed.
-    var strength := 1.0 if how == "perfect" else GOOD_SHARE
-    var damage := strength * 100.0 / maxf(1.0, KNOCK_OUT_SHARE * _punches)
-    var section: int = _core.SectionOf(floori(note.at / _beat_seconds) / 4, _sections.size())
-    if section != _sections.size() - 1:
-        damage = minf(damage, maxf(0.0, opponent.health - HOLDS_ON))
-    opponent.flinch(note.kind, note.side, strength, damage)
-    if opponent.health <= 0.0:
+    elif _brawl.knocked_out():
         _finish(true)
 
 
-## Say one of the opponent's lines of the kind now and then.
-func _quip(kind: String) -> void:
-    var lines: Array = level["lines"].get(kind, [])
-    if lines.is_empty() or _time - _quipped_at < QUIP_EVERY or randf() > 0.6:
-        return
-    _quipped_at = _time
-    hud.taunt(lines[randi() % lines.size()])
+func _call() -> Array:
+    return _brawl.dodge_call()
 
 
-func _on_missed(note: RhythmNote) -> void:
-    opponent.evade(note.side)
-    _quip("missed")
+func _threatened() -> bool:
+    return _brawl.threatened()
 
 
-func _on_dodged(note: RhythmNote) -> void:
-    # NOTE (mristin):
-    # He still throws it on its beat, and misses; then he stumbles.
-    for attack in _attacks:
-        if is_equal_approx(float(attack[0]), note.at):
-            attack[2] = true
+func _on_frame(delta: float) -> void:
+    _circle(delta)
+    boxer.face(opponent.global_position, delta)
+    if _phase != Phase.PLAYING:
+        opponent.perform("", 0.0)
 
 
-func _on_hurt(_note: RhythmNote) -> void:
-    opponent.cheer()
-    _quip("landed")
-    hud.say("OUCH!", Hud.RED)
+## Throw a punch of the player ("straight", "hook" or "uppercut"; "left" or
+## "right"), or a kick ("kick"), as the vision found it: at the boss.
+func throw(kind: String, side: String, _source := "vision") -> void:
+    _show_strike(kind, side)
+    if _phase == Phase.PLAYING and not _paused:
+        _brawl.punch(kind, side)
+
+
+## Circle around the middle between them (see the class): a smooth, random
+## turn now and then, while they box.
+func _circle(delta: float) -> void:
+    if _phase == Phase.PLAYING and not _paused and not _brawl.knocked_out():
+        if _time >= _angle_next:
+            var goal := randf_range(-CIRCLE_MOST, CIRCLE_MOST)
+            # NOTE (mristin):
+            # A real turn: never just a little on.
+            if absf(goal - _angle) < 0.35:
+                goal = clampf(_angle - signf(_angle + 0.01) * 0.6, -CIRCLE_MOST, CIRCLE_MOST)
+            _angle_goal = goal
+            _angle_next = _time + randf_range(CIRCLE_EVERY.x, CIRCLE_EVERY.y)
+    else:
+        _angle_goal = _angle
+    var most := CIRCLE_SPEED * (0.3 if _brawl.threatened() else 1.0)
+    var wanted := clampf((_angle_goal - _angle) * 0.8, -most, most)
+    _angle_speed = lerpf(_angle_speed, wanted, minf(1.0, delta * CIRCLE_EASE))
+    _angle += _angle_speed * delta
+    var middle := SPOT + Vector3(0, 0, -OPPONENT_DISTANCE * 0.5)
+    var out := Vector3(sin(_angle), 0, cos(_angle)) * OPPONENT_DISTANCE * 0.5
+    boxer.global_position = middle + out
+    boxer.rotation.y = _angle
+    opponent.global_position = middle - out
+    opponent.target = boxer.global_position
 
 
 func _knock_out() -> void:
-    opponent.knock_out()
     hud.banner = "K.O.!"
     Engine.time_scale = 0.3
     _slow_until = Time.get_ticks_msec() + 1200
 
 
+func _banner(won: bool) -> String:
+    return "YOU WIN!" if won else "DOWN!"
+
+
+## How far the fight is: how much of the boss's health is gone.
+func _progress() -> float:
+    return 1.0 - opponent.health / Opponent.MAX_HEALTH if opponent != null else 0.0
+
+
 func _his_health() -> float:
     return opponent.health if opponent != null else -1.0
+
+
+func _loop_music() -> void:
+    if _phase == Phase.PLAYING:
+        _music.play(_intro_bars * 4.0 * _beat_seconds)

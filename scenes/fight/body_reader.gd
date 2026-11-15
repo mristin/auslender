@@ -87,9 +87,9 @@ func read(vision: Node, delta: float) -> void:
                     _last_duck_at = _time
                 "slip":
                     _last_slip_at[move["side"]] = _time
-                "straight", "hook", "uppercut":
+                "straight", "hook", "uppercut", "kick":
                     punches.append([move["kind"], move["side"], "vision"])
-            if not move["kind"] in ["straight", "hook", "uppercut"]:
+            if not move["kind"] in ["straight", "hook", "uppercut", "kick"]:
                 others.append([move["kind"], move.get("side", "")])
         # NOTE (mristin):
         # The lean against where the player stood lately (see LeanGauge), in

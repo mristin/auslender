@@ -2,14 +2,16 @@ class_name Levels
 extends RefCounted
 
 ## The levels of the game, world by world (see DESIGN.md): each world opens
-## with a run through its land, then its opponents one by one, and ends with
-## its boss. The player plays them in order: a level opens once the one before
+## with runs through its land, on which the hero meets its opponents one by
+## one, and ends with its boss. The player plays them in order: a level opens once the one before
 ## it is finished (see Profile), and he may play any open level again.
 ##
-## A level is a rhythm level (see Fight): a song with its chart of sections
-## (each by its moves, see Chart), and either an opponent to box in the ring
-## ("fight") or a run through the land with obstacles ("run"). Each world has
-## its hero (see RiggedFigure.HEROES) and its surroundings (see Scenery).
+## A run is a rhythm level (see Run): a song with its chart of sections of
+## obstacles (each by its moves, see Chart), and the opponents whom the hero
+## meets on the road: he crashes into each, and they box freely (see Brawl)
+## until one goes down. The boss of a world waits at its end, in a level of
+## his own (see Fight). Each world has its hero (see RiggedFigure.HEROES) and
+## its surroundings (see Scenery).
 
 ## The worlds, in order: their title, their hero, and their look.
 const WORLDS := [
@@ -18,44 +20,27 @@ const WORLDS := [
     {"id": "winter", "title": "WINTER", "hero": "samichlaus"},
 ]
 
-## The moves of a section of a fight which mixes them all: the punches, the
-## slips and the cover (the jumps and the ducks are the runs').
-const ALL := "straight,hook,uppercut,slip,cover"
-
-## The levels, in the order of play. Each has: its id, its world, its kind
-## ("run" or "fight"), its title, the opponent ("" in a run; see Opponent),
-## the tempo, the chord progression and the key of its song (see BeatSynth),
-## its sections (see Chart), its surroundings (see Scenery), and the lines of
-## the opponent: as each section starts, when the player misses, and when the
-## opponent lands.
-const ALL_LEVELS := [
+## The opponents whom the hero meets on the road of a run (four a run, eight
+## before the boss of a world, each in random colors of his own, see
+## Looks.recolor), and the bosses (see Brawl): his look (see Looks), his
+## title, where his guard opens for the player's punches ("straight",
+## "hook", "uppercut"; see Opponent.open_for), the attacks he throws
+## ("jab", dodged with the cover; "hook", from either side, dodged with a
+## slip; see Opponent.perform), whether he is a boss
+## (faster, tougher, and throwing two in a row now and then), and his lines:
+## while he fights, when the player's punch hits his guard, and when his
+## attack lands. A fight has no jumps and no ducks: they are the runs'.
+const OPPONENTS := {
+    "sabre_tiger":
     {
-        "id": "jungle",
-        "scenery": "jungle",
-        "world": "ice_age",
-        "kind": "run",
-        "title": "THROUGH THE JUNGLE",
-        "opponent": "",
-        "bpm": 90.0,
-        "progression": 3,
-        "transpose": 0,
-        "sections": ["steer", "jump", "duck", "steer,jump", "steer,jump,duck"],
-        "lines": {},
-    },
-    {
-        "id": "sabre_tiger",
-        "scenery": "savannah",
-        "world": "ice_age",
-        "kind": "fight",
+        "look": "sabre_tiger",
         "title": "THE SABRE-TOOTH TIGER",
-        "opponent": "sabre_tiger",
-        "bpm": 92.0,
-        "progression": 2,
-        "transpose": 0,
-        "sections": ["hook", "slip", "cover", "hook,slip,cover", "straight,hook,slip,cover"],
+        "openings": ["hook"],
+        "attacks": ["jab", "hook"],
+        "boss": false,
         "lines":
         {
-            "section":
+            "taunt":
             [
                 "Rrrrrr!",
                 "Snack time!",
@@ -63,37 +48,20 @@ const ALL_LEVELS := [
                 "These teeth cost a fortune!",
                 "Here, kitty kitty? I am the kitty!",
             ],
-            "missed": ["Ha, whiskers!", "Purrfect miss!", "Nine lives, monkey!"],
+            "blocked": ["Ha, whiskers!", "Purrfect miss!", "Nine lives, monkey!"],
             "landed": ["Scratched!", "Clawed!", "Mine!"],
         },
     },
+    "mammoth":
     {
-        "id": "glacier",
-        "scenery": "ice",
-        "world": "ice_age",
-        "kind": "run",
-        "title": "OVER THE GLACIER",
-        "opponent": "",
-        "bpm": 90.0,
-        "progression": 0,
-        "transpose": 2,
-        "sections": ["steer", "jump", "duck", "steer,duck", "steer,jump,duck"],
-        "lines": {},
-    },
-    {
-        "id": "mammoth",
-        "scenery": "ice",
-        "world": "ice_age",
-        "kind": "fight",
+        "look": "mammoth",
         "title": "THE MAMMOTH",
-        "opponent": "mammoth",
-        "bpm": 86.0,
-        "progression": 0,
-        "transpose": -2,
-        "sections": ["straight", "cover", "hook", "straight,cover,hook", "straight,hook,cover"],
+        "openings": ["straight", "hook"],
+        "attacks": ["jab"],
+        "boss": false,
         "lines":
         {
-            "section":
+            "taunt":
             [
                 "TOOOROOOO!",
                 "This valley is mine since the Ice Age!",
@@ -101,37 +69,20 @@ const ALL_LEVELS := [
                 "We were here first!",
                 "I never forget. Never!",
             ],
-            "missed": ["Too slow, monkey!", "Ha! Thick skin!", "Was that a fly?"],
+            "blocked": ["Too slow, monkey!", "Ha! Thick skin!", "Was that a fly?"],
             "landed": ["Stomped!", "Trunk mail!", "Ice cold!"],
         },
     },
+    "cave_bear":
     {
-        "id": "cave",
-        "scenery": "cave",
-        "world": "ice_age",
-        "kind": "run",
-        "title": "THROUGH THE CAVE",
-        "opponent": "",
-        "bpm": 92.0,
-        "progression": 2,
-        "transpose": -3,
-        "sections": ["steer", "duck", "jump", "steer,duck,jump", "steer,jump,duck"],
-        "lines": {},
-    },
-    {
-        "id": "cave_bear",
-        "scenery": "cave",
-        "world": "ice_age",
-        "kind": "fight",
+        "look": "cave_bear",
         "title": "THE CAVE BEAR",
-        "opponent": "cave_bear",
-        "bpm": 94.0,
-        "progression": 0,
-        "transpose": -5,
-        "sections": ["uppercut", "straight,hook,uppercut", "slip,cover", ALL, ALL],
+        "openings": ["straight", "hook", "uppercut"],
+        "attacks": ["jab", "hook"],
+        "boss": true,
         "lines":
         {
-            "section":
+            "taunt":
             [
                 "This is MY cave!",
                 "Hibernation is over!",
@@ -139,37 +90,20 @@ const ALL_LEVELS := [
                 "Grrrrooaaar!",
                 "Go back to your tree!",
             ],
-            "missed": ["Grrr, missed!", "Bear-ly touched me!", "Ha!"],
+            "blocked": ["Grrr, missed!", "Bear-ly touched me!", "Ha!"],
             "landed": ["Bear hug!", "Pawed!", "Hibernate, monkey!"],
         },
     },
+    "bunzli":
     {
-        "id": "street",
-        "scenery": "city",
-        "world": "switzerland",
-        "kind": "run",
-        "title": "THROUGH THE STREETS",
-        "opponent": "",
-        "bpm": 92.0,
-        "progression": 1,
-        "transpose": 2,
-        "sections": ["steer", "jump", "duck", "steer,jump", "steer,jump,duck"],
-        "lines": {},
-    },
-    {
-        "id": "bunzli",
-        "scenery": "city",
-        "world": "switzerland",
-        "kind": "fight",
+        "look": "bunzli",
         "title": "THE BÜNZLI",
-        "opponent": "bunzli",
-        "bpm": 88.0,
-        "progression": 3,
-        "transpose": 2,
-        "sections": ["straight", "cover", "hook", "straight,cover,hook", "straight,hook,cover"],
+        "openings": ["straight", "hook"],
+        "attacks": ["jab"],
+        "boss": false,
         "lines":
         {
-            "section":
+            "taunt":
             [
                 "It is MY laundry day!",
                 "Quiet hours after ten!",
@@ -177,25 +111,20 @@ const ALL_LEVELS := [
                 "Rules are rules!",
                 "I am calling the Hauswart!",
             ],
-            "missed": ["Not in this order!", "Form 27b, please!", "Tsk tsk tsk."],
+            "blocked": ["Not in this order!", "Form 27b, please!", "Tsk tsk tsk."],
             "landed": ["Fined!", "Noted in the house book!", "Order must be!"],
         },
     },
+    "nationalist":
     {
-        "id": "nationalist",
-        "scenery": "city",
-        "world": "switzerland",
-        "kind": "fight",
+        "look": "nationalist",
         "title": "THE NATIONALIST",
-        "opponent": "nationalist",
-        "bpm": 96.0,
-        "progression": 3,
-        "transpose": 0,
-        "sections":
-        ["hook", "slip", "uppercut", "hook,slip,uppercut", "straight,hook,uppercut,slip"],
+        "openings": ["hook", "uppercut"],
+        "attacks": ["hook"],
+        "boss": false,
         "lines":
         {
-            "section":
+            "taunt":
             [
                 "Foreign punches are banned!",
                 "Even my cheese has a passport!",
@@ -203,24 +132,20 @@ const ALL_LEVELS := [
                 "My grandfather's grandfather was also angry!",
                 "Neutral? Never heard of it!",
             ],
-            "missed": ["A true Swiss never misses!", "Ha! Border closed!", "Too foreign!"],
+            "blocked": ["A true Swiss never misses!", "Ha! Border closed!", "Too foreign!"],
             "landed": ["Back to the queue!", "Rejected!", "Stamped!"],
         },
     },
+    "scientist":
     {
-        "id": "rochartis",
-        "scenery": "lab",
-        "world": "switzerland",
-        "kind": "fight",
+        "look": "scientist",
         "title": "THE ROCHARTIS SCIENTIST",
-        "opponent": "scientist",
-        "bpm": 98.0,
-        "progression": 0,
-        "transpose": 0,
-        "sections": ["uppercut", "cover", "slip", "uppercut,cover,slip", ALL],
+        "openings": ["uppercut", "straight"],
+        "attacks": ["jab", "hook"],
+        "boss": false,
         "lines":
         {
-            "section":
+            "taunt":
             [
                 "Time for your check-up!",
                 "This won't hurt. Much.",
@@ -228,24 +153,20 @@ const ALL_LEVELS := [
                 "Take your medicine!",
                 "The trial is not over!",
             ],
-            "missed": ["Missed me!", "Ha! Placebo punch!", "Too slow!"],
+            "blocked": ["Missed me!", "Ha! Placebo punch!", "Too slow!"],
             "landed": ["Billed to your insurance!", "Side effects!", "Next patient!"],
         },
     },
+    "ceo":
     {
-        "id": "ceo",
-        "scenery": "lab",
-        "world": "switzerland",
-        "kind": "fight",
+        "look": "ceo",
         "title": "THE ROCHARTIS CEO",
-        "opponent": "ceo",
-        "bpm": 100.0,
-        "progression": 2,
-        "transpose": 3,
-        "sections": ["straight,hook,uppercut", "slip,cover", ALL, ALL, ALL],
+        "openings": ["straight", "hook", "uppercut"],
+        "attacks": ["jab", "hook"],
+        "boss": true,
         "lines":
         {
-            "section":
+            "taunt":
             [
                 "Profits up, you down!",
                 "Shareholders first!",
@@ -253,44 +174,20 @@ const ALL_LEVELS := [
                 "I have a golden parachute!",
                 "Bonus time!",
             ],
-            "missed": ["Too expensive for you!", "Ha! Patented!", "Not covered!"],
+            "blocked": ["Too expensive for you!", "Ha! Patented!", "Not covered!"],
             "landed": ["That will be 49.90!", "Price increase!", "Dividend!"],
         },
     },
+    "bunzli_shovel":
     {
-        "id": "garden",
-        "scenery": "suburbs",
-        "world": "winter",
-        "kind": "run",
-        "title": "THROUGH THE GARDENS",
-        "opponent": "",
-        "bpm": 90.0,
-        "progression": 1,
-        "transpose": -3,
-        "sections": ["steer", "jump", "duck", "steer,duck", "steer,jump,duck"],
-        "lines": {},
-    },
-    {
-        "id": "bunzli_shovel",
-        "scenery": "suburbs",
-        "world": "winter",
-        "kind": "fight",
+        "look": "bunzli_shovel",
         "title": "THE SNOW-SHOVEL BÜNZLI",
-        "opponent": "bunzli_shovel",
-        "bpm": 88.0,
-        "progression": 1,
-        "transpose": 5,
-        "sections":
-        [
-            "straight",
-            "cover",
-            "uppercut",
-            "straight,cover,uppercut",
-            "straight,hook,uppercut,cover"
-        ],
+        "openings": ["straight", "uppercut"],
+        "attacks": ["jab"],
+        "boss": false,
         "lines":
         {
-            "section":
+            "taunt":
             [
                 "Who shovels at 7:01?! I shovel at 7:00!",
                 "Your path is two centimeters too wide!",
@@ -298,25 +195,20 @@ const ALL_LEVELS := [
                 "Snow belongs on YOUR side!",
                 "I measured the snowfall. It was too much.",
             ],
-            "missed": ["Not on my path!", "Swept away!", "Too slippery for you?"],
+            "blocked": ["Not on my path!", "Swept away!", "Too slippery for you?"],
             "landed": ["Shovelled!", "Cleared!", "Winter duty!"],
         },
     },
+    "bunzli_hedge":
     {
-        "id": "bunzli_hedge",
-        "scenery": "suburbs",
-        "world": "winter",
-        "kind": "fight",
+        "look": "bunzli_hedge",
         "title": "THE HEDGE BÜNZLI",
-        "opponent": "bunzli_hedge",
-        "bpm": 92.0,
-        "progression": 3,
-        "transpose": -2,
-        "sections":
-        ["hook", "cover", "slip", "hook,cover,slip", "straight,hook,uppercut,cover,slip"],
+        "openings": ["hook"],
+        "attacks": ["jab", "hook"],
+        "boss": false,
         "lines":
         {
-            "section":
+            "taunt":
             [
                 "Your hedge is two centimeters too high!",
                 "I have it measured!",
@@ -324,25 +216,20 @@ const ALL_LEVELS := [
                 "Leaves on MY lawn?!",
                 "The municipality will hear of this!",
             ],
-            "missed": ["Trimmed!", "Not by the rules!", "Out of line!"],
+            "blocked": ["Trimmed!", "Not by the rules!", "Out of line!"],
             "landed": ["Pruned!", "Cut to size!", "1.20 meters, no more!"],
         },
     },
+    "white_sheep":
     {
-        "id": "white_sheep",
-        "scenery": "suburbs",
-        "world": "winter",
-        "kind": "fight",
+        "look": "white_sheep",
         "title": "THE WHITE SHEEP",
-        "opponent": "white_sheep",
-        "bpm": 96.0,
-        "progression": 3,
-        "transpose": 0,
-        "sections":
-        ["uppercut", "slip", "hook", "uppercut,slip,hook", "straight,hook,uppercut,slip"],
+        "openings": ["uppercut", "hook"],
+        "attacks": ["hook"],
+        "boss": false,
         "lines":
         {
-            "section":
+            "taunt":
             [
                 "Baaa! Stay in line!",
                 "We are all the same, baaa!",
@@ -350,24 +237,20 @@ const ALL_LEVELS := [
                 "Our meadow, our rules! Baaa!",
                 "Baaa! The herd decides!",
             ],
-            "missed": ["Baaa-d luck!", "Ha! Woolly miss!", "Baaa!"],
+            "blocked": ["Baaa-d luck!", "Ha! Woolly miss!", "Baaa!"],
             "landed": ["Herd mentality!", "Baaa-m!", "Fleeced!"],
         },
     },
+    "norgeli":
     {
-        "id": "norgeli",
-        "scenery": "suburbs",
-        "world": "winter",
-        "kind": "fight",
+        "look": "norgeli",
         "title": "THE NÖRGELI",
-        "opponent": "norgeli",
-        "bpm": 100.0,
-        "progression": 2,
-        "transpose": -2,
-        "sections": ["straight,hook,uppercut", "slip,cover", ALL, ALL, ALL],
+        "openings": ["straight", "hook", "uppercut"],
+        "attacks": ["jab", "hook"],
+        "boss": true,
         "lines":
         {
-            "section":
+            "taunt":
             [
                 "Everything was better before!",
                 "Your stance is wrong!",
@@ -375,9 +258,126 @@ const ALL_LEVELS := [
                 "Who taught you that?",
                 "In my day we boxed uphill!",
             ],
-            "missed": ["Typical!", "I knew it!", "Tsk. Young people."],
+            "blocked": ["Typical!", "I knew it!", "Tsk. Young people."],
             "landed": ["I told you so!", "Serves you right!", "Complaint filed!"],
         },
+    },
+}
+
+## The levels, in the order of play. Each has: its id, its world, its kind
+## ("run": a run through the land, with the opponents whom the hero meets on
+## the road, in order; "boss": the boss of the world, in a level of his own),
+## its title, the opponents (see OPPONENTS), the tempo, the chord progression
+## and the key of its song (see BeatSynth), its sections (the obstacles of a
+## run, see Chart), and its surroundings (see Scenery).
+const ALL_LEVELS := [
+    {
+        "id": "jungle",
+        "scenery": "jungle",
+        "world": "ice_age",
+        "kind": "run",
+        "title": "THROUGH THE JUNGLE",
+        "opponents": ["sabre_tiger", "mammoth", "sabre_tiger", "mammoth"],
+        "bpm": 90.0,
+        "progression": 3,
+        "transpose": 0,
+        "sections": ["steer", "jump", "duck", "steer,jump", "steer,jump,duck"],
+    },
+    {
+        "id": "glacier",
+        "scenery": "ice",
+        "world": "ice_age",
+        "kind": "run",
+        "title": "OVER THE GLACIER",
+        "opponents": ["mammoth", "sabre_tiger", "mammoth", "sabre_tiger"],
+        "bpm": 90.0,
+        "progression": 0,
+        "transpose": 2,
+        "sections": ["steer", "jump", "duck", "steer,duck", "steer,jump,duck"],
+    },
+    {
+        "id": "cave_bear",
+        "scenery": "cave",
+        "world": "ice_age",
+        "kind": "boss",
+        "title": "THE CAVE BEAR",
+        "opponents": ["cave_bear"],
+        "bpm": 94.0,
+        "progression": 0,
+        "transpose": -5,
+        "sections": ["straight", "hook", "uppercut", "slip", "cover"],
+    },
+    {
+        "id": "street",
+        "scenery": "city",
+        "world": "switzerland",
+        "kind": "run",
+        "title": "THROUGH THE STREETS",
+        "opponents": ["bunzli", "nationalist", "bunzli", "nationalist"],
+        "bpm": 92.0,
+        "progression": 1,
+        "transpose": 2,
+        "sections": ["steer", "jump", "duck", "steer,jump", "steer,jump,duck"],
+    },
+    {
+        "id": "campus",
+        "scenery": "city",
+        "world": "switzerland",
+        "kind": "run",
+        "title": "TO THE ROCHARTIS CAMPUS",
+        "opponents": ["scientist", "bunzli", "nationalist", "scientist"],
+        "bpm": 96.0,
+        "progression": 3,
+        "transpose": 0,
+        "sections": ["steer", "duck", "jump", "steer,duck", "steer,jump,duck"],
+    },
+    {
+        "id": "ceo",
+        "scenery": "lab",
+        "world": "switzerland",
+        "kind": "boss",
+        "title": "THE ROCHARTIS CEO",
+        "opponents": ["ceo"],
+        "bpm": 100.0,
+        "progression": 2,
+        "transpose": 3,
+        "sections": ["straight", "hook", "uppercut", "slip", "cover"],
+    },
+    {
+        "id": "garden",
+        "scenery": "suburbs",
+        "world": "winter",
+        "kind": "run",
+        "title": "THROUGH THE GARDENS",
+        "opponents": ["bunzli_shovel", "bunzli_hedge", "bunzli_shovel", "bunzli_hedge"],
+        "bpm": 90.0,
+        "progression": 1,
+        "transpose": -3,
+        "sections": ["steer", "jump", "duck", "steer,duck", "steer,jump,duck"],
+    },
+    {
+        "id": "meadow",
+        "scenery": "suburbs",
+        "world": "winter",
+        "kind": "run",
+        "title": "PAST THE MEADOW",
+        "opponents": ["white_sheep", "bunzli_hedge", "bunzli_shovel", "white_sheep"],
+        "bpm": 96.0,
+        "progression": 3,
+        "transpose": 0,
+        "sections": ["steer", "duck", "jump", "steer,jump", "steer,jump,duck"],
+    },
+    {
+        "id": "norgeli",
+        "scenery": "suburbs",
+        "world": "winter",
+        "kind": "boss",
+        "title": "THE NÖRGELI",
+        "opponents": ["norgeli"],
+        "bpm": 100.0,
+        "progression": 2,
+        "transpose": -2,
+        "sections": ["straight", "hook", "uppercut", "slip", "cover"],
     },
 ]
 
@@ -412,6 +412,11 @@ static func section_title(sections: PackedStringArray, section: int, run: bool) 
     if not run and section == sections.size() - 1:
         title = "FINAL ROUND: " + title
     return title
+
+
+## The opponent of the id (see OPPONENTS).
+static func opponent(id: String) -> Dictionary:
+    return OPPONENTS.get(id, OPPONENTS["scientist"])
 
 
 ## The level of the id (an empty dictionary if none).

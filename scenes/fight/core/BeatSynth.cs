@@ -85,7 +85,9 @@ public static class BeatSynth
     /// <summary>
     /// Render a sound of the fight: "hit" (a punch lands), "perfect" (a ding),
     /// "miss" (a low buzz), "dodge" (a whoosh), "hurt" (a heavy thud), "bell"
-    /// (the ring bell) or "count" (a tick of the count-in).
+    /// (the ring bell), "count" (a tick of the count-in), "tell" (a soft
+    /// breath as the opponent winds up: a quiet hint, not an alarm) or
+    /// "block" (a dull pat of a punch on the guard).
     /// </summary>
     public static short[] RenderSound(string name)
     {
@@ -144,6 +146,24 @@ public static class BeatSynth
             case "count":
                 mix = new float[(int)(0.15 * SampleRate)];
                 Tone(mix, 0, 0.15, 1760.0, 0.3f, 30.0);
+                break;
+            case "tell":
+                mix = new float[(int)(0.3 * SampleRate)];
+                float breath = 0f;
+                for (int i = 0; i < mix.Length; i++)
+                {
+                    double share = (double)i / mix.Length;
+                    float noise = (float)(random.NextDouble() * 2.0 - 1.0);
+                    breath += 0.08f * (noise - breath);
+                    mix[i] += (float)(0.5 * breath * Math.Sin(Math.PI * Math.Sqrt(share)));
+                }
+
+                Tone(mix, 0, 0.3, 110.0, 0.12f, 8.0);
+                break;
+            case "block":
+                mix = new float[(int)(0.15 * SampleRate)];
+                Kick(mix, 0, 0.4f, 220.0, 120.0);
+                Noise(mix, 0, 0.05, 0.25f, 60.0, random, false);
                 break;
             default:
                 throw new ArgumentException($"Unknown sound: {name}", nameof(name));

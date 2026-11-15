@@ -14,6 +14,9 @@ public partial class RhythmCore : RefCounted
     /// <summary>The bars to get ready before the first section.</summary>
     public int IntroBars() => Chart.IntroBars;
 
+    /// <summary>The bars of a section.</summary>
+    public int SectionBars() => Chart.SectionBars;
+
     /// <summary>The level of every bar of a song of the sections.</summary>
     public int[] Levels(int sections) => Chart.Levels(sections);
 

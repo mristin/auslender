@@ -4,10 +4,13 @@ extends Node3D
 ## The opponent of a fight: one of the looks (see Looks), all on the same rig,
 ## so that all box alike.
 ##
-## In the rhythm fight (see Fight), the chart moves him, not a mind of his own:
-## he bobs to the beat ([method beat]); the fight shows his attacks with
-## [method perform], so that he winds up through the last stretch before the
-## beat on which it lands, and strikes on it; he flinches when the player's
+## A brawl (see Brawl) moves him: he bobs to the music ([method groove]); the
+## brawl shows his attacks with [method perform], so that he winds up through
+## [member windup_seconds] before it lands, and strikes then: the wind-up is
+## his tell, quiet but clear (he draws the arm back slowly, shifts his weight,
+## and a faint glint creeps over him), never an alarm. His guard shows where
+## the player's punches land ([method open_for]); a punch into his guard is
+## blocked ([method block]); he flinches when the player's
 ## punches land ([method flinch]): his head snaps aside from a hook, back from
 ## a straight, up from an uppercut, and a kick knocks him back a step; and he
 ## goes down at the end ([method knock_out]). He is never still: he bounces
@@ -23,8 +26,8 @@ extends Node3D
 ## (cover), a hook from the player's left (slip right) or right (slip left), a
 ## wild haymaker at head height (duck), and a low sweep of his leg (jump).
 
-## How long he winds up before an attack lands, in seconds (the note of the
-## attack shows long before).
+## How long he winds up before an attack lands, in seconds, by default (see
+## [member windup_seconds]).
 const WINDUP_SECONDS := 0.6
 
 ## How long his counter to a wrong move takes, in seconds.
@@ -37,13 +40,25 @@ const MAX_HEALTH := 100.0
 
 const RAGE := Color("ff9a1f")
 
+## The glint which creeps over him as he winds up: faint and warm, a hint
+## rather than an alarm.
+const TELL := Color("ffd9a0")
+const TELL_MOST := 0.14
+
 var health := MAX_HEALTH
 
 ## Which look he has (see Looks.IDS); set it before he enters the scene.
 var look := "scientist"
 
+## The seed of his random colors and size (see Looks.recolor; negative: his
+## own colors); set it before he enters the scene.
+var tint := -1
+
 ## Where the player is, which the fight tells him on every frame.
 var target := Vector3.ZERO
+
+## How long he winds up before an attack lands, in seconds (see Brawl).
+var windup_seconds := WINDUP_SECONDS
 
 var _attack := ""
 var _share := 1.0
@@ -66,6 +81,7 @@ var _showing_off := false
 var _counter_left := 0.0
 var _open := ""
 var _open_side := ""
+var _block_left := 0.0
 
 var _body: Node3D
 var _torso: Node3D
@@ -93,7 +109,9 @@ func reset() -> void:
     _evade_left = 0.0
     _stumble_left = 0.0
     _cheer_left = 0.0
+    _block_left = 0.0
     _showing_off = false
+    _open = ""
 
 
 ## Move to the music: [param phase] is how far the current beat is, in [0,
@@ -109,7 +127,8 @@ func groove(phase: float, bar: float, bar_index: int) -> void:
 ## "straight", "hook" or "uppercut"; [param side]: the player's hand; "" for
 ## his usual guard): for a jab, his arms wide, the middle open; for a hook,
 ## one arm covering the other side of his head, the side of the hook open;
-## for an uppercut, a high guard, his gloves at his forehead, the chin open.
+## for an uppercut, a high guard, his gloves at his forehead, the chin open;
+## "open" for his guard down altogether (winded, after he missed).
 func open_for(kind: String, side: String) -> void:
     _open = kind
     _open_side = side
@@ -144,6 +163,14 @@ func cheer() -> void:
         _cheer_left = 0.9
 
 
+## The player's punch hit his guard: he tightens it with a jolt.
+func block() -> void:
+    if not _down:
+        _block_left = 0.25
+        _flash = 0.25
+        _flash_color = Color.WHITE
+
+
 ## The player made a wrong move: he counters at once, a quick jab.
 func counter() -> void:
     if not _down:
@@ -151,11 +178,11 @@ func counter() -> void:
 
 
 ## Show his attack ("jab", "hook_left", "hook_right", "haymaker" or "sweep";
-## "" for none) at [param seconds] from the beat on which it lands (negative
-## before it): he winds up in the last WINDUP_SECONDS, strikes on the beat,
-## and comes back.
+## "" for none) at [param seconds] from the moment it lands (negative before
+## it): he winds up in the last [member windup_seconds], strikes then, and
+## comes back.
 func perform(attack: String, seconds: float) -> void:
-    if seconds < -WINDUP_SECONDS or seconds > STRIKE_SECONDS:
+    if seconds < -windup_seconds or seconds > STRIKE_SECONDS:
         attack = ""
     _attack = attack
     _share = seconds
@@ -200,9 +227,11 @@ func _process(delta: float) -> void:
     var color := _flash_color
     if _attack != "" and _share < 0.0 and _flash <= 0.0:
         # NOTE (mristin):
-        # The wind-up glows red, brighter as it comes.
-        glow = 0.25 + 0.5 * (1.0 + _share / WINDUP_SECONDS)
-        color = Color("ff3b2f")
+        # A faint warm glint creeps over him through the second half of the
+        # wind-up: a hint for who watches him, not an alarm.
+        var p := clampf(1.0 + _share / windup_seconds, 0.0, 1.0)
+        glow = TELL_MOST * smoothstep(0.4, 1.0, p)
+        color = TELL
     elif _raging and not _down and _flash <= 0.0:
         # NOTE (mristin):
         # Hurt badly, he simmers orange.
@@ -242,6 +271,7 @@ func _animate(delta: float) -> void:
     _stumble_left = maxf(0.0, _stumble_left - delta)
     _cheer_left = maxf(0.0, _cheer_left - delta)
     _counter_left = maxf(0.0, _counter_left - delta)
+    _block_left = maxf(0.0, _block_left - delta)
 
     match _open:
         # NOTE (mristin):
@@ -263,6 +293,19 @@ func _animate(delta: float) -> void:
             var low := [0.35, 0.25, 1.3]
             arm_left = cover if _open_side == "left" else low
             arm_right = low if _open_side == "left" else cover
+        "open":
+            # NOTE (mristin):
+            # Winded: his gloves sag, and he hangs forward.
+            arm_left = [0.3, 0.3, 1.1]
+            arm_right = [0.3, 0.3, 1.1]
+            torso_pitch = 0.2
+            bob -= 0.04
+    if _block_left > 0.0:
+        # NOTE (mristin):
+        # The guard snaps tight in front of his face, and he rocks back.
+        arm_left = [0.9, 0.15, 2.3]
+        arm_right = [0.9, 0.15, 2.3]
+        lunge = -0.06 * sin(_block_left / 0.25 * PI)
     if _showing_off:
         # NOTE (mristin):
         # He beckons with his left glove (the elbow pumping), and shimmies.
@@ -287,22 +330,28 @@ func _animate(delta: float) -> void:
 
     if _attack != "":
         if _share < 0.0:
-            var p := 1.0 + _share / WINDUP_SECONDS
-            speed = 10.0
             # NOTE (mristin):
-            # He steps in as he winds up, back to the middle.
-            lunge = 0.08 * p
+            # He draws the arm back slowly over the whole wind-up (eased, so
+            # that it starts quietly and is clear by the end), shifts his
+            # weight, and steps in, back to the middle.
+            var p := smoothstep(0.0, 1.0, clampf(1.0 + _share / windup_seconds, 0.0, 1.0))
+            speed = 8.0
+            lunge = 0.06 * p
             side_shift *= 1.0 - p
+            var guard := [0.55, 0.25, 1.95]
             match _attack:
                 "jab":
-                    arm_left = [0.3, 0.1, 2.4]
+                    arm_left = _mix(guard, [0.3, 0.1, 2.4], p)
                     torso_yaw = 0.25 * p
+                    torso_roll += 0.08 * p
                 "hook_left":
-                    arm_right = [0.5, 0.9 + 0.3 * p, 1.4]
-                    torso_yaw = -0.5 * p
+                    arm_right = _mix(guard, [0.5, 1.2, 1.4], p)
+                    torso_yaw = -0.45 * p
+                    torso_roll -= 0.1 * p
                 "hook_right":
-                    arm_left = [0.5, 0.9 + 0.3 * p, 1.4]
-                    torso_yaw = 0.5 * p
+                    arm_left = _mix(guard, [0.5, 1.2, 1.4], p)
+                    torso_yaw = 0.45 * p
+                    torso_roll += 0.1 * p
                 "haymaker":
                     arm_right = [lerpf(0.55, 2.7, p), 0.4, lerpf(1.95, 1.0, p)]
                     torso_yaw = -0.4 * p
@@ -383,3 +432,16 @@ func _build() -> void:
     _legs.assign(parts["legs"])
     _knees.assign(parts["knees"])
     _flashing.assign(parts["flashing"])
+    if tint >= 0:
+        Looks.recolor(_body, parts, tint)
+        var random := RandomNumberGenerator.new()
+        random.seed = tint + 1
+        scale = Vector3.ONE * random.randf_range(0.92, 1.08)
+
+
+## The pose between two poses of a limb (arrays of angles), by [param weight].
+static func _mix(from: Array, to: Array, weight: float) -> Array:
+    var mixed := []
+    for i in range(from.size()):
+        mixed.append(lerpf(from[i], to[i], weight))
+    return mixed

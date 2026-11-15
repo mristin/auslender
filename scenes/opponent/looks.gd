@@ -67,6 +67,62 @@ static func build(body: Node3D, look: String) -> Dictionary:
     return parts
 
 
+## Dress the look built under [param body] (see [method build]) in random
+## colors of the [param seed], so that the minor opponents whom the hero
+## meets on the road look each his own: the colors of the clothes, the fur
+## and the props shift their hue all together (a purple tiger, a green
+## Bünzli), each a little brighter or darker; the skin, the blacks and the
+## whites stay. The parts which flash (see [member parts]) keep their
+## materials, recolored in place.
+static func recolor(body: Node3D, parts: Dictionary, seed: int) -> void:
+    var random := RandomNumberGenerator.new()
+    random.seed = seed
+    var hue := random.randf_range(0.12, 0.88)
+    var done := {}
+    for node in body.find_children("*", "MeshInstance3D", true, false):
+        var instance := node as MeshInstance3D
+        var material := instance.material_override as ShaderMaterial
+        if material == null:
+            continue
+        var albedo: Variant = material.get_shader_parameter("albedo")
+        if not albedo is Color or _keeps(albedo):
+            continue
+        var color: Color = albedo
+        if not parts["flashing"].has(material):
+            # NOTE (mristin):
+            # The plain materials are shared by every mesh of the color (see
+            # Flat.material): a copy of its own, so that only he changes.
+            if not done.has(material):
+                done[material] = material.duplicate()
+            material = done[material]
+            instance.material_override = material
+        elif done.has(material):
+            continue
+        else:
+            done[material] = material
+        var shifted := Color.from_hsv(
+            fposmod(color.h + hue, 1.0),
+            clampf(color.s * random.randf_range(0.9, 1.25), 0.0, 1.0),
+            clampf(color.v * random.randf_range(0.85, 1.15), 0.05, 1.0)
+        )
+        material.set_shader_parameter("albedo", shifted)
+        var stripe: Variant = material.get_shader_parameter("stripe_color")
+        if stripe is Color and not _keeps(stripe):
+            var c: Color = stripe
+            material.set_shader_parameter(
+                "stripe_color", Color.from_hsv(fposmod(c.h + hue, 1.0), c.s, c.v)
+            )
+
+
+## Whether a color stays as it is when he is recolored: the skin, and the
+## colors without much color (blacks, whites, greys).
+static func _keeps(color: Color) -> bool:
+    if color.s < 0.18 or color.v < 0.15:
+        return true
+    var skin := Color("e0b48e")
+    return absf(color.h - skin.h) < 0.04 and absf(color.s - skin.s) < 0.15
+
+
 ## The black sheep, who cheers the player on (bouncing, see Fight): a small
 ## woolly ball with a black face and black legs.
 static func black_sheep() -> Node3D:

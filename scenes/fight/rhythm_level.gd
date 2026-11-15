@@ -1,8 +1,12 @@
 class_name RhythmLevel
 extends Node3D
 
-## The base of a rhythm level (see DESIGN.md and Levels): a fight (see Fight)
-## or a run (see Run).
+## The base of a level (see DESIGN.md and Levels): a run (see Run), in which
+## the hero meets opponents on the road and boxes them (see Brawl), or the
+## fight against the boss of a world (see Fight), a brawl to music.
+##
+## While a brawl goes on, the song's clock holds (see [method _holds]): the
+## notes wait, and the brawl plays instead.
 ##
 ## A song plays (synthesized, see RhythmCore), and its chart sends notes at
 ## the player (see RhythmNote): each arrives on a beat, and he meets it then.
@@ -217,7 +221,7 @@ func _ready() -> void:
         )
     )
     add_child(_music)
-    for name in ["hit", "perfect", "miss", "dodge", "hurt", "bell", "count"]:
+    for name in ["hit", "perfect", "miss", "dodge", "hurt", "bell", "count", "tell", "block"]:
         var player := AudioStreamPlayer.new()
         player.stream = _wav(_core.Sound(name))
         player.volume_db = -4.0
@@ -246,7 +250,7 @@ func _chosen_level() -> Dictionary:
     for arg in OS.get_cmdline_user_args():
         if arg.begins_with("--level="):
             id = arg.trim_prefix("--level=")
-    var kind := "run" if _is_run() else "fight"
+    var kind := "run" if _is_run() else "boss"
     var chosen := Levels.by_id(id)
     if not chosen.is_empty() and chosen["kind"] == kind:
         return chosen
@@ -357,6 +361,9 @@ func _run_song(delta: float) -> void:
         _log.write("pause" if pause else "resume", {"song": _now})
     if _paused:
         return
+    if _holds():
+        _hold(delta)
+        return
 
     var before := _now
     _now += delta
@@ -396,6 +403,48 @@ func _run_song(delta: float) -> void:
             return
     _on_song(maxf(0.0, _now - before), attack)
     _check_end()
+
+
+## Whether the song's clock holds now, while a brawl goes on (in the
+## subclasses).
+func _holds() -> bool:
+    return false
+
+
+## Play on by [param delta] seconds while the song's clock holds (in the
+## subclasses).
+func _hold(_delta: float) -> void:
+    pass
+
+
+## The call of an opponent's attack which comes (see Brawl.dodge_call; in the
+## subclasses): its text, where it comes from, and how far it got.
+func _call() -> Array:
+    return []
+
+
+## Show the player's strike (a punch or a kick of the side) on the camera
+## panel and with the gloves (or the leg).
+func _show_strike(kind: String, side: String) -> void:
+    var names := {"straight": "JAB", "hook": "HOOK", "uppercut": "UPPERCUT", "kick": "KICK"}
+    _last_strike = "%s %s" % [side.to_upper(), names.get(kind, kind.to_upper())]
+    _last_strike_at = _time
+    if kind == "kick":
+        boxer.kick(0 if side == "left" else 1)
+    else:
+        boxer.punch(0 if side == "left" else 1, kind)
+
+
+## Whether an attack of an opponent is clearly coming (in the subclasses).
+func _threatened() -> bool:
+    return false
+
+
+## Play the sound of the name at the volume (in dB), for a brawl.
+func play_sound(sound: String, volume_db: float) -> void:
+    var player := _sounds[sound] as AudioStreamPlayer
+    player.volume_db = volume_db
+    player.play()
 
 
 ## Move the time of the notes on by the song's [param played] seconds: in a
@@ -452,7 +501,7 @@ func _on_beats() -> void:
     if coming >= 0 and coming != _core.SectionOf(note_bar, _sections.size()):
         var title := Levels.section_title(_sections, coming, _is_run())
         hud.announce(title, 2.0)
-        var lines: Array = level["lines"].get("section", [])
+        var lines: Array = level.get("lines", {}).get("section", [])
         if not lines.is_empty():
             hud.taunt(lines[coming % lines.size()])
         _log.write("section", {"section": coming, "title": title, "song": _now})
@@ -685,10 +734,16 @@ func _update_hud() -> void:
                 call_from = CALLS[note.kind][1]
                 call_progress = clampf(1.0 - left / (_beat_seconds * 1.5), 0.0, 1.0)
             break
+    if call == "" and _phase == Phase.PLAYING:
+        var called := _call()
+        if not called.is_empty():
+            call = called[0]
+            call_from = called[1]
+            call_progress = called[2]
     hud.warning = call
     hud.warning_from = call_from
     hud.warning_progress = call_progress
-    _update_panel(call != "")
+    _update_panel(call != "" or _threatened())
 
 
 ## The command of the body when he does nothing (in the subclasses).
