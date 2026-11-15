@@ -32,12 +32,12 @@ const BODY_HALF := 0.25
 
 ## The knees lifted a second (each knee counts) at which he runs at the pace
 ## of the notes, and how many times as fast he may run at most.
-const NORMAL_CADENCE := 2.0
+const NORMAL_CADENCE := 1.7
 const FASTEST := 1.5
 
-## The pace he needs on average to arrive before the song ends (the road is
-## the song but its last bars long), as a share of the notes' pace.
-const NEEDED := 0.85
+## How many times as long as the song he has to arrive (the music loops):
+## forgiving, so that a slower runner arrives, too.
+const TIME_SLACK := 1.3
 
 ## How quickly he speeds up and slows down (1/s).
 const SPEED_UP := 3.0
@@ -64,7 +64,11 @@ func _build() -> void:
     boxer.level_gaze = true
     hud.opponent_name = ""
     hud.speed_most = FASTEST
-    hud.speed_needed = NEEDED
+    hud.speed_needed = _goal() / (_length * TIME_SLACK)
+    # NOTE (mristin):
+    # His own pace, not the music's; the music loops while he runs.
+    _follow_music = false
+    _music.finished.connect(_loop_music)
     _strip = PathStrip.new()
     add_child(_strip)
     _strip.setup(SPOT, BODY_HALF * 2.0)
@@ -115,12 +119,12 @@ func _advance(played: float) -> void:
     _scenery.scroll(meters)
 
 
-## Arrived at the end of the road: the run is won by the grade; the song (the
-## time) ran out before: too slow.
+## Arrived at the end of the road: the run is won by the grade; the time
+## (the song's length and some, see TIME_SLACK) ran out before: too slow.
 func _check_end() -> void:
     if _t >= _goal():
         _finish(false)
-    elif _now >= _length:
+    elif _now >= _length * TIME_SLACK:
         _failed = true
         _finish(false)
 
@@ -192,3 +196,9 @@ func _banner(won: bool) -> String:
     if _failed:
         return "TOO SLOW!"
     return "ARRIVED!" if won else "TRY AGAIN"
+
+
+## The music starts again while he still runs (see TIME_SLACK).
+func _loop_music() -> void:
+    if _phase == Phase.PLAYING:
+        _music.play()

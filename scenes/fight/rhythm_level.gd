@@ -136,6 +136,9 @@ var _t := 0.0
 ## Whether he lost before the end (e.g., a run too slow for its time).
 var _failed := false
 var _announced_bar := -1
+## Whether the clock follows the music as heard (a fight: the notes are on
+## its beats; a run sets its own pace, and loops its music).
+var _follow_music := true
 var _length := 0.0
 var _beat_seconds := 0.6
 var _intro_bars := 4
@@ -357,7 +360,7 @@ func _run_song(delta: float) -> void:
 
     var before := _now
     _now += delta
-    if _music.playing:
+    if _music.playing and _follow_music:
         # NOTE (mristin):
         # Follow the music: where it plays now, as heard.
         var heard := (
