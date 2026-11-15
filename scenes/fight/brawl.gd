@@ -11,10 +11,12 @@ extends RefCounted
 ## Opponent.open_for): his arms wide for a jab, one side of his head bare for
 ## a hook from that side, his chin for an uppercut. A punch into the opening
 ## lands; any other is blocked, and only scratches him. Now and then he
-## attacks: a jab (dodged with the cover) or a hook from one side (dodged
-## with a slip to the other). His wind-up is his tell, quiet but long: he
-## draws the arm back slowly and shifts his weight, a faint glint creeps over
-## him, and a soft breath sounds as he starts it. There are no calls and no
+## attacks: a jab (dodged with the cover, or a slip to either side, as
+## boxers slip a jab) or a hook from one side (dodged with a slip to the
+## other); a duck dodges both (the fights do not ask for it, but it works).
+## His wind-up is his tell, quiet but long: he draws the arm back slowly and
+## shifts his weight, a faint glint creeps over him, and a soft breath sounds
+## as he starts it. There are no calls and no
 ## arrows on the screen.
 ##
 ## The camera and the classifier see a move about half a second late (in the
@@ -79,7 +81,7 @@ const GRACE := 0.35
 
 ## How much his attack hurts the player, and how much less a hook on the
 ## cover.
-const HURT := 9.0
+const HURT := 6.0
 const BOSS_HURT := 11.0
 const COVERED := 0.5
 
@@ -98,8 +100,15 @@ const DOWN_SECONDS := 2.0
 ## He says a line at most this often, in seconds.
 const QUIP_EVERY := 5.0
 
-## The dodge of each attack.
+## The dodge of each attack which a boss calls (see [method dodge_call]), and
+## all the dodges which count against it (in the first free fights, the
+## players slipped the jabs rather than covering).
 const DODGE_OF := {"jab": "cover", "hook_left": "slip_right", "hook_right": "slip_left"}
+const DODGES := {
+    "jab": ["cover", "slip_left", "slip_right", "duck"],
+    "hook_left": ["slip_right", "duck"],
+    "hook_right": ["slip_left", "duck"],
+}
 
 var opponent: Opponent
 ## The opponent (see Levels.OPPONENTS).
@@ -393,8 +402,10 @@ func _choose_attack() -> String:
 ## Whether the player made the dodge of the attack, from the second half of
 ## the wind-up on.
 func _dodged() -> bool:
-    var seen := float(_seen.get(DODGE_OF.get(_attack, ""), -100.0))
-    return seen >= _windup_from + _windup * DODGE_FROM
+    for dodge in DODGES.get(_attack, []):
+        if float(_seen.get(dodge, -100.0)) >= _windup_from + _windup * DODGE_FROM:
+            return true
+    return false
 
 
 func _on_dodged() -> void:

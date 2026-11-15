@@ -10,9 +10,9 @@ extends RhythmLevel
 ## gap of their own width anywhere across the road (see RhythmNote); he
 ## jumps over holes and fallen trees (a flight, as in Quake) and ducks under
 ## branches, looking straight ahead (the view does not tilt). A strip on the
-## floor shows the path he is heading on (see PathStrip), and the camera
-## picture lies faintly over the scene, so that he sees where he stands (see
-## CameraVeil).
+## floor shows the path he is heading on (see PathStrip). The camera picture
+## does not lie over the scene while he plays (only the panel in the corner
+## shows it, see CameraPanel): it is for the menus.
 ##
 ## On the road, he meets the opponents of the level (see Levels), one by one,
 ## in the breathers between the sections (the road is free of obstacles
@@ -77,9 +77,8 @@ const WEAVE_EVERY := Vector2(0.6, 1.3)
 const MEET_FROM := 7.0
 
 ## How much energy comes back after a knock-out.
-const HEAL := 15.0
+const HEAL := 35.0
 
-var _veil: CameraVeil
 var _strip: PathStrip
 var _rolled := 0.0
 var _pace := 0.0
@@ -117,14 +116,6 @@ func _build() -> void:
     _strip = PathStrip.new()
     add_child(_strip)
     _strip.setup(SPOT, BODY_HALF * 2.0)
-    # NOTE (mristin):
-    # The camera picture over the scene (under the HUD).
-    var layer := CanvasLayer.new()
-    layer.layer = 1
-    add_child(layer)
-    _veil = CameraVeil.new()
-    _veil.vision = vision
-    layer.add_child(_veil)
     _brawl.setup(hud, boxer, _scoring, _log, play_sound, _beat_seconds)
 
 
@@ -349,7 +340,6 @@ func _on_frame(delta: float) -> void:
         return
     boxer.shift = lerpf(boxer.shift, _body.steer * Scenery.LANE, minf(1.0, delta * 10.0))
     boxer.face(SPOT + Vector3(boxer.shift, 0, -6.0), delta)
-    _veil.steer = _body.steer
     hud.speed = _pace
     # NOTE (mristin):
     # His arms pump at his own steps.
