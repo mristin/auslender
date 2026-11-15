@@ -38,17 +38,11 @@ func _draw() -> void:
             draw_texture_rect(texture, Rect2(Vector2.ZERO, screen), false, Color(1, 1, 1, ALPHA))
             draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
     # NOTE (mristin):
-    # The lanes in the picture: each a lane's width (BodyReader.STEER_LANE)
-    # around its middle; the one he is in lit.
-    var lane := clampi(roundi(steer), -1, 1)
-    for k in [-1, 0, 1]:
-        var left: float = (0.5 + (k - 0.5) * BodyReader.STEER_LANE) * screen.x
-        var width: float = BodyReader.STEER_LANE * screen.x
-        if k == lane:
-            draw_rect(Rect2(left, 0, width, screen.y), LANE_LIGHT)
-        draw_line(Vector2(left, 0), Vector2(left, screen.y), LINE, 3.0)
-    var right: float = (0.5 + 1.5 * BodyReader.STEER_LANE) * screen.x
-    draw_line(Vector2(right, 0), Vector2(right, screen.y), LINE, 3.0)
+    # The edges of the road in the picture, and the middle: he is free to be
+    # anywhere between the edges.
+    for lanes in [-1.5, 0.0, 1.5]:
+        var at: float = (0.5 + lanes * BodyReader.STEER_LANE) * screen.x
+        draw_line(Vector2(at, 0), Vector2(at, screen.y), LINE if lanes != 0.0 else LANE_LIGHT, 3.0)
     var x: float = (0.5 + steer * BodyReader.STEER_LANE) * screen.x
     draw_circle(Vector2(x, screen.y * 0.5), 22.0, Color(MARK, 0.85))
     draw_arc(Vector2(x, screen.y * 0.5), 34.0, 0, TAU, 32, Color(MARK, 0.85), 4.0)

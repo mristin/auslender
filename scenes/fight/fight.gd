@@ -116,7 +116,8 @@ const ATTACK_OF := {
     "jump": "sweep",
 }
 
-## The free lane of each steering note (-1 left, 0 the middle, 1 right).
+## The lane around which the free gap of each steering note lies (-1 left, 0
+## the middle, 1 right; see RhythmNote).
 const LANE_OF := {"lane_left": -1, "lane_middle": 0, "lane_right": 1}
 
 ## The call and its direction on the screen, for each dodge (see Hud).
@@ -147,6 +148,9 @@ const GOOD_SHARE := 0.85
 ## and his health before the final section (he holds on until then).
 const KNOCK_OUT_SHARE := 0.75
 const HOLDS_ON := 8.0
+
+## How wide the player's body is on each side, in a run (meters).
+const BODY_HALF := 0.25
 
 ## How much a missed attack, or an obstacle of a run, costs the player.
 const HURT := 8.0
@@ -548,7 +552,16 @@ func _spawn(entry: Dictionary) -> void:
     if run:
         color = OBSTACLES.get(level["scenery"], RhythmNote.ATTACK)
         theme = level["scenery"]
-    note.setup(kind, side, _beat_time(entry), arrive, SPEED, color, theme)
+    # NOTE (mristin):
+    # The free gap of a steering note: anywhere across the road (around the
+    # lane which the chart chose), of a width of its own.
+    var gap := Vector2.ZERO
+    if kind.begins_with("lane_"):
+        var width := randf_range(1.2, 1.9)
+        var half := RhythmNote.ROAD * 0.5 - width * 0.5
+        var middle: float = LANE_OF[kind] * Scenery.LANE + randf_range(-0.6, 0.6)
+        gap = Vector2(clampf(middle, -half, half), width)
+    note.setup(kind, side, _beat_time(entry), arrive, SPEED, color, theme, gap)
     note.place(_now)
     _notes.append(note)
 
@@ -723,16 +736,18 @@ func _judge_dodge(note: RhythmNote, last: bool) -> void:
     _hurt(note)
 
 
-## Judge a steering note as its obstacles reach him: is he in the free lane?
+## Judge a steering note as its obstacles reach him: is he clear of them (in
+## the free gap)?
 func _judge_lane(note: RhythmNote) -> void:
-    var free: int = LANE_OF[note.kind]
     # NOTE (mristin):
     # Where he is on the road, not where he steers to.
-    var lane := clampi(roundi(boxer.shift / Scenery.LANE), -1, 1)
-    var in_lane := lane == free
-    var result := "dodged" if in_lane else "hit"
-    _log.write("note", {"kind": note.kind, "beat": note.at, "result": result, "lane": lane})
-    if in_lane:
+    var clear := not note.blocks(boxer.shift, BODY_HALF)
+    var result := "dodged" if clear else "hit"
+    _log.write(
+        "note",
+        {"kind": note.kind, "beat": note.at, "result": result, "at": boxer.shift, "gap": note.gap}
+    )
+    if clear:
         _met(note, "dodged")
     else:
         _hurt(note)
@@ -868,7 +883,7 @@ func _update_panel(threatened: bool) -> void:
         panel.command = dodge
         panel.command_color = Color("6ccf5e")
     elif run:
-        panel.command = ["LEFT", "MIDDLE", "RIGHT"][_body.lane() + 1]
+        panel.command = "RUN!"
         panel.command_color = Color(0.75, 0.77, 0.82)
     else:
         panel.command = "READY"

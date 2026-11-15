@@ -27,7 +27,7 @@ const SLIP_HOLD := 0.6
 const JUMP_HOLD := 0.5
 
 ## How far from the middle of the picture (a share of its width) his torso
-## moves him a whole lane over, and how far beyond the outer lanes he may go
+## moves him a lane's width over, and how far beyond the outer lanes he may go
 ## (in lanes).
 const STEER_LANE := 0.1
 const STEER_MOST := 1.3
@@ -50,8 +50,9 @@ var lean := 0.0
 var ducking := false
 var jumping := false
 var covering := false
-## Where he steers in a run, across the road in lanes: -1 the left lane, 0 the
-## middle, 1 the right one, and between.
+## Where he steers in a run, across the road, continuously, in lanes (see
+## Scenery.LANE): 0 the middle of the road, -1 a lane's width to the left, 1
+## to the right, and anything between.
 var steer := 0.0
 ## The punches found since the last read: [kind, side, source].
 var punches: Array = []
@@ -172,11 +173,6 @@ func _steer(vision: Node, delta: float) -> void:
         steer = clampf(steer + keys * STEER_KEYS * delta, -STEER_MOST, STEER_MOST)
         return
     steer = clampf((middle - 0.5) / STEER_LANE, -STEER_MOST, STEER_MOST)
-
-
-## The lane he is in now (-1, 0 or 1): the nearest to where he steers.
-func lane() -> int:
-    return clampi(roundi(steer), -1, 1)
 
 
 ## Where the middle of his body is across the mirrored picture (0 to 1;

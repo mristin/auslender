@@ -60,6 +60,11 @@ const APPROACH_FROM := 3.5
 ## How long a judged note lasts, in seconds.
 const AFTER_SECONDS := 0.35
 
+## The free gap of a steering note: its middle (meters from the middle of the
+## road) and its width.
+var gap := 0.0
+var gap_width := 1.5
+
 ## How far to the side it follows the player (meters; in a run, where he
 ## steers), added to where it flies.
 var follow := 0.0
@@ -83,6 +88,9 @@ var _attack_color := ATTACK
 ## The surroundings of a run (see Scenery), whose obstacles it shows; "" in a
 ## fight.
 var _theme := ""
+## The obstacles of a steering note across the road (from, to; meters from
+## the middle of the road).
+var _blocks: Array[Vector2] = []
 
 
 ## Set the note up: its move, its side ("" for an attack), the song time of
@@ -95,7 +103,8 @@ func setup(
     arrive: Vector3,
     speed: float,
     attack_color := ATTACK,
-    theme := ""
+    theme := "",
+    gap_at := Vector2(0.0, 1.5)
 ) -> void:
     kind = note_kind
     side = note_side
@@ -104,6 +113,8 @@ func setup(
     _speed = speed
     _attack_color = attack_color
     _theme = theme
+    gap = gap_at.x
+    gap_width = gap_at.y
     # NOTE (mristin):
     # It comes from far ahead, closer to the middle, and spreads out to its
     # lane as it comes.
@@ -241,7 +252,7 @@ func _build() -> void:
     _approach.material_override = white
     add_child(_approach)
     if kind.begins_with("lane_"):
-        _approach.position = Vector3(_free_lane() * LANE, 0.5, 0)
+        _approach.position = Vector3(gap, 0.5, 0)
 
     _add_symbol()
 
@@ -316,7 +327,7 @@ func _symbol() -> Array:
         "lane_left", "lane_middle", "lane_right":
             # NOTE (mristin):
             # Down into the free lane.
-            var x := _free_lane() * LANE
+            var x := gap
             strokes = [[PackedVector2Array([Vector2(x, 0.75), Vector2(x, 0.5)]), true]]
         "cover":
             # NOTE (mristin):
@@ -373,30 +384,41 @@ static func _stroke(
             mesh.surface_add_vertex(Vector3(p.x, p.y, 0.0))
 
 
-## The free lane of a steering note: -1 left, 0 the middle, 1 right.
-func _free_lane() -> int:
-    return {"lane_left": -1, "lane_middle": 0, "lane_right": 1}.get(kind, 0)
+## Whether the obstacles of a steering note block a body at [param x] (meters
+## from the middle of the road), [param half] wide on each side.
+func blocks(x: float, half: float) -> bool:
+    for block in _blocks:
+        if x + half > block.x and x - half < block.y:
+            return true
+    return false
 
 
-## The obstacles of a steering note: a block in each of the two other lanes,
-## and a golden coin to grab in the free one.
+## The obstacles of a steering note: blocks of varied widths across the road,
+## but in its free gap (anywhere, of any width: as the holes of Antarctic
+## Adventure, the road is not cut into lanes), and a golden coin to grab in
+## the middle of the gap.
 func _build_lanes(color: Color) -> void:
-    var free := _free_lane()
-    for lane in [-1, 0, 1]:
-        if lane == free:
-            var coin := MeshInstance3D.new()
-            var disc := CylinderMesh.new()
-            disc.top_radius = 0.14
-            disc.bottom_radius = 0.14
-            disc.height = 0.04
-            disc.radial_segments = 20
-            coin.mesh = disc
-            coin.rotation.x = PI * 0.5
-            coin.position = Vector3(lane * LANE, 0.5, 0)
-            coin.material_override = _material(Color("f2c14e"), false)
-            _shape.add_child(coin)
+    var coin := MeshInstance3D.new()
+    var disc := CylinderMesh.new()
+    disc.top_radius = 0.16
+    disc.bottom_radius = 0.16
+    disc.height = 0.04
+    disc.radial_segments = 20
+    coin.mesh = disc
+    coin.rotation.x = PI * 0.5
+    coin.position = Vector3(gap, 0.5, 0)
+    coin.material_override = _material(Color("f2c14e"), false)
+    _shape.add_child(coin)
+    var half := ROAD * 0.5
+    for segment in [Vector2(-half, gap - gap_width * 0.5), Vector2(gap + gap_width * 0.5, half)]:
+        var length: float = segment.y - segment.x
+        if length < 0.2:
             continue
-        _build_block(lane * LANE, color)
+        _blocks.append(segment)
+        var count := maxi(1, roundi(length / 1.0))
+        var width := length / count
+        for k in range(count):
+            _build_block(segment.x + width * (k + 0.5), color, width - 0.06)
 
 
 ## An obstacle across the road: to duck under, a branch (with leaves; in the
@@ -441,7 +463,15 @@ func _build_across(color: Color) -> void:
 ## A block in a lane, as the surroundings have it: a boulder (in the jungle
 ## and the cave, an ice block on the glacier), a barrier with a cone (in the
 ## city), a snowman (in the suburbs).
-func _build_block(x: float, color: Color) -> void:
+func _build_block(x: float, color: Color, width := 1.0) -> void:
+    var holder := _shape
+    # NOTE (mristin):
+    # The blocks are a meter wide; stretched to the width.
+    _shape = Node3D.new()
+    holder.add_child(_shape)
+    _shape.position.x = x
+    _shape.scale.x = width
+    x = 0.0
     match _theme:
         "city":
             _part(Vector3(1.0, 0.25, 0.12), Vector3(x, 0.75, 0), Color("e8701a"))
@@ -460,6 +490,7 @@ func _build_block(x: float, color: Color) -> void:
         _:
             var rock := _ball(0.45, Vector3(x, 0.35, 0), color)
             rock.scale = Vector3(1.2, 0.85, 1.0)
+    _shape = holder
 
 
 ## A box of the obstacle (it fades with the note).
