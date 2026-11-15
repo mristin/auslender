@@ -14,8 +14,9 @@ extends Node3D
 ## on the beat and sways from side to side over each bar ([method groove]),
 ## steps in as he winds up; he slips aside, mocking, when the player misses
 ## ([method evade]), stumbles past when the player dodges him ([method
-## stumble], a small step, his guard up), throws up his arms when his attack lands ([method cheer]), and
-## beckons the player in and shimmies in the breathers ([method show_off]).
+## stumble]: a small step, his guard up), throws up his arms when his attack
+## lands ([method cheer]), and beckons the player in and shimmies in the
+## breathers ([method show_off]).
 ## He faces the player all the time; his front is -Z, as in Godot.
 ##
 ## His attacks, and how the player dodges them: a jab straight at the face
