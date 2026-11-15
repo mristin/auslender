@@ -7,9 +7,10 @@ extends RhythmLevel
 ## torso across the camera picture (see BodyReader): obstacles leave a free
 ## gap of their own width anywhere across the road (see RhythmNote); he
 ## jumps over holes and fallen trees (a flight, as in Quake) and ducks under
-## branches, looking straight ahead (the view does not tilt). A run has no punches. A strip on the floor shows
-## the path he is heading on (see PathStrip), and the camera picture lies
-## faintly over the scene, so that he sees where he stands (see CameraVeil).
+## branches, looking straight ahead (the view does not tilt). A run has no
+## punches. A strip on the floor shows the path he is heading on (see
+## PathStrip), and the camera picture lies faintly over the scene, so that he
+## sees where he stands (see CameraVeil).
 
 ## The lane around which the free gap of each steering note lies (-1 left, 0
 ## the middle, 1 right; see RhythmNote).
