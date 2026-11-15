@@ -68,8 +68,11 @@ The home spot slowly follows the player while they stand still, so that a player
 
 ### Fight
 
-The player boxes against one opponent, in the first person: the opponent stands in front of the camera, and the player's blue gloves are in the foreground: drawn as in 4D Sports Boxing (sleeved arms with elbows, gloves with thumbs), bouncing in the guard, with a fixed animation for every move which the classifier reads (a straight turns the fist palm down, a hook swings across with the elbow up, an uppercut rises with the palm towards him, a kick shoots the whole leg out). They do not follow his body: the camera panel shows that.
-The player stays on their spot; the **opponent** moves: he steps in to attack and steps back out.
+The fight is **rhythm boxing**: a song plays, and its chart sends **notes** at the player along lanes, each arriving on a beat. A ring asks for a punch (the move and the hand on it); an attack of the opponent asks for a dodge. The player meets each note on its beat, which the game judges PERFECT, GOOD or MISS.
+The notes show about two seconds ahead, so the player always knows what comes and when: the camera and the move classifier see a move only a while after it was made (about a second from a cue to a recognized dodge, in the first play-tests of the free fight), and a fight which reacts to the opponent's moves on the spot was unplayable. In the rhythm fight that latency is hidden: the game judges a move at the time it was seen, less the latency, which it learns from the player's own moves near the notes (with his habit: one player struck early, so it may be negative). An approach ring shrinks onto every note and touches it on its beat, since one can hardly tell when a note which flies at oneself arrives; a move near a note which misses it shows EARLY or LATE.
+
+The player's blue gloves are in the foreground, drawn as in 4D Sports Boxing (sleeved arms with elbows, gloves with thumbs), bouncing in the guard, with a fixed animation for every move which the classifier reads (a straight turns the fist palm down, a hook swings across with the elbow up, an uppercut rises with the palm towards him). They do not follow his body: the camera panel shows that.
+The player stays on their spot; the opponent stands in front of him and moves to the music.
 
 #### The player's moves
 
@@ -78,7 +81,6 @@ The player stays on their spot; the **opponent** moves: he steps in to attack an
 | Straight | A fist shoots towards the camera from the guard | Fast; bounces off the opponent's guard, lands when he is open |
 | Hook | A fist swings across at chin height | Gets half around the guard |
 | Uppercut | A fist rises fast from below the chin | Goes under the guard; staggers |
-| Kick | A knee comes up high (the camera need not see the whole leg, so a kick is a knee raise) | Reaches farther than the punches; pushes the opponent back |
 | Slip left / right | The head and the shoulders lean to one side | Dodges a punch which comes from the other side |
 | Duck | A squat: the head drops | Dodges anything high |
 | Jump | Both feet off the floor | Dodges a low sweep |
@@ -86,32 +88,29 @@ The player stays on their spot; the **opponent** moves: he steps in to attack an
 
 A classifier trained on labelled recordings finds all of these from the body pose on every frame (see [Pose pipeline](#pose-pipeline) and `dev/moves/ml/README.md`). The cover is a distinct gesture, not the plain guard: on the recordings, a player's normal guard already held the fists at the face, so "hands up" could not tell a cover from the guard; covering the head lifts the wrists above the eyes and the elbows above the shoulders, which the pose tells apart clearly.
 
-#### The opponent
+#### The opponent and the chart
 
-The opponent alternates between two distances:
+The opponent bobs to the beat; for every attack note he winds up in the last stretch before its beat and strikes on it, glowing red, while the screen calls the dodge with an arrow from where it comes. A punch which lands snaps his head (aside from a hook, back from a straight, up from an uppercut). He is never still: he bounces on the beat and sways over the bars, steps in as he winds up, slips aside mocking when the player misses, stumbles past when the player dodges, throws up his arms when his attack lands, and beckons the player in during the breathers, with a line now and then.
 
-- **Out** (about 2.2 m): only the player's kicks reach him. He taunts, bounces, and walks in after a few seconds.
-- **In** (about 1.3 m): the punches reach him. He guards his face, attacks once or a few times, and steps back out, or is driven out by a kick.
+| Attack | Note | Dodge |
+|---|---|---|
+| Jab | a purple glove at the face | Cover |
+| Hook from the left | a purple glove from the left | Slip right |
+| Hook from the right | a purple glove from the right | Slip left |
+| Haymaker | a purple bar at head height | Duck |
+| Sweep | a purple bar low over the floor | Jump |
 
-Each attack is **telegraphed**: a wind-up of about 0.9 s at normal difficulty (never less than about 0.6 s), during which he glows red and an arrow on the screen shows where it comes from.
+The song (synthesized in code, 90 BPM, about two and a half minutes) **teaches the moves one by one**: after a count-in, each section brings one move only (jabs, hooks, uppercuts, ducks, jumps, slips, the cover), then a section mixes them, and the final round brings two a bar. A section has six bars, five with a note and a breather. Every note has a symbol: an arrow of the punch's path (a jab straight at him, a hook sweeping in from the side, an uppercut up) or of the dodge (a slip to the side, a duck down, a jump up, the cover two gloves up). The notes are two beats (1.3 s) apart at the least and show two seconds ahead; in the play-tests, a note on every beat, and then on every other beat, was too fast. There are no kicks: the vision saw them too late and too seldom.
 
-| Attack | Telegraph | Dodge | Also works |
-|---|---|---|---|
-| Jab | Pulls the lead hand back, straight at the camera | Cover | Slip either way, duck |
-| Hook from the left | Swings his right arm wide (on the player's left) | Slip right | Duck |
-| Hook from the right | Swings his left arm wide (on the player's right) | Slip left | Duck |
-| Sweep | Lifts his leg back low | Jump | — |
+Meeting notes in a row builds a **combo**, which multiplies the score. The punches drain the opponent's health so that a player who meets about three quarters of them knocks him out in the final section (he holds on until then); a missed attack hurts the player. The fight ends with a K.O., when the song ends ("TIME"), or when the player goes down, with the score, the accuracy, the best combo and a grade.
 
-After each attack, hit or miss, he stands **open** for a moment: punches land harder then.
-A dodged attack opens him even longer, so the rhythm the game teaches is **dodge, then counter**: the core of boxing.
-
-As the fight goes on, he attacks more often, chains two attacks, and shortens the open window; each opponent type has its own mix of attacks (see [Worlds](#worlds)).
+Every fight writes a **log** of its events (no pictures), to study how it plays: see `dev/fight/README.md`.
 
 #### Fitness
 
-- The fights are intervals: about 20–40 s of attacks, a short breather while the opponent taunts or the round changes.
-- Difficulty adapts the pace (attacks per minute, wind-up length) rather than only the opponent's health.
-- The ducks are squats and the kicks are knee raises, so the legs work as much as the arms.
+- The song is the interval: about two minutes of steady work at the pace of the beat, with a breather bar between the sections.
+- Difficulty is the chart (how dense the notes, which moves) and the tempo, not only the opponent's health.
+- The ducks are squats and the jumps are jumps, so the legs work, too.
 
 ### Race
 
@@ -224,7 +223,7 @@ To find their rules, we record what the vision measures while a player follows a
 
 ## Milestones
 
-1. **Fight prototype.** The fight scene with one opponent: the punches and the kicks, the slips, the duck, the jump and the cover; the opponent stepping in and out, telegraphing his four attacks. Keyboard controls to play without a camera. **First cut done** (`scenes/fight/`), with RTMPose-t on every frame and the trained move classifier; next: more recordings (other players, above all children; other days and camera places; more time without moves), and play-testing the fight.
+1. **Fight prototype.** The fight scene with one opponent: the punches, the slips, the duck, the jump and the cover; as rhythm boxing to a synthesized song, the opponent's attacks as notes to dodge. Keyboard controls to play without a camera. **Second cut done** (`scenes/fight/`), with RTMPose-t on every frame and the trained move classifier; the first cut (the opponent stepping in and out on his own) played too late for the latency of the vision. Next: play-testing the rhythm fight with its logs, more songs and charts, more recordings (other players, above all children; other days and camera places; more time without moves).
 2. **Race prototype.** The virtual steering wheel on a simple winding road.
 3. **Sledge prototype.** The arm swing and the side push on a slope.
 4. **Run prototype.** Lanes, jumps and ducks on a straight course.

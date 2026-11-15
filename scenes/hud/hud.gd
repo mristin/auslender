@@ -17,6 +17,9 @@ const INK := Color("0c0e14")
 const PAPER := Color("f1f0ea")
 const GREEN := Color("6ccf5e")
 
+## How long a line of the opponent shows, in seconds.
+const TAUNT_SECONDS := 2.5
+
 var player_health := 1.0
 var opponent_health := 1.0
 var opponent_name := "DR. KAPSEL, ROCHARTIS"
@@ -41,9 +44,23 @@ var status := ""
 var help := ""
 var banner := ""
 
+## The score, the combo of notes met in a row and its multiplier, and how far
+## the song is, in [0, 1] (see Fight).
+var score := 0
+var combo := 0
+var multiplier := 1
+var progress := 0.0
+
+## The lines of the results, under the banner at the end of the fight.
+var results: Array = []
+
 var _font: Font
 var _canvas: Control
 var _messages: Array[Dictionary] = []
+var _taunt := ""
+var _taunt_age := 10.0
+var _announcement := ""
+var _announcement_left := 0.0
 
 
 func _ready() -> void:
@@ -63,7 +80,21 @@ func say(text: String, color: Color = PAPER) -> void:
         _messages.pop_front()
 
 
+## Announce a title (e.g., of a section) big in the middle, for a while.
+func announce(text: String, seconds: float) -> void:
+    _announcement = text
+    _announcement_left = seconds
+
+
+## Show a line of the opponent as a subtitle under his bar, for a while.
+func taunt(line: String) -> void:
+    _taunt = line
+    _taunt_age = 0.0
+
+
 func _process(delta: float) -> void:
+    _taunt_age += delta
+    _announcement_left -= delta
     for message in _messages:
         message["age"] += delta
     _messages = _messages.filter(func(message: Dictionary) -> bool: return message["age"] < 1.2)
@@ -77,6 +108,44 @@ func _draw_hud() -> void:
     _bar(Rect2(40, 30, 760, 34), player_health, RED, "YOU", false)
     _bar(Rect2(1120, 30, 760, 34), opponent_health, PURPLE, opponent_name, true)
 
+    # NOTE (mristin):
+    # The score in the middle on top, the combo under it, and the song's
+    # progress as a thin line under the bars.
+    _text("%d" % score, Vector2(_SCREEN.x * 0.5, 70), 56, PAPER)
+    if combo >= 2:
+        var combo_text := "%d COMBO" % combo
+        if multiplier > 1:
+            combo_text += "   x%d" % multiplier
+        _text(combo_text, Vector2(_SCREEN.x * 0.5, 118), 34, GOLD)
+    _canvas.draw_rect(Rect2(40, 4, _SCREEN.x - 80, 6), Color(INK, 0.8))
+    _canvas.draw_rect(Rect2(40, 4, (_SCREEN.x - 80) * clampf(progress, 0.0, 1.0), 6), GOLD)
+
+    if _announcement_left > 0.0:
+        var fade := clampf(_announcement_left / 0.4, 0.0, 1.0)
+        _text(_announcement, Vector2(_SCREEN.x * 0.5, 760), 72, Color(GOLD, fade))
+
+    if _taunt_age < TAUNT_SECONDS:
+        var fade := clampf((TAUNT_SECONDS - _taunt_age) / 0.5, 0.0, 1.0)
+        _canvas.draw_string_outline(
+            _font,
+            Vector2(1120, 200),
+            "\u201c%s\u201d" % _taunt,
+            HORIZONTAL_ALIGNMENT_RIGHT,
+            760,
+            34,
+            10,
+            Color(INK, fade)
+        )
+        _canvas.draw_string(
+            _font,
+            Vector2(1120, 200),
+            "\u201c%s\u201d" % _taunt,
+            HORIZONTAL_ALIGNMENT_RIGHT,
+            760,
+            34,
+            Color(Color("d9b8f5"), fade)
+        )
+
     if replay.x >= 0.0:
         _text(
             "REPLAY %4.1f / %.0f s" % [replay.x, replay.y], Vector2(_SCREEN.x * 0.5, 50), 30, PAPER
@@ -85,19 +154,26 @@ func _draw_hud() -> void:
     if warning != "":
         _draw_warning()
 
+    # NOTE (mristin):
+    # The newest message on top, the ones before it pushed down and fading.
     for i in range(_messages.size()):
         var message: Dictionary = _messages[i]
+        var below := _messages.size() - 1 - i
+        if below > 1:
+            continue
         var age: float = message["age"]
         var color: Color = message["color"]
         _text(
             message["text"],
-            Vector2(_SCREEN.x * 0.5, 470 - age * 80.0 - 0 * i),
-            64,
-            Color(color, 1.0 - age / 1.2)
+            Vector2(_SCREEN.x * 0.5, 200 + 46 * below - age * 40.0),
+            56 if below == 0 else 40,
+            Color(color, (1.0 - age / 1.2) * (1.0 if below == 0 else 0.5))
         )
 
     if banner != "":
         _text(banner, Vector2(_SCREEN.x * 0.5, 560), 160, GOLD)
+    for i in range(results.size()):
+        _text(str(results[i]), Vector2(_SCREEN.x * 0.5, 660 + 56 * i), 44, PAPER)
 
     if not sees_player:
         _text("Step in front of the camera.", Vector2(_SCREEN.x * 0.5, 680), 48, PAPER)
@@ -122,7 +198,7 @@ func _draw_hud() -> void:
 func _draw_warning() -> void:
     var size := 96 + int(32 * warning_progress)
     var color := Color(GOLD, 0.6 + 0.4 * warning_progress)
-    _text(warning, Vector2(_SCREEN.x * 0.5, 300), size, color)
+    _text(warning, Vector2(_SCREEN.x * 0.5, 350), size, color)
 
     var middle := Vector2(_SCREEN.x * 0.5, 480)
     var reach := 300.0 + 300.0 * (1.0 - warning_progress)
