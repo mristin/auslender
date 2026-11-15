@@ -422,7 +422,9 @@ func _process(delta: float) -> void:
         target = opponent.global_position
     boxer.face(target, delta)
     _tunnel.position.x = boxer.shift
-    _tunnel.place(_now, _phase == Phase.PLAYING)
+    # NOTE (mristin):
+    # The beat's frames only in a fight: in a run, the road rolls with it.
+    _tunnel.place(_now, _phase == Phase.PLAYING and not run)
     if _black_sheep != null:
         _black_sheep.position.y = 0.12 * absf(sin(_time * PI / _beat_seconds))
     _update_hud()
