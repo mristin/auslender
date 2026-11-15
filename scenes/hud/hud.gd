@@ -51,6 +51,13 @@ var combo := 0
 var multiplier := 1
 var progress := 0.0
 
+## How fast he runs (in a run), as many times the pace of the notes, up to
+## [member speed_most]; negative hides the speedometer. The pace he needs on
+## average to arrive in time (see Run) is [member speed_needed].
+var speed := -1.0
+var speed_most := 1.5
+var speed_needed := 0.85
+
 ## The lines of the results, under the banner at the end of the fight.
 var results: Array = []
 
@@ -146,6 +153,9 @@ func _draw_hud() -> void:
             34,
             Color(Color("d9b8f5"), fade)
         )
+
+    if speed >= 0.0:
+        _draw_speedometer()
 
     if replay.x >= 0.0:
         _text(
@@ -244,3 +254,36 @@ func _text(text: String, center: Vector2, size: int, color: Color) -> void:
         _font, at, text, HORIZONTAL_ALIGNMENT_CENTER, width, size, 12, Color(INK, color.a)
     )
     _canvas.draw_string(_font, at, text, HORIZONTAL_ALIGNMENT_CENTER, width, size, color)
+
+
+## The speedometer of a run: a dial at the bottom right, red where he is too
+## slow to arrive in time, yellow around the pace he needs, green above; and
+## its needle.
+func _draw_speedometer() -> void:
+    var center := Vector2(_SCREEN.x - 190, _SCREEN.y - 150)
+    var radius := 120.0
+    var start := PI * 0.75
+    var sweep := PI * 1.5
+    var at := func(share: float) -> float: return start + sweep * clampf(share, 0.0, 1.0)
+    _canvas.draw_circle(center, radius + 18, Color(INK, 0.75))
+    var needed := speed_needed / speed_most
+    var zones := [
+        [0.0, needed * 0.8, RED],
+        [needed * 0.8, needed, GOLD],
+        [needed, 1.0, GREEN],
+    ]
+    for zone in zones:
+        _canvas.draw_arc(
+            center, radius, at.call(zone[0]), at.call(zone[1]), 32, Color(zone[2], 0.9), 16
+        )
+    for k in range(7):
+        var angle: float = at.call(k / 6.0)
+        var direction := Vector2(cos(angle), sin(angle))
+        _canvas.draw_line(
+            center + direction * (radius - 24), center + direction * (radius - 8), PAPER, 3
+        )
+    var angle: float = at.call(speed / speed_most)
+    var tip := center + Vector2(cos(angle), sin(angle)) * (radius - 14)
+    _canvas.draw_line(center, tip, PAPER, 6)
+    _canvas.draw_circle(center, 12, PAPER)
+    _text("SPEED", center + Vector2(0, 70), 28, PAPER)

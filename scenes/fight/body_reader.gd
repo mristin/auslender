@@ -30,6 +30,12 @@ const JUMP_HOLD := 0.5
 ## as in Quake (see Boxer.jump_seconds).
 const RUN_JUMP_HOLD := 1.5
 
+## In a run, a jump counts only with both knees about level (how much higher
+## one knee may be than the other, in thighs; see WalkMeter.Lift), and with
+## his hips up by this share of the picture's height above where they rest.
+const ONE_KNEE := 0.35
+const JUMP_RISE := 0.012
+
 ## How far from the middle of the picture (a share of its width) his torso
 ## moves him a lane's width over, and how far beyond the outer lanes he may go
 ## (in lanes).
@@ -54,6 +60,8 @@ var running := false
 
 var _time := 0.0
 var _last_jump_at := -10.0
+var _hips_rest := -1.0
+var _hips_high := -1.0
 var _last_duck_at := -10.0
 var _last_slip_at := {"left": -10.0, "right": -10.0}
 
@@ -71,7 +79,10 @@ func read(vision: Node, delta: float) -> void:
         for move in vision.PollMoves():
             match move["kind"]:
                 "jump":
-                    _last_jump_at = _time
+                    if not running or _real_jump(vision):
+                        _last_jump_at = _time
+                    else:
+                        others.append(["jump_rejected", ""])
                 "duck":
                     _last_duck_at = _time
                 "slip":
@@ -92,6 +103,7 @@ func read(vision: Node, delta: float) -> void:
         covering = covering or vision.IsCovering()
     jumping = jumping or _time - _last_jump_at <= (RUN_JUMP_HOLD if running else JUMP_HOLD)
     _steer(vision)
+    _follow_hips(vision, delta)
 
 
 ## Take the moves found since the last time.
@@ -144,6 +156,34 @@ func _steer(vision: Node) -> void:
     if middle < 0.0:
         return
     steer = clampf((middle - 0.5) / STEER_LANE, -STEER_MOST, STEER_MOST)
+
+
+## Whether a jump which the classifier found in a run is a real one: both
+## knees about level (a runner lifts one knee while the other foot stays on
+## the ground, which the classifier may take for a jump), and his hips up
+## above where they were lately.
+func _real_jump(vision: Node) -> bool:
+    var lift: float = vision.GetKneeLift()
+    if not is_nan(lift) and absf(lift) > ONE_KNEE:
+        return false
+    if _hips_rest < 0.0 or _hips_high < 0.0:
+        return true
+    return _hips_rest - _hips_high >= JUMP_RISE
+
+
+## Follow his hips: where they rest (slowly), and how high they came lately
+## (y down, a share of the picture's height).
+func _follow_hips(vision: Node, delta: float) -> void:
+    if vision == null:
+        return
+    var points: PackedVector2Array = vision.GetKeypoints()
+    if points.size() < 13:
+        return
+    var hips := (points[11].y + points[12].y) * 0.5
+    _hips_rest = hips if _hips_rest < 0.0 else lerpf(_hips_rest, hips, minf(1.0, delta * 0.5))
+    _hips_high = (
+        hips if _hips_high < 0.0 else minf(lerpf(_hips_high, hips, minf(1.0, delta * 2.0)), hips)
+    )
 
 
 ## Where the middle of his body is across the mirrored picture (0 to 1;

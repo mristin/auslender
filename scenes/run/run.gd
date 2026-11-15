@@ -35,6 +35,14 @@ const BODY_HALF := 0.25
 const NORMAL_CADENCE := 2.0
 const FASTEST := 1.5
 
+## The pace he needs on average to arrive before the song ends (the road is
+## the song but its last bars long), as a share of the notes' pace.
+const NEEDED := 0.85
+
+## How quickly he speeds up and slows down (1/s).
+const SPEED_UP := 3.0
+const SLOW_DOWN := 0.6
+
 ## How high he flies in a jump, in meters.
 const JUMP_HEIGHT := 0.8
 
@@ -55,6 +63,8 @@ func _build() -> void:
     boxer.running_steps = 0.001
     boxer.level_gaze = true
     hud.opponent_name = ""
+    hud.speed_most = FASTEST
+    hud.speed_needed = NEEDED
     _strip = PathStrip.new()
     add_child(_strip)
     _strip.setup(SPOT, BODY_HALF * 2.0)
@@ -71,13 +81,14 @@ func _build() -> void:
 func _idle_command() -> String:
     if _pace < 0.15:
         return "LIFT YOUR KNEES!"
-    return "RUN! %d%%" % roundi(_pace * 100.0)
+    return "RUN!"
 
 
 func _on_frame(delta: float) -> void:
     boxer.shift = lerpf(boxer.shift, _body.steer * Scenery.LANE, minf(1.0, delta * 10.0))
     boxer.face(SPOT + Vector3(boxer.shift, 0, -6.0), delta)
     _veil.steer = _body.steer
+    hud.speed = _pace
     # NOTE (mristin):
     # His arms pump at his own steps.
     boxer.running_steps = maxf(0.001, _pace * NORMAL_CADENCE * 0.5)
@@ -93,7 +104,11 @@ func _advance(played: float) -> void:
     if vision != null and vision.GetStatus() != "Disabled":
         cadence = vision.GetCadence()
     var wanted := clampf(cadence / NORMAL_CADENCE, 0.0, FASTEST)
-    _pace = lerpf(_pace, wanted, minf(1.0, played * 3.0))
+    # NOTE (mristin):
+    # He speeds up quickly, but slows down only gradually: a pause between
+    # the steps does not stop him at once.
+    var rate := SPEED_UP if wanted > _pace else SLOW_DOWN
+    _pace = lerpf(_pace, wanted, minf(1.0, played * rate))
     _t += played * _pace
     var meters := played * _pace * SPEED
     _rolled += meters
