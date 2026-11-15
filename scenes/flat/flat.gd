@@ -28,6 +28,15 @@ static func own_material(color: Color) -> ShaderMaterial:
     return made
 
 
+## A material of the color of its own, crossed by wavy stripes of the other
+## color (see flat.gdshader), about [param frequency] radians a meter.
+static func striped(color: Color, stripe: Color, frequency: float) -> ShaderMaterial:
+    var made := own_material(color)
+    made.set_shader_parameter("stripe_color", stripe)
+    made.set_shader_parameter("stripes", frequency)
+    return made
+
+
 ## Add a box of the size and the color to the parent, centered at the position.
 static func box(
     parent: Node3D, size: Vector3, at: Vector3, color: Color, own := false

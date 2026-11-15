@@ -3,7 +3,7 @@ using Godot;
 using Auslender.Fight;
 
 /// <summary>
-/// Bring the chart and the synthesized music of the rhythm fight (see
+/// Bring the chart and the synthesized music of the rhythm levels (see
 /// <see cref="Chart"/> and <see cref="BeatSynth"/>) to GDScript.
 /// </summary>
 public partial class RhythmCore : RefCounted
@@ -14,20 +14,20 @@ public partial class RhythmCore : RefCounted
     /// <summary>The bars to get ready before the first section.</summary>
     public int IntroBars() => Chart.IntroBars;
 
-    /// <summary>The level of every bar of the song.</summary>
-    public int[] Levels() => Chart.Levels();
-
-    /// <summary>The titles of the sections.</summary>
-    public string[] Sections() => Chart.Sections;
+    /// <summary>The level of every bar of a song of the sections.</summary>
+    public int[] Levels(int sections) => Chart.Levels(sections);
 
     /// <summary>The section of a bar (-1 outside of them).</summary>
-    public int SectionOf(int bar) => Chart.SectionOf(bar);
+    public int SectionOf(int bar, int sections) => Chart.SectionOf(bar, sections);
 
-    /// <summary>The notes: each a dictionary of "beat", "kind" and "side".</summary>
-    public Godot.Collections.Array<Godot.Collections.Dictionary> Notes(int seed)
+    /// <summary>
+    /// The notes of the sections (see <see cref="Chart.Build"/>): each a
+    /// dictionary of "beat", "kind" and "side".
+    /// </summary>
+    public Godot.Collections.Array<Godot.Collections.Dictionary> Notes(string[] sections, int seed, bool finisher)
     {
         var notes = new Godot.Collections.Array<Godot.Collections.Dictionary>();
-        foreach (Note note in Chart.Build(seed))
+        foreach (Note note in Chart.Build(sections, seed, finisher))
         {
             notes.Add(new Godot.Collections.Dictionary
             {
@@ -40,8 +40,12 @@ public partial class RhythmCore : RefCounted
         return notes;
     }
 
-    /// <summary>The song, as 16-bit little-endian mono samples.</summary>
-    public byte[] Song(double bpm, int seed) => ToBytes(BeatSynth.RenderSong(bpm, Chart.Levels(), seed));
+    /// <summary>
+    /// The song of the sections, as 16-bit little-endian mono samples, at the
+    /// tempo, in the chord progression, moved by the semitones.
+    /// </summary>
+    public byte[] Song(double bpm, int sections, int seed, int progression, int transpose) =>
+        ToBytes(BeatSynth.RenderSong(bpm, Chart.Levels(sections), seed, progression, transpose));
 
     /// <summary>A sound (see <see cref="BeatSynth.RenderSound"/>), as the song.</summary>
     public byte[] Sound(string name) => ToBytes(BeatSynth.RenderSound(name));

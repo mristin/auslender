@@ -16,21 +16,47 @@ extends Node3D
 
 const MAX_HEALTH := 100.0
 
-## Dressed as Auslender (scenes/camera_panel/model): blue gloves and the
-## sleeves of his yellow suit.
-const GLOVE := Color("2a5bd7")
-const SLEEVE := Color("e2b328")
-const SLEEVE_SHADE := Color("c39722")
-const CUFF := Color("f2efe6")
-## The thumb, a little lighter than the glove, so that it shows.
-const THUMB := Color("3d6fe6")
-const SHOE := Color("1e1b1a")
-const SKIN := Color("d9a07a")
-const SKIN_DARK := Color("b98264")
-## The trousers of Auslender's yellow suit (they stand out against the dark
-## ring), and their shade.
-const SHORTS := Color("e2b328")
-const TROUSERS_SHADE := Color("c39722")
+## How each hero (see RiggedFigure.HEROES) is dressed, as his model: the
+## glove and its thumb (a little lighter, so that it shows), the band of the
+## cuff, the sleeve and its shade (the upper arm), the trousers and their
+## shade, and the shoes. The classic hero: blue gloves and his yellow suit;
+## the prehistoric one: fists wrapped in leather, and his fur; Samichlaus:
+## white gloves, and his red coat with its white trim.
+const DRESS := {
+    "classic":
+    {
+        "glove": Color("2a5bd7"),
+        "thumb": Color("3d6fe6"),
+        "cuff": Color("f2efe6"),
+        "sleeve": Color("e2b328"),
+        "sleeve_shade": Color("c39722"),
+        "trousers": Color("e2b328"),
+        "trousers_shade": Color("c39722"),
+        "shoe": Color("1e1b1a"),
+    },
+    "prehistoric":
+    {
+        "glove": Color("a8743e"),
+        "thumb": Color("bf8a52"),
+        "cuff": Color("5a3a1e"),
+        "sleeve": Color("7a5232"),
+        "sleeve_shade": Color("664426"),
+        "trousers": Color("7a5232"),
+        "trousers_shade": Color("664426"),
+        "shoe": Color("4a3020"),
+    },
+    "samichlaus":
+    {
+        "glove": Color("efece4"),
+        "thumb": Color("fbf9f4"),
+        "cuff": Color("f4f1e6"),
+        "sleeve": Color("c0242c"),
+        "sleeve_shade": Color("9e1c24"),
+        "trousers": Color("c0242c"),
+        "trousers_shade": Color("9e1c24"),
+        "shoe": Color("1e1b1a"),
+    },
+}
 
 ## How many sides the arms and the gloves have (they are seen up close).
 const ARM_SIDES := 16
@@ -85,6 +111,9 @@ var lean := 0.0
 ## How far he ducks, in [0, 1].
 var duck := 0.0
 
+## How far he stands to the side of his spot, in meters (in a run: his lane).
+var shift := 0.0
+
 ## Whether he is in a jump now.
 var jumping := false
 
@@ -133,6 +162,9 @@ func _ready() -> void:
     trail.material_override = trail_material
     camera.add_child(trail)
 
+    # NOTE (mristin):
+    # Dressed as the hero of the level.
+    var dress: Dictionary = DRESS.get(RiggedFigure.chosen, DRESS["classic"])
     for i in range(2):
         # NOTE (mristin):
         # The segments are tapered limbs of unit length (the narrow end at the
@@ -142,27 +174,36 @@ func _ready() -> void:
         # The arms and the gloves are seen up close, so they get more facets
         # than the rest of the flat-shaded world (still flat, but finer).
         _upper_arms.append(
-            Flat.limb(camera, 0.05, 0.065, 1.0, Vector3.ZERO, SLEEVE_SHADE, false, ARM_SIDES)
+            Flat.limb(
+                camera, 0.05, 0.065, 1.0, Vector3.ZERO, dress["sleeve_shade"], false, ARM_SIDES
+            )
         )
         _forearms.append(
-            Flat.limb(camera, 0.04, 0.052, 1.0, Vector3.ZERO, SLEEVE, false, ARM_SIDES)
+            Flat.limb(camera, 0.04, 0.052, 1.0, Vector3.ZERO, dress["sleeve"], false, ARM_SIDES)
         )
         _elbows.append(
             Flat.ball(
-                camera, 0.055, Vector3.ZERO, SLEEVE_SHADE, false, 1.0, ARM_SIDES, ARM_SIDES / 2
+                camera,
+                0.055,
+                Vector3.ZERO,
+                dress["sleeve_shade"],
+                false,
+                1.0,
+                ARM_SIDES,
+                ARM_SIDES / 2
             )
         )
 
         var glove := Node3D.new()
         camera.add_child(glove)
-        _make_glove(glove, 1.0 if i == 0 else -1.0)
+        _make_glove(glove, 1.0 if i == 0 else -1.0, dress)
         _gloves.append(glove)
         glove.position = _side(SHOULDER, i) + Vector3(0, 0.1, -0.5)
 
-        _thighs.append(Flat.limb(camera, 0.07, 0.09, 1.0, Vector3.ZERO, SHORTS))
-        _shins.append(Flat.limb(camera, 0.05, 0.065, 1.0, Vector3.ZERO, TROUSERS_SHADE))
-        _knees.append(Flat.ball(camera, 0.072, Vector3.ZERO, SHORTS))
-        _shoes.append(Flat.box(camera, Vector3(0.13, 0.11, 1.0), Vector3.ZERO, SHOE))
+        _thighs.append(Flat.limb(camera, 0.07, 0.09, 1.0, Vector3.ZERO, dress["trousers"]))
+        _shins.append(Flat.limb(camera, 0.05, 0.065, 1.0, Vector3.ZERO, dress["trousers_shade"]))
+        _knees.append(Flat.ball(camera, 0.072, Vector3.ZERO, dress["trousers"]))
+        _shoes.append(Flat.box(camera, Vector3(0.13, 0.11, 1.0), Vector3.ZERO, dress["shoe"]))
 
 
 ## Build a boxing glove under [param glove], from rounded parts: the padded
@@ -171,29 +212,31 @@ func _ready() -> void:
 ## the hand and -z where the knuckles point (see _place_arm()); the thumb is
 ## on the side [param inner] (+1 for the left glove: its local +x; -1 for the
 ## right), towards the palm, so that one sees how the fist turns.
-static func _make_glove(glove: Node3D, inner: float) -> void:
-    var back := Flat.ball(glove, 0.062, Vector3(0, 0.006, 0.0), GLOVE, false, 1.0, GLOVE_SIDES, 12)
+static func _make_glove(glove: Node3D, inner: float, dress: Dictionary) -> void:
+    var back := Flat.ball(
+        glove, 0.062, Vector3(0, 0.006, 0.0), dress["glove"], false, 1.0, GLOVE_SIDES, 12
+    )
     back.scale = Vector3(0.95, 0.85, 1.2)
     var fingers := Flat.ball(
-        glove, 0.052, Vector3(0, -0.018, -0.04), GLOVE, false, 1.0, GLOVE_SIDES, 12
+        glove, 0.052, Vector3(0, -0.018, -0.04), dress["glove"], false, 1.0, GLOVE_SIDES, 12
     )
     fingers.scale = Vector3(1.0, 0.95, 0.85)
     # NOTE (mristin):
     # The thumb: long along the glove, from the wrist to the curled fingers,
     # its tip down towards the palm.
     var thumb := Flat.ball(
-        glove, 0.022, Vector3(inner * 0.05, -0.03, -0.008), THUMB, false, 2.3, 12, 10
+        glove, 0.022, Vector3(inner * 0.05, -0.03, -0.008), dress["thumb"], false, 2.3, 12, 10
     )
     thumb.rotation = Vector3(-PI * 0.5 + 0.3, 0.0, inner * 0.3)
     # NOTE (mristin):
     # The cuff: a tapered sleeve of the glove (a limb along y, its narrow top
     # towards the elbow), with a light band at its end.
     var cuff := Flat.limb(
-        glove, 0.043, 0.05, 0.09, Vector3(0, -0.004, 0.085), GLOVE, false, GLOVE_SIDES
+        glove, 0.043, 0.05, 0.09, Vector3(0, -0.004, 0.085), dress["glove"], false, GLOVE_SIDES
     )
     cuff.rotation.x = PI * 0.5
     var band := Flat.limb(
-        glove, 0.045, 0.047, 0.026, Vector3(0, -0.004, 0.112), CUFF, false, GLOVE_SIDES
+        glove, 0.045, 0.047, 0.026, Vector3(0, -0.004, 0.112), dress["cuff"], false, GLOVE_SIDES
     )
     band.rotation.x = PI * 0.5
 
@@ -212,7 +255,7 @@ func reset() -> void:
 func face(opponent: Vector3, delta: float) -> void:
     _jump_height = lerpf(_jump_height, 0.25 if jumping else 0.0, minf(1.0, delta * 12.0))
     var shake := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * _shake * 0.03
-    var eyes := Vector3(lean * LEAN_SHIFT, EYES - duck * 0.45 + _jump_height, 0)
+    var eyes := Vector3(shift + lean * LEAN_SHIFT, EYES - duck * 0.45 + _jump_height, 0)
     var look := opponent + Vector3(0, 1.45, 0)
     var body := _body_motion()
     camera.position = eyes + shake + (body[0] as Vector3)

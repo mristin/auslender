@@ -28,7 +28,15 @@ const ATTACK := Color("b04de8")
 const MISSED := Color(0.55, 0.55, 0.6)
 
 ## The labels of the notes.
+## How far apart the lanes of a run are, and how wide the road is (for the
+## obstacles across it), in meters.
+const LANE := Scenery.LANE
+const ROAD := LANE * 3.0 + 0.4
+
 const LABELS := {
+    "lane_left": "",
+    "lane_middle": "",
+    "lane_right": "",
     "straight": "JAB",
     "hook": "HOOK",
     "uppercut": "UPPERCUT",
@@ -52,6 +60,10 @@ const APPROACH_FROM := 3.5
 ## How long a judged note lasts, in seconds.
 const AFTER_SECONDS := 0.35
 
+## How far to the side it follows the player (meters; in a run, where he
+## steers), added to where it flies.
+var follow := 0.0
+
 var kind := ""
 var side := ""
 ## The song time of its beat, in seconds.
@@ -67,24 +79,48 @@ var _materials: Array[StandardMaterial3D] = []
 var _label: Label3D
 var _shape: Node3D
 var _approach: MeshInstance3D
+var _attack_color := ATTACK
+## The surroundings of a run (see Scenery), whose obstacles it shows; "" in a
+## fight.
+var _theme := ""
 
 
 ## Set the note up: its move, its side ("" for an attack), the song time of
-## its beat, where it arrives (in the fight's space), and how fast it flies
-## (meters per second).
+## its beat, where it arrives (in the fight's space), how fast it flies
+## (meters per second), and the color of the attacks or obstacles.
 func setup(
-    note_kind: String, note_side: String, time: float, arrive: Vector3, speed: float
+    note_kind: String,
+    note_side: String,
+    time: float,
+    arrive: Vector3,
+    speed: float,
+    attack_color := ATTACK,
+    theme := ""
 ) -> void:
     kind = note_kind
     side = note_side
     at = time
     _arrive = arrive
     _speed = speed
+    _attack_color = attack_color
+    _theme = theme
     # NOTE (mristin):
     # It comes from far ahead, closer to the middle, and spreads out to its
     # lane as it comes.
     _from = Vector3(arrive.x * 0.4, lerpf(arrive.y, 1.4, 0.5), arrive.z)
+    if spans_road():
+        # NOTE (mristin):
+        # The obstacles stand on the road, across it or in their lanes, from
+        # far away.
+        _from = arrive
     _build()
+
+
+## Whether it is an obstacle of a run which spans the road (it stays on the
+## road, rather than following the player): a branch, a hole, or blocks in
+## the lanes.
+func spans_road() -> bool:
+    return kind.begins_with("lane_") or (_theme != "" and kind in ["duck", "jump"])
 
 
 ## Place it at the song time [param now], and fade it in and out.
@@ -95,7 +131,7 @@ func place(now: float) -> void:
     var distance := ahead * _speed
     var spread := clampf(1.0 - distance / 6.0, 0.0, 1.0)
     var lane := _from.lerp(_arrive, smoothstep(0.0, 1.0, spread))
-    position = Vector3(lane.x, lane.y, _arrive.z - distance)
+    position = Vector3(lane.x + follow, lane.y, _arrive.z - distance)
     var alpha := clampf((6.6 - distance) / 1.2, 0.0, 1.0)
     if result != "":
         var age := (now - _judged_at) / AFTER_SECONDS
@@ -139,8 +175,12 @@ func is_done(now: float) -> bool:
 func _build() -> void:
     _shape = Node3D.new()
     add_child(_shape)
-    var color := ATTACK if side == "" else (LEFT if side == "left" else RIGHT)
+    var color := _attack_color if side == "" else (LEFT if side == "left" else RIGHT)
     match kind:
+        "lane_left", "lane_middle", "lane_right":
+            _build_lanes(color)
+        "duck", "jump" when _theme != "":
+            _build_across(color)
         "duck", "jump":
             var bar := MeshInstance3D.new()
             var box := BoxMesh.new()
@@ -200,6 +240,8 @@ func _build() -> void:
     white.albedo_color = Color(1, 1, 1, 0)
     _approach.material_override = white
     add_child(_approach)
+    if kind.begins_with("lane_"):
+        _approach.position = Vector3(_free_lane() * LANE, 0.5, 0)
 
     _add_symbol()
 
@@ -271,6 +313,11 @@ func _symbol() -> Array:
             strokes = [[PackedVector2Array([Vector2(0.0, 0.1), Vector2(0.0, -0.12)]), true]]
         "jump":
             strokes = [[PackedVector2Array([Vector2(0.0, -0.08), Vector2(0.0, 0.14)]), true]]
+        "lane_left", "lane_middle", "lane_right":
+            # NOTE (mristin):
+            # Down into the free lane.
+            var x := _free_lane() * LANE
+            strokes = [[PackedVector2Array([Vector2(x, 0.75), Vector2(x, 0.5)]), true]]
         "cover":
             # NOTE (mristin):
             # Both gloves up: two upright bars.
@@ -324,3 +371,119 @@ static func _stroke(
         var back := end - along * grow
         for p in [tip, back + across * (HEAD_WIDTH + grow), back - across * (HEAD_WIDTH + grow)]:
             mesh.surface_add_vertex(Vector3(p.x, p.y, 0.0))
+
+
+## The free lane of a steering note: -1 left, 0 the middle, 1 right.
+func _free_lane() -> int:
+    return {"lane_left": -1, "lane_middle": 0, "lane_right": 1}.get(kind, 0)
+
+
+## The obstacles of a steering note: a block in each of the two other lanes,
+## and a golden coin to grab in the free one.
+func _build_lanes(color: Color) -> void:
+    var free := _free_lane()
+    for lane in [-1, 0, 1]:
+        if lane == free:
+            var coin := MeshInstance3D.new()
+            var disc := CylinderMesh.new()
+            disc.top_radius = 0.14
+            disc.bottom_radius = 0.14
+            disc.height = 0.04
+            disc.radial_segments = 20
+            coin.mesh = disc
+            coin.rotation.x = PI * 0.5
+            coin.position = Vector3(lane * LANE, 0.5, 0)
+            coin.material_override = _material(Color("f2c14e"), false)
+            _shape.add_child(coin)
+            continue
+        _build_block(lane * LANE, color)
+
+
+## An obstacle across the road: to duck under, a branch (with leaves; in the
+## city, a beam with warning stripes; in the suburbs, a branch heavy with
+## snow); to jump over, a hole in the road with a rim (in the ice, a
+## crevasse).
+func _build_across(color: Color) -> void:
+    if kind == "duck":
+        var city := _theme == "city"
+        var beam := _part(
+            Vector3(ROAD, 0.16, 0.16), Vector3.ZERO, Color("e8c020") if city else Color("6a4a2a")
+        )
+        beam.rotation.z = 0.04
+        if city:
+            for k in range(8):
+                _part(
+                    Vector3(0.25, 0.17, 0.17),
+                    Vector3(-ROAD * 0.5 + 0.3 + k * 0.6, 0, 0),
+                    Color("1a1a1a")
+                )
+            for x in [-ROAD * 0.5, ROAD * 0.5]:
+                _part(Vector3(0.12, 1.7, 0.12), Vector3(x, -0.85, 0), Color("c8c8c8"))
+        else:
+            var leaf := Color("f4f7fb") if _theme == "suburbs" else Color("3f8a30")
+            for k in range(7):
+                var x := -ROAD * 0.5 + 0.4 + k * 0.65
+                var tuft := _part(
+                    Vector3(0.45, 0.22, 0.3), Vector3(x, 0.12 + (k % 2) * 0.06, 0), leaf
+                )
+                tuft.rotation.z = (k % 3 - 1) * 0.3
+        return
+    # NOTE (mristin):
+    # The hole: a dark pit in the road, its rim of earth (or ice) around it.
+    var rim := Color("bfe4f2") if _theme == "ice" else color
+    _part(Vector3(ROAD, 0.03, 0.9), Vector3(0, 0.01, 0), Color("120c08"))
+    for z in [-0.5, 0.5]:
+        _part(Vector3(ROAD + 0.1, 0.1, 0.12), Vector3(0, 0.05, z), rim)
+    for x in [-ROAD * 0.5, ROAD * 0.5]:
+        _part(Vector3(0.12, 0.1, 1.1), Vector3(x, 0.05, 0), rim)
+
+
+## A block in a lane, as the surroundings have it: a boulder (in the jungle
+## and the cave, an ice block on the glacier), a barrier with a cone (in the
+## city), a snowman (in the suburbs).
+func _build_block(x: float, color: Color) -> void:
+    match _theme:
+        "city":
+            _part(Vector3(1.0, 0.25, 0.12), Vector3(x, 0.75, 0), Color("e8701a"))
+            _part(Vector3(1.0, 0.1, 0.13), Vector3(x, 0.75, 0), Color("f4f2ee"))
+            for dx in [-0.4, 0.4]:
+                _part(Vector3(0.08, 0.75, 0.08), Vector3(x + dx, 0.37, 0), Color("4a4a4a"))
+            var cone := _ball(0.22, Vector3(x, 0.25, -0.3), Color("e8701a"))
+            cone.scale = Vector3(1, 1.6, 1)
+        "suburbs":
+            _ball(0.35, Vector3(x, 0.32, 0), Color("f4f7fb"))
+            _ball(0.25, Vector3(x, 0.85, 0), Color("f4f7fb"))
+            _ball(0.06, Vector3(x, 0.9, -0.25), Color("f08a24"))
+        "ice":
+            var ice := _part(Vector3(0.9, 0.9, 0.7), Vector3(x, 0.45, 0), Color("bfe4f2"))
+            ice.rotation.y = 0.3
+        _:
+            var rock := _ball(0.45, Vector3(x, 0.35, 0), color)
+            rock.scale = Vector3(1.2, 0.85, 1.0)
+
+
+## A box of the obstacle (it fades with the note).
+func _part(size: Vector3, at: Vector3, color: Color) -> MeshInstance3D:
+    var instance := MeshInstance3D.new()
+    var box := BoxMesh.new()
+    box.size = size
+    instance.mesh = box
+    instance.position = at
+    instance.material_override = _material(color, false)
+    _shape.add_child(instance)
+    return instance
+
+
+## A ball of the obstacle (it fades with the note).
+func _ball(radius: float, at: Vector3, color: Color) -> MeshInstance3D:
+    var instance := MeshInstance3D.new()
+    var sphere := SphereMesh.new()
+    sphere.radius = radius
+    sphere.height = radius * 2.0
+    sphere.radial_segments = 10
+    sphere.rings = 6
+    instance.mesh = sphere
+    instance.position = at
+    instance.material_override = _material(color, false)
+    _shape.add_child(instance)
+    return instance

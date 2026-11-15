@@ -1,0 +1,86 @@
+class_name Scoring
+extends RefCounted
+
+## The score of a rhythm level (see Fight): how the player met the notes, the
+## combo of notes met in a row, which multiplies the points, the accuracy and
+## the grade.
+
+## The points of each judgement, before the combo's multiplier; the combo
+## raises the multiplier by one every this many notes, up to the most.
+const POINTS := {"perfect": 100, "good": 50, "dodged": 100}
+const COMBO_STEP := 8
+const MULTIPLIER_MOST := 4
+
+## How much a GOOD counts for the accuracy, against a PERFECT (striking early
+## is allowed).
+const GOOD_SHARE := 0.75
+
+## The grades, from the accuracy.
+const GRADES := [[0.95, "S"], [0.85, "A"], [0.7, "B"], [0.5, "C"]]
+
+var score := 0
+var combo := 0
+var best_combo := 0
+var counts := {"perfect": 0, "good": 0, "dodged": 0, "miss": 0, "hit": 0}
+
+
+func reset() -> void:
+    score = 0
+    combo = 0
+    best_combo = 0
+    for key in counts:
+        counts[key] = 0
+
+
+## A note was met ("perfect", "good" or "dodged").
+func met(how: String) -> void:
+    counts[how] += 1
+    combo += 1
+    best_combo = maxi(best_combo, combo)
+    score += POINTS[how] * multiplier()
+
+
+## A note was missed ("miss"), or an attack or an obstacle hit him ("hit").
+func failed(how: String) -> void:
+    counts[how] += 1
+    combo = 0
+
+
+func multiplier() -> int:
+    return mini(MULTIPLIER_MOST, 1 + combo / COMBO_STEP)
+
+
+## The share of the notes met, a GOOD counting a little less.
+func accuracy() -> float:
+    var total := 0
+    for key in counts:
+        total += counts[key]
+    var met_notes: float = counts["perfect"] + GOOD_SHARE * counts["good"] + counts["dodged"]
+    return met_notes / maxf(1.0, total)
+
+
+func grade() -> String:
+    var share := accuracy()
+    for step in GRADES:
+        if share >= step[0]:
+            return step[1]
+    return "D"
+
+
+## The lines of the results.
+func lines() -> Array:
+    return [
+        "SCORE %d   GRADE %s" % [score, grade()],
+        (
+            "%d%%   PERFECT %d   GOOD %d   DODGED %d   MISSED %d   HIT %d"
+            % [
+                roundi(accuracy() * 100.0),
+                counts["perfect"],
+                counts["good"],
+                counts["dodged"],
+                counts["miss"],
+                counts["hit"],
+            ]
+        ),
+        "BEST COMBO %d" % best_combo,
+    ]

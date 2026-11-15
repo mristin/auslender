@@ -8,7 +8,8 @@ namespace Auslender.Fight;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The song is in A minor (Am, F, C, G: one chord per bar), bar by bar; the
+/// The song follows a chord progression (e.g., Am, F, C, G: one chord per bar;
+/// see <see cref="Progressions"/>), moved up or down to a key, bar by bar; the
 /// level of each bar says how much plays: 0 the kick and the hi-hats over a
 /// pad, then the bass, the snare, an arpeggio, four on the floor, and at the
 /// top sixteenth hi-hats. The last bar of every eight has a snare fill, which
@@ -27,16 +28,27 @@ public static class BeatSynth
     public const int SampleRate = 22050;
 
     // NOTE (mristin):
-    // MIDI notes: the roots of Am, F, C and G (in the bass), and their chords.
-    private static readonly int[] Roots = { 45, 41, 48, 43 };
-
-    private static readonly int[][] Chords =
+    // The chord progressions, one chord a bar (MIDI notes): the root in the
+    // bass, and the chord. 0: Am F C G (epic); 1: C G Am F (cheerful); 2: Am
+    // Dm E Am (dark); 3: G C D G (folk, as an alpine tune).
+    private static readonly int[][] ProgressionRoots =
     {
-        new[] { 57, 60, 64 },
-        new[] { 53, 57, 60 },
-        new[] { 55, 60, 64 },
-        new[] { 55, 59, 62 },
+        new[] { 45, 41, 48, 43 },
+        new[] { 48, 43, 45, 41 },
+        new[] { 45, 38, 40, 45 },
+        new[] { 43, 48, 38, 43 },
     };
+
+    private static readonly int[][][] ProgressionChords =
+    {
+        new[] { new[] { 57, 60, 64 }, new[] { 53, 57, 60 }, new[] { 55, 60, 64 }, new[] { 55, 59, 62 } },
+        new[] { new[] { 55, 60, 64 }, new[] { 55, 59, 62 }, new[] { 57, 60, 64 }, new[] { 53, 57, 60 } },
+        new[] { new[] { 57, 60, 64 }, new[] { 53, 57, 62 }, new[] { 56, 59, 64 }, new[] { 57, 60, 64 } },
+        new[] { new[] { 55, 59, 62 }, new[] { 55, 60, 64 }, new[] { 54, 57, 62 }, new[] { 55, 59, 62 } },
+    };
+
+    /// <summary>How many chord progressions there are.</summary>
+    public static int Progressions => ProgressionRoots.Length;
 
     /// <summary>
     /// Render the song: one bar per level, at the tempo.
@@ -44,9 +56,13 @@ public static class BeatSynth
     /// <param name="bpm">The beats per minute.</param>
     /// <param name="levels">How much plays in each bar (0 to 6).</param>
     /// <param name="seed">The seed of the noise.</param>
+    /// <param name="progression">The chord progression (see <see cref="Progressions"/>).</param>
+    /// <param name="transpose">How many semitones to move it up (or down).</param>
     /// <returns>The samples.</returns>
-    public static short[] RenderSong(double bpm, int[] levels, int seed)
+    public static short[] RenderSong(double bpm, int[] levels, int seed, int progression = 0, int transpose = 0)
     {
+        int[] roots = ProgressionRoots[progression];
+        int[][] chords = ProgressionChords[progression];
         double beat = 60.0 / bpm;
         int bar = BarSamples(bpm);
         var mix = new float[bar * levels.Length + SampleRate];
@@ -57,7 +73,7 @@ public static class BeatSynth
             int level = levels[b];
             int chord = b % 4;
             bool fill = b % 8 == 7 && level > 0;
-            RenderBar(mix, start, beat, level, chord, fill, random);
+            RenderBar(mix, start, beat, level, roots[chord] + transpose, Shift(chords[chord], transpose), fill, random);
         }
 
         return ToSamples(mix, 0.9f);
@@ -136,8 +152,19 @@ public static class BeatSynth
         return ToSamples(mix, 1.0f);
     }
 
+    private static int[] Shift(int[] notes, int by)
+    {
+        var shifted = new int[notes.Length];
+        for (int i = 0; i < notes.Length; i++)
+        {
+            shifted[i] = notes[i] + by;
+        }
+
+        return shifted;
+    }
+
     private static void RenderBar(
-        float[] mix, int start, double beat, int level, int chord, bool fill, Random random)
+        float[] mix, int start, double beat, int level, int root, int[] chord, bool fill, Random random)
     {
         int Sample(double beats) => start + (int)Math.Round(beats * beat * SampleRate);
 
@@ -173,7 +200,7 @@ public static class BeatSynth
         }
 
         // The pad: the chord, softly, across the bar.
-        foreach (int note in Chords[chord])
+        foreach (int note in chord)
         {
             Pad(mix, start, 4.0 * beat, Frequency(note), level == 0 ? 0.05f : 0.035f);
         }
@@ -181,7 +208,6 @@ public static class BeatSynth
         // The bass: eighths on the root (octave jumps at the top).
         if (level >= 1)
         {
-            int root = Roots[chord];
             for (int e = 0; e < 8; e++)
             {
                 int note = level >= 5 && e % 2 == 1 ? root + 12 : root;
@@ -192,7 +218,7 @@ public static class BeatSynth
         // The arpeggio: sixteenths up and down the chord.
         if (level >= 3)
         {
-            int[] notes = Chords[chord];
+            int[] notes = chord;
             int[] order = { 0, 1, 2, 1 };
             for (int s = 0; s < 16; s++)
             {

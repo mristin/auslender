@@ -1,9 +1,8 @@
-class_name Scientist
+class_name Opponent
 extends Node3D
 
-## The opponent: an evil scientist of Rochartis, the fictional pharma giant, in
-## his lab coat, his goggles and his purple lab gloves, built of flat-shaded
-## boxes and low-poly balls.
+## The opponent of a fight: one of the looks (see Looks), all on the same rig,
+## so that all box alike.
 ##
 ## In the rhythm fight (see Fight), the chart moves him, not a mind of his own:
 ## he bobs to the beat ([method beat]); the fight shows his attacks with
@@ -32,22 +31,12 @@ const STRIKE_SECONDS := 0.45
 
 const MAX_HEALTH := 100.0
 
-const SKIN := Color("e0b48e")
-const COAT := Color("f1f0ea")
-const COAT_SHADE := Color("cfcfc7")
-const TROUSERS := Color("3a3f4a")
-const SHOES := Color("1b1b1e")
-const GLOVES := Color("7b3fb0")
-const HAIR := Color("b9b9b9")
-const GOGGLES := Color("26303a")
-const LENS := Color("5fd3e6")
-const TIE := Color("b3262a")
-const SHIRT := Color("8fb1d6")
-const BADGE := Color("1f8f8a")
-
 const RAGE := Color("ff9a1f")
 
 var health := MAX_HEALTH
+
+## Which look he has (see Looks.IDS); set it before he enters the scene.
+var look := "scientist"
 
 ## Where the player is, which the fight tells him on every frame.
 var target := Vector3.ZERO
@@ -336,84 +325,11 @@ func _animate(delta: float) -> void:
 func _build() -> void:
     _body = Node3D.new()
     add_child(_body)
-
-    for i in range(2):
-        var x := -0.12 if i == 0 else 0.12
-        var hip := _pivot(_body, Vector3(x, 0.92, 0))
-        Flat.limb(hip, 0.085, 0.065, 0.46, Vector3(0, -0.22, 0), TROUSERS)
-        var knee := _pivot(hip, Vector3(0, -0.46, 0))
-        Flat.ball(knee, 0.066, Vector3.ZERO, TROUSERS)
-        Flat.limb(knee, 0.064, 0.05, 0.42, Vector3(0, -0.21, 0), TROUSERS)
-        Flat.box(knee, Vector3(0.13, 0.08, 0.27), Vector3(0, -0.42, -0.05), SHOES)
-        _legs.append(hip)
-        _knees.append(knee)
-
-    _torso = _pivot(_body, Vector3(0, 0.95, 0))
-    # The lab coat: the skirt down to the knees, the chest, the lapels.
-    # NOTE (mristin):
-    # Tapered and flattened prisms, as the bodies of 4D Sports Boxing: the
-    # chest wide at the shoulders, the skirt flaring to the knees.
-    var skirt := Flat.limb(_torso, 0.24, 0.29, 0.45, Vector3(0, -0.18, 0), COAT, true)
-    skirt.scale = Vector3(1, 1, 0.6)
-    _flashing.append(_own(skirt))
-    var chest := Flat.limb(_torso, 0.3, 0.23, 0.62, Vector3(0, 0.33, 0), COAT, true)
-    chest.scale = Vector3(1, 1, 0.55)
-    _flashing.append(_own(chest))
-    Flat.box(_torso, Vector3(0.16, 0.36, 0.01), Vector3(0, 0.44, -0.152), SHIRT)
-    Flat.box(_torso, Vector3(0.05, 0.3, 0.01), Vector3(0, 0.42, -0.158), TIE)
-    Flat.box(_torso, Vector3(0.02, 0.5, 0.01), Vector3(-0.1, 0.36, -0.155), COAT_SHADE)
-    Flat.box(_torso, Vector3(0.02, 0.5, 0.01), Vector3(0.1, 0.36, -0.155), COAT_SHADE)
-    Flat.box(_torso, Vector3(0.12, 0.05, 0.01), Vector3(0.17, 0.5, -0.155), BADGE)
-    var badge := Label3D.new()
-    badge.text = "ROCHARTIS"
-    badge.font_size = 18
-    badge.pixel_size = 0.0012
-    badge.modulate = Color.WHITE
-    badge.position = Vector3(0.17, 0.5, -0.162)
-    badge.rotation.y = PI
-    _torso.add_child(badge)
-    Flat.limb(_torso, 0.055, 0.065, 0.1, Vector3(0, 0.68, 0), SKIN)
-
-    _head = _pivot(_torso, Vector3(0, 0.7, 0))
-    _flashing.append(_own(Flat.ball(_head, 0.13, Vector3(0, 0.14, 0), SKIN, true, 1.2)))
-    # NOTE (mristin):
-    # The grey fringe around the back of his bald head: a band, set back so
-    # that its front hides inside the head; and the goatee.
-    Flat.limb(_head, 0.15, 0.14, 0.1, Vector3(0, 0.11, 0.045), HAIR, false, 10)
-    Flat.limb(_head, 0.035, 0.02, 0.07, Vector3(0, 0.0, -0.105), HAIR, false, 6)
-    # The goggles (their strap a band around the head), the evil brows, the
-    # nose and the grin.
-    Flat.limb(_head, 0.138, 0.138, 0.035, Vector3(0, 0.17, 0), GOGGLES, false, 12)
-    for x in [-0.05, 0.05]:
-        Flat.box(_head, Vector3(0.07, 0.055, 0.03), Vector3(x, 0.17, -0.125), LENS)
-    var brow_left := Flat.box(_head, Vector3(0.08, 0.02, 0.02), Vector3(-0.05, 0.22, -0.125), SHOES)
-    brow_left.rotation.z = -0.35
-    var brow_right := Flat.box(_head, Vector3(0.08, 0.02, 0.02), Vector3(0.05, 0.22, -0.125), SHOES)
-    brow_right.rotation.z = 0.35
-    Flat.box(_head, Vector3(0.035, 0.06, 0.05), Vector3(0, 0.11, -0.135), SKIN.darkened(0.1))
-    Flat.box(_head, Vector3(0.09, 0.015, 0.02), Vector3(0, 0.06, -0.12), Color("5a1f1f"))
-
-    for i in range(2):
-        var x := -0.31 if i == 0 else 0.31
-        var shoulder := _pivot(_torso, Vector3(x, 0.58, 0))
-        _flashing.append(_own(Flat.ball(shoulder, 0.075, Vector3.ZERO, COAT, true)))
-        _flashing.append(
-            _own(Flat.limb(shoulder, 0.068, 0.055, 0.3, Vector3(0, -0.15, 0), COAT, true))
-        )
-        var elbow := _pivot(shoulder, Vector3(0, -0.3, 0))
-        Flat.ball(elbow, 0.055, Vector3.ZERO, COAT)
-        Flat.limb(elbow, 0.053, 0.042, 0.26, Vector3(0, -0.13, 0), COAT)
-        Flat.ball(elbow, 0.085, Vector3(0, -0.3, 0), GLOVES)
-        _arms.append(shoulder)
-        _elbows.append(elbow)
-
-
-func _pivot(parent: Node3D, at: Vector3) -> Node3D:
-    var pivot := Node3D.new()
-    pivot.position = at
-    parent.add_child(pivot)
-    return pivot
-
-
-func _own(instance: MeshInstance3D) -> ShaderMaterial:
-    return instance.material_override
+    var parts := Looks.build(_body, look)
+    _torso = parts["torso"]
+    _head = parts["head"]
+    _arms.assign(parts["arms"])
+    _elbows.assign(parts["elbows"])
+    _legs.assign(parts["legs"])
+    _knees.assign(parts["knees"])
+    _flashing.assign(parts["flashing"])

@@ -106,7 +106,8 @@ func _draw_hud() -> void:
         _canvas.draw_rect(Rect2(Vector2.ZERO, _SCREEN), Color(RED, 0.35 * hurt))
 
     _bar(Rect2(40, 30, 760, 34), player_health, RED, "YOU", false)
-    _bar(Rect2(1120, 30, 760, 34), opponent_health, PURPLE, opponent_name, true)
+    if opponent_health >= 0.0:
+        _bar(Rect2(1120, 30, 760, 34), opponent_health, PURPLE, opponent_name, true)
 
     # NOTE (mristin):
     # The score in the middle on top, the combo under it, and the song's

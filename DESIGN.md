@@ -100,7 +100,7 @@ The opponent bobs to the beat; for every attack note he winds up in the last str
 | Haymaker | a purple bar at head height | Duck |
 | Sweep | a purple bar low over the floor | Jump |
 
-The song (synthesized in code, 90 BPM, about two and a half minutes) **teaches the moves one by one**: after a count-in, each section brings one move only (jabs, hooks, uppercuts, ducks, jumps, slips, the cover), then a section mixes them, and the final round brings two a bar. A section has six bars, five with a note and a breather. Every note has a symbol: an arrow of the punch's path (a jab straight at him, a hook sweeping in from the side, an uppercut up) or of the dodge (a slip to the side, a duck down, a jump up, the cover two gloves up). The notes are two beats (1.3 s) apart at the least and show two seconds ahead; in the play-tests, a note on every beat, and then on every other beat, was too fast. There are no kicks: the vision saw them too late and too seldom.
+The song (synthesized in code, 90 BPM, about two and a half minutes) **teaches the moves one by one**: after a count-in, each section brings one move only (jabs, hooks, uppercuts, ducks, jumps, slips, the cover), then a section mixes them, and the final round, too: one a bar, each move twice in a row (in a play-test, every player-move learned alone was met, but a new move in every bar, and two a bar in the final round, were mostly missed). A section has six bars, five with a note and a breather. Every note has a symbol: an arrow of the punch's path (a jab straight at him, a hook sweeping in from the side, an uppercut up) or of the dodge (a slip to the side, a duck down, a jump up, the cover two gloves up). The notes are a bar (2.7 s) apart and show two seconds ahead; in the play-tests, a note on every beat, and then on every other beat, was too fast. There are no kicks: the vision saw them too late and too seldom.
 
 Meeting notes in a row builds a **combo**, which multiplies the score. The punches drain the opponent's health so that a player who meets about three quarters of them knocks him out in the final section (he holds on until then); a missed attack hurts the player. The fight ends with a K.O., when the song ends ("TIME"), or when the player goes down, with the score, the accuracy, the best combo and a grade.
 
@@ -134,14 +134,13 @@ The player rides a sledge down a snowy slope in the third person, from behind.
 
 ### Run
 
-The hero runs straight ahead into the picture, towards the horizon, on a course with ice holes, fences, low bars and crevasses (in the genre of the classic penguin-on-the-ice games).
+The hero runs straight ahead into the picture, towards the horizon, as the penguin of Antarctic Adventure: the land rolls towards him to the beat of a song, and the run is a rhythm level as the fights are (the same notes, the same forgiving judging), without an opponent.
 
-- **Running:** the hero runs by himself. **TODO:** decide whether jogging in place speeds him up (the walk meter of the first prototype measures the cadence), or whether the pace is set by the game.
-- **Left and right:** the player leans their upper body (or takes half a step) to one side; the hero switches between three lanes. Leaning is the same signal as the slip in the fights.
-- **Jump:** over holes and low fences.
-- **Duck:** under bars and swinging signs.
-- **Pickups:** fish, coins or the world's equivalent, placed so that collecting them asks for one more jump or lean.
-- **Fitness:** jumps and squats, the most cardio-heavy scene; the runs are therefore the shortest.
+- **Running:** the hero runs by himself, at the pace of the song.
+- **Left and right:** absolute, as a mouse: where the player's torso is across the camera picture is where the hero is across the wide road (three lanes), continuously; in the middle of the picture, he runs in the middle lane. The camera picture lies faintly over the whole scene, with the lanes marked on it, so that he sees where he stands. Obstacles block two lanes (boulders, ice blocks, barriers with cones, snowmen), and a coin waits in the free one.
+- **Jump:** over holes in the road (crevasses on the ice). **Duck:** under branches across the road (in the city, a striped beam). **Punches:** at the rings, as in the fights.
+- **Energy:** an obstacle which the player does not jump, duck or steer around costs energy (as an attack in a fight), breaks the combo and costs the grade; with no energy left he is down. The run is won with a grade of C or better.
+- **Fitness:** steps, jumps and squats, the most cardio-heavy scene.
 
 ### Which signals each scene reads
 
@@ -160,21 +159,27 @@ Every scene uses at most a handful of signals, and the signals which share the b
 
 ## Worlds
 
-Each world is inspired by Müslüm's songs and parodies a facet of Swiss life. **TODO:** map each world to a specific song and its music/visual cues.
+Each world parodies a facet of Swiss life (or of what came before it), has its hero (one of the three models of the camera panel; the first-person gloves and sleeves are dressed as him), and its surroundings: no ring, but the land itself. A world opens with a run through its land, then its opponents one by one, and ends with its boss. Every level teaches its moves in sections of one move each before mixing them (see `scenes/levels/levels.gd`).
 
-| World | Travel scenes | Fight opponents | Boss | Satirical target |
+| World | Hero | Surroundings | Levels | Satirical target |
 |---|---|---|---|---|
-| Ice Age | Sledge down the glacier, run over the ice | Mammoths (charge: jump, sweep), sabre-toothed tigers (swipes: slip) | **TODO** | Prehistoric "we were here first" thinking |
-| Rochartis | Race to the campus, run through the corridors | Lab assistants, test-tube minions, evil scientists | **TODO:** the CEO | Big pharma greed (fictional company) |
-| Nörgeli | Race through the village, sledge to the valley | Nörgeli (grumblers) and complainers | **TODO** | Petty grumbling and nitpicking |
-| Bünzli-Land | Race against Bünzlis at exactly the speed limit, run past laundry-room schedules | Rule-obsessed neighbours, laundry-room schedule keepers | **TODO** | Bünzli conformity and pettiness |
-| Nationalists | **TODO** | Flag-waving nationalists | **TODO** | Xenophobia and nationalism |
+| Ice Age | prehistoric | the jungle and the cave (the runs), the glacier (the mammoth), the savannah (the tiger), the cave (the bear) | the run through the jungle; the mammoth (jab, jump, duck); the sabre-tooth tiger (hook, slip, cover); the run through the cave; **boss:** the cave bear, in his cave | Prehistoric "we were here first" thinking |
+| Switzerland | the classic hero in his yellow suit | the city (the run and the street fights), the Rochartis laboratory | the run through the streets; the laundry-room Bünzli (jab, cover, duck); the nationalist (hook, slip, jump); the Rochartis scientist (uppercut, duck, cover); **boss:** the Rochartis CEO | Bünzli conformity, nationalism, big pharma greed (a fictional company) |
+| Winter | Samichlaus | the suburbs on a winter's evening | the run through the gardens; the snow-shovel Bünzli (jab, duck, jump); the hedge Bünzli (hook, cover, slip); the white sheep (uppercut, slip, jump); **boss:** the Nörgeli | Neighbourly pettiness, the herd which pushes out the one who differs, and grumbling |
+
+The white sheep turns a notorious political poster around (on which white sheep kick out a black one): the player boxes the smug white sheep, and the black sheep cheers him on from his corner.
 
 Enemy and obstacle design principles:
 
-- Every attack and every obstacle is telegraphed clearly (a wind-up, a sound, or simply enough distance), so the player can react with their body in time: at least about 600 ms at normal difficulty.
-- Each opponent type teaches or tests one or two moves (e.g., mammoths charge low → jump; tigers swipe → slip).
-- Enemies are caricatures, not depictions of real people.
+- Every attack and every obstacle is announced by its note about two seconds ahead, so the player can move with their body in time.
+- Each opponent teaches two or three moves before he mixes them.
+- Enemies are caricatures of types, not depictions of real people; the animals box upright, as boxers.
+
+## Sessions and saving
+
+As in The Steppe Rescue and Bird Dog: a **session** is a named playthrough, like a save slot (its name is the date and the time by default, so that OK alone is enough), and the player keeps as many as he likes. Each session is one JSON file in `user://saves/`, written whole on every change (to a temporary file, then renamed). Only the best result of every level is stored; a level **opens** once the one before it is won, and any open level can be played again.
+
+The screens: the sessions (continue the last, start a new one, pick another, delete one in three steps), the naming of a new session, the levels of the session (the worlds side by side, the locked levels dim, the next one crimson, the won ones with their best grade), and the level, whose end offers the next level, the same again, or the levels. A raised hand moves a cursor which clicks a button by holding still on it for two seconds; the mouse and the keys work, too. Esc goes back; on the first screen Esc twice quits, and in a level Esc twice leaves it.
 
 ## Presentation
 
