@@ -11,7 +11,6 @@ const ALPHA := 0.28
 
 const LANE_LIGHT := Color(0.95, 0.76, 0.3, 0.16)
 const LINE := Color(1, 1, 1, 0.35)
-const MARK := Color("f2c14e")
 
 var vision: Node
 ## Where he steers now, in lanes (see BodyReader.steer).
@@ -43,6 +42,3 @@ func _draw() -> void:
     for lanes in [-1.5, 0.0, 1.5]:
         var at: float = (0.5 + lanes * BodyReader.STEER_LANE) * screen.x
         draw_line(Vector2(at, 0), Vector2(at, screen.y), LINE if lanes != 0.0 else LANE_LIGHT, 3.0)
-    var x: float = (0.5 + steer * BodyReader.STEER_LANE) * screen.x
-    draw_circle(Vector2(x, screen.y * 0.5), 22.0, Color(MARK, 0.85))
-    draw_arc(Vector2(x, screen.y * 0.5), 34.0, 0, TAU, 32, Color(MARK, 0.85), 4.0)

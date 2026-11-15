@@ -62,9 +62,9 @@ const HIT_AHEAD := 0.75
 ## Where each note arrives, from the player's eyes on the floor (x to his
 ## right, y up from the floor, z ahead): the left hand's are mirrored.
 const ARRIVE := {
-    "straight": Vector3(0.2, 1.45, HIT_AHEAD),
+    "straight": Vector3(0.28, 1.45, HIT_AHEAD),
     "hook": Vector3(0.45, 1.5, HIT_AHEAD),
-    "uppercut": Vector3(0.18, 1.15, HIT_AHEAD),
+    "uppercut": Vector3(0.26, 1.15, HIT_AHEAD),
     "cover": Vector3(0.0, 1.55, HIT_AHEAD),
     "slip_left": Vector3(0.4, 1.55, HIT_AHEAD),
     "slip_right": Vector3(-0.4, 1.55, HIT_AHEAD),
@@ -279,7 +279,7 @@ func _start() -> void:
     for child in _results.get_children():
         child.queue_free()
     var seed := hash(str(level["id"]) + str(Time.get_ticks_msec())) & 0xffff
-    _chart = _core.Notes(_sections, seed, not _is_run())
+    _chart = _core.Notes(_sections, seed, not _is_run(), not _is_run())
     _next = 0
     _now = 0.0
     _last_beat = -1

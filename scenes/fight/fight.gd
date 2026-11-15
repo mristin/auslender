@@ -36,6 +36,11 @@ const GOOD_SHARE := 0.85
 const KNOCK_OUT_SHARE := 0.75
 const HOLDS_ON := 8.0
 
+## He counters a wrong move at most this often, in seconds; and a wrong
+## dodge counts from this long before the attack's beat.
+const COUNTER_EVERY := 0.6
+const WRONG_DODGE_EARLY := 0.8
+
 ## The opponent says a line at most this often, in seconds.
 const QUIP_EVERY := 4.0
 
@@ -45,6 +50,7 @@ var _punches := 0
 var _tunnel: BeatTunnel
 var _quipped_at := -100.0
 var _black_sheep: Node3D
+var _countered_at := -100.0
 
 
 func _build() -> void:
@@ -141,8 +147,7 @@ func throw(kind: String, side: String, source := "vision") -> void:
         entry["wanted"] = "%s %s" % [wrong.kind, wrong.side]
         _log.write("move", entry)
         var wanted := "%s %s" % [wrong.side.to_upper(), RhythmNote.LABELS[wrong.kind]]
-        hud.say("WRONG: " + wanted, Color("ff8a65"))
-        _play("miss")
+        _counter("WRONG: " + wanted)
         return
     if best == null:
         entry["matched"] = false
@@ -160,6 +165,57 @@ func throw(kind: String, side: String, source := "vision") -> void:
         _learn_latency(_now - best.at)
     _met(best, how)
     _hit_opponent(best, how)
+
+
+## He made a wrong move: the opponent counters at once, and it hurts as an
+## attack which he did not dodge (at most every COUNTER_EVERY seconds, so that
+## a misread of the vision does not cost too much).
+func _counter(text: String) -> void:
+    hud.say(text, Color("ff8a65"))
+    if _time - _countered_at < COUNTER_EVERY:
+        _play("miss")
+        return
+    _countered_at = _time
+    opponent.counter()
+    _scoring.failed("hit")
+    _play("hurt")
+    boxer.take_damage(HURT)
+    _quip("landed")
+    _log.write("counter", {"why": text, "song": _now})
+    if boxer.health <= 0.0:
+        _finish(false)
+
+
+## A wrong dodge (a slip the wrong way, or a slip for a jab, or the cover for a
+## hook) close to an attack's beat: he counters, and the attack has landed.
+func _judge_wrong_dodge(note: RhythmNote) -> bool:
+    if _now < note.at - WRONG_DODGE_EARLY:
+        return false
+    # NOTE (mristin):
+    # The right dodge, if he made it, counts.
+    var right := float(_in_pose.get(note.kind, -100.0))
+    if right >= note.at - LEAD and right > _dodge_used:
+        return false
+    for pose in ["slip_left", "slip_right", "cover"]:
+        if pose == note.kind:
+            continue
+        var seen := float(_in_pose.get(pose, -100.0))
+        if seen >= note.at - WRONG_DODGE_EARLY and seen > _dodge_used:
+            _dodge_used = seen
+            _log.write("note", {"kind": note.kind, "beat": note.at, "result": "wrong", "by": pose})
+            _counter("WRONG: " + RhythmNote.LABELS[note.kind])
+            note.judge("miss", _now)
+            return true
+    return false
+
+
+## A dodge note: a wrong dodge is countered at once; else as any dodge.
+func _judge(note: RhythmNote) -> bool:
+    if note.side != "" or note.result != "":
+        return false
+    if _judge_wrong_dodge(note):
+        return true
+    return false
 
 
 ## A strike near a note which it missed: tell him he was late, and learn from

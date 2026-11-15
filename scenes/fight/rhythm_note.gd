@@ -52,6 +52,9 @@ const STROKE := 0.03
 const HEAD_LENGTH := 0.075
 const HEAD_WIDTH := 0.07
 
+## How far out to its hand's side a punch comes in from, in meters.
+const SIDE_FROM := 2.2
+
 ## How long the approach ring shrinks, in seconds, and from how many times
 ## the size of the note.
 const APPROACH_SECONDS := 1.2
@@ -120,6 +123,12 @@ func setup(
     # It comes from far ahead, closer to the middle, and spreads out to its
     # lane as it comes.
     _from = Vector3(arrive.x * 0.4, lerpf(arrive.y, 1.4, 0.5), arrive.z)
+    if side != "":
+        # NOTE (mristin):
+        # A punch comes in from its hand's side, far out, so that one sees
+        # clearly which hand it asks for.
+        var out := -1.0 if side == "left" else 1.0
+        _from = Vector3(out * SIDE_FROM, arrive.y + 0.3, arrive.z)
     if spans_road():
         # NOTE (mristin):
         # The obstacles stand on the road, across it or in their lanes, from
@@ -272,6 +281,8 @@ func _build() -> void:
 
     _label = Label3D.new()
     _label.text = LABELS.get(kind, kind.to_upper())
+    if side != "":
+        _label.text = "%s %s" % [side.to_upper(), _label.text]
     _label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
     _label.no_depth_test = true
     _label.render_priority = 3

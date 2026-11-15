@@ -122,7 +122,12 @@ public static class Chart
     /// <param name="sections">The moves of each section, separated by ",".</param>
     /// <param name="seed">The seed of the picks.</param>
     /// <param name="finisher">Whether the last bar is the finisher (in a fight).</param>
-    public static List<Note> Build(string[] sections, int seed, bool finisher)
+    /// <param name="extra">
+    /// Whether every second bar has a second note, on its third beat (a fight:
+    /// a little more often than a run; two dodges in a row still keep four
+    /// beats apart).
+    /// </param>
+    public static List<Note> Build(string[] sections, int seed, bool finisher, bool extra = false)
     {
         var random = new Random(seed);
         var notes = new List<Note>();
@@ -189,6 +194,22 @@ public static class Chart
                 if (notes.Count == 0 || Fits(notes[^1], note))
                 {
                     notes.Add(note);
+                }
+
+                if (extra && !last && inSection % 2 == 1)
+                {
+                    string again = random.Next(2) == 0 ? "left" : "right";
+                    Note second = move switch
+                    {
+                        "slip" => new Note(bar * 4.0 + 2.0, again == "left" ? "slip_left" : "slip_right", ""),
+                        "steer" => new Note(bar * 4.0 + 2.0, Lanes[random.Next(Lanes.Length)], ""),
+                        "duck" or "jump" or "cover" => new Note(bar * 4.0 + 2.0, move, ""),
+                        _ => new Note(bar * 4.0 + 2.0, move, again),
+                    };
+                    if (Fits(notes[^1], second))
+                    {
+                        notes.Add(second);
+                    }
                 }
             }
         }

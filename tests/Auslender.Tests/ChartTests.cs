@@ -108,6 +108,18 @@ public class ChartTests
     }
 
     [Fact]
+    public void Extra_notes_come_a_little_more_often_and_still_leave_time()
+    {
+        var plain = Chart.Build(Chart.Curriculum, 6, true);
+        var extra = Chart.Build(Chart.Curriculum, 6, true, extra: true);
+        Assert.True(extra.Count > plain.Count, "There are no extra notes.");
+        for (int i = 1; i < extra.Count; i++)
+        {
+            Assert.True(Chart.Fits(extra[i - 1], extra[i]), $"{extra[i - 1]} is followed too soon by {extra[i]}");
+        }
+    }
+
+    [Fact]
     public void Notes_are_the_same_for_the_same_seed()
     {
         Assert.Equal(Chart.Build(Chart.Curriculum, 3, true), Chart.Build(Chart.Curriculum, 3, true));

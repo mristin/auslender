@@ -26,6 +26,9 @@ extends Node3D
 ## attack shows long before).
 const WINDUP_SECONDS := 0.6
 
+## How long his counter to a wrong move takes, in seconds.
+const COUNTER_SECONDS := 0.35
+
 ## How long he strikes and comes back after it lands, in seconds.
 const STRIKE_SECONDS := 0.45
 
@@ -59,6 +62,7 @@ var _evade_side := 1.0
 var _stumble_left := 0.0
 var _cheer_left := 0.0
 var _showing_off := false
+var _counter_left := 0.0
 
 var _body: Node3D
 var _torso: Node3D
@@ -125,6 +129,12 @@ func stumble() -> void:
 func cheer() -> void:
     if not _down:
         _cheer_left = 0.9
+
+
+## The player made a wrong move: he counters at once, a quick jab.
+func counter() -> void:
+    if not _down:
+        _counter_left = COUNTER_SECONDS
 
 
 ## Show his attack ("jab", "hook_left", "hook_right", "haymaker" or "sweep";
@@ -218,6 +228,7 @@ func _animate(delta: float) -> void:
     _evade_left = maxf(0.0, _evade_left - delta)
     _stumble_left = maxf(0.0, _stumble_left - delta)
     _cheer_left = maxf(0.0, _cheer_left - delta)
+    _counter_left = maxf(0.0, _counter_left - delta)
 
     if _showing_off:
         # NOTE (mristin):
@@ -292,6 +303,14 @@ func _animate(delta: float) -> void:
                     lunge = 0.4
                     torso_pitch = -0.2
 
+    if _counter_left > 0.0:
+        # NOTE (mristin):
+        # The counter: his lead hand straight out, and back.
+        var out := sin(_counter_left / COUNTER_SECONDS * PI)
+        arm_left = [lerpf(0.55, 1.6, out), 0.0, lerpf(1.95, 0.05, out)]
+        torso_yaw = -0.25 * out
+        lunge = 0.5 * out
+        speed = 30.0
     if _down:
         arm_left = [-0.2, 1.2, 0.3]
         arm_right = [-0.2, 1.2, 0.3]

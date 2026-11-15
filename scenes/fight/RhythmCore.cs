@@ -24,10 +24,11 @@ public partial class RhythmCore : RefCounted
     /// The notes of the sections (see <see cref="Chart.Build"/>): each a
     /// dictionary of "beat", "kind" and "side".
     /// </summary>
-    public Godot.Collections.Array<Godot.Collections.Dictionary> Notes(string[] sections, int seed, bool finisher)
+    public Godot.Collections.Array<Godot.Collections.Dictionary> Notes(
+        string[] sections, int seed, bool finisher, bool extra)
     {
         var notes = new Godot.Collections.Array<Godot.Collections.Dictionary>();
-        foreach (Note note in Chart.Build(sections, seed, finisher))
+        foreach (Note note in Chart.Build(sections, seed, finisher, extra))
         {
             notes.Add(new Godot.Collections.Dictionary
             {

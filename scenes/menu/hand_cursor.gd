@@ -9,16 +9,15 @@ extends Control
 ## for its dwell (three seconds) clicks it (as in The Steppe Rescue).
 ##
 ## The choice of the button is sticky: a hand stays on its button until it
-## goes clearly beyond its edge, so that a trembling hand does not lose it. A
-## hand below his hips (resting) is drawn dim and does not click.
+## goes clearly beyond its edge, so that a trembling hand does not lose it.
+## Every hand counts, wherever it is (a rule against the hands below the hips
+## kept the low buttons from being clicked at all); the three seconds of the
+## dwell guard against the clicks of a resting hand.
 
 ## A hand leaves its button only when it is this far beyond its edge, in
 ## pixels (at most a share of the button's smaller side).
 const STICKY_MARGIN := 48.0
 const STICKY_MARGIN_SHARE := 0.35
-
-## The COCO points of the hips.
-const _HIPS := [11, 12]
 
 var _vision: Node
 ## Per hand (left, right): where it is on the screen (negative if not seen),
@@ -70,16 +69,12 @@ func _read_hands() -> void:
         return
     var screen := get_viewport_rect().size
     var found: Array = _vision.GetPlayerHands()
-    var hips := -1.0
-    var points: PackedVector2Array = _vision.GetKeypoints()
-    if points.size() > _HIPS[1]:
-        hips = (points[_HIPS[0]].y + points[_HIPS[1]].y) * 0.5
     for i in range(mini(2, found.size())):
         if found[i] == null:
             continue
         var hand: Vector2 = found[i]
         _hands[i] = Vector2(hand.x * screen.x, hand.y * screen.y)
-        _active[i] = hips < 0.0 or hand.y < hips
+        _active[i] = true
 
 
 ## The button the hand is on: the one it was on while it stays near it, else
