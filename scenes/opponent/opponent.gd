@@ -14,7 +14,7 @@ extends Node3D
 ## on the beat and sways from side to side over each bar ([method groove]),
 ## steps in as he winds up; he slips aside, mocking, when the player misses
 ## ([method evade]), stumbles past when the player dodges him ([method
-## stumble]), throws up his arms when his attack lands ([method cheer]), and
+## stumble], a small step, his guard up), throws up his arms when his attack lands ([method cheer]), and
 ## beckons the player in and shimmies in the breathers ([method show_off]).
 ## He faces the player all the time; his front is -Z, as in Godot.
 ##
@@ -249,10 +249,8 @@ func _animate(delta: float) -> void:
         speed = 20.0
     if _stumble_left > 0.0:
         var stumble := sin(_stumble_left / 0.6 * PI)
-        lunge = 0.35 * stumble
-        torso_pitch = 0.35 * stumble
-        arm_left = [0.9, 0.9, 0.4]
-        arm_right = [0.9, 0.9, 0.4]
+        lunge = 0.1 * stumble
+        torso_pitch = 0.1 * stumble
 
     if _attack != "":
         if _share < 0.0:
@@ -260,7 +258,7 @@ func _animate(delta: float) -> void:
             speed = 10.0
             # NOTE (mristin):
             # He steps in as he winds up, back to the middle.
-            lunge = 0.25 * p
+            lunge = 0.08 * p
             side_shift *= 1.0 - p
             match _attack:
                 "jab":
@@ -285,22 +283,22 @@ func _animate(delta: float) -> void:
                 "jab":
                     arm_left = [1.6, 0.0, 0.05]
                     torso_yaw = -0.2
-                    lunge = 0.5
+                    lunge = 0.15
                 "hook_left":
                     arm_right = [1.45, -0.5, 1.2]
                     torso_yaw = 0.5
-                    lunge = 0.35
+                    lunge = 0.1
                 "hook_right":
                     arm_left = [1.45, -0.5, 1.2]
                     torso_yaw = -0.5
-                    lunge = 0.35
+                    lunge = 0.1
                 "haymaker":
                     arm_right = [1.5, -0.6, 0.6]
                     torso_yaw = 0.6
-                    lunge = 0.35
+                    lunge = 0.1
                 "sweep":
                     leg_right = [1.1, 0.1]
-                    lunge = 0.4
+                    lunge = 0.1
                     torso_pitch = -0.2
 
     if _counter_left > 0.0:
@@ -309,7 +307,7 @@ func _animate(delta: float) -> void:
         var out := sin(_counter_left / COUNTER_SECONDS * PI)
         arm_left = [lerpf(0.55, 1.6, out), 0.0, lerpf(1.95, 0.05, out)]
         torso_yaw = -0.25 * out
-        lunge = 0.5 * out
+        lunge = 0.15 * out
         speed = 30.0
     if _down:
         arm_left = [-0.2, 1.2, 0.3]

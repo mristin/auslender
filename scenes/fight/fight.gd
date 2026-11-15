@@ -51,6 +51,10 @@ var _tunnel: BeatTunnel
 var _quipped_at := -100.0
 var _black_sheep: Node3D
 var _countered_at := -100.0
+## His attacks to come and of the moment: [the song time of the beat, the
+## attack, whether the player dodged it, whether he stumbled already]. He
+## throws each on its beat, also when the player dodged it early (he misses).
+var _attacks: Array = []
 
 
 func _build() -> void:
@@ -76,7 +80,14 @@ func _help() -> String:
     return "Keys: J K jab, U I hook, H L uppercut, Q E slip, B cover, R again, Esc Esc leave"
 
 
+func _set_up(note: RhythmNote, kind: String, side: String, at: float, arrive: Vector3) -> void:
+    super._set_up(note, kind, side, at, arrive)
+    if side == "" and ATTACK_OF.has(kind):
+        _attacks.append([at, ATTACK_OF[kind], false, false])
+
+
 func _on_start() -> void:
+    _attacks.clear()
     _punches = _chart.filter(func(n: Dictionary) -> bool: return n["side"] != "").size()
     if opponent != null:
         opponent.reset()
@@ -89,12 +100,24 @@ func _on_frame(delta: float) -> void:
         _black_sheep.position.y = 0.12 * absf(sin(_time * PI / _beat_seconds))
 
 
-## The opponent moves to the music, and shows his attack of the moment.
-func _on_song(_played: float, attack: RhythmNote) -> void:
-    if attack != null:
-        opponent.perform(ATTACK_OF[attack.kind], _now - attack.at)
-    else:
+## The opponent moves to the music, and throws his attack of the moment on its
+## beat, dodged or not (if dodged, he misses, and stumbles past after it).
+func _on_song(_played: float, _attack: RhythmNote) -> void:
+    var current: Array = []
+    for attack in _attacks.duplicate():
+        var seconds: float = _now - float(attack[0])
+        if seconds > Opponent.STRIKE_SECONDS:
+            _attacks.erase(attack)
+            continue
+        if current.is_empty() and seconds >= -Opponent.WINDUP_SECONDS:
+            current = attack
+        if attack[2] and not attack[3] and seconds >= 0.1:
+            attack[3] = true
+            opponent.stumble()
+    if current.is_empty():
         opponent.perform("", 0.0)
+    else:
+        opponent.perform(current[1], _now - float(current[0]))
     var bar_float := _now / (_beat_seconds * 4.0)
     opponent.groove(fposmod(_now / _beat_seconds, 1.0), fposmod(bar_float, 1.0), floori(bar_float))
     # NOTE (mristin):
@@ -105,7 +128,7 @@ func _on_song(_played: float, attack: RhythmNote) -> void:
         if note.result == "" and note.at - _now < _beat_seconds * 4.0:
             quiet = false
             break
-    opponent.show_off(quiet and attack == null)
+    opponent.show_off(quiet and current.is_empty())
 
 
 ## Throw a punch of the player ("straight", "hook" or "uppercut"; "left" or
@@ -261,8 +284,12 @@ func _on_missed(note: RhythmNote) -> void:
     _quip("missed")
 
 
-func _on_dodged(_note: RhythmNote) -> void:
-    opponent.stumble()
+func _on_dodged(note: RhythmNote) -> void:
+    # NOTE (mristin):
+    # He still throws it on its beat, and misses; then he stumbles.
+    for attack in _attacks:
+        if is_equal_approx(float(attack[0]), note.at):
+            attack[2] = true
 
 
 func _on_hurt(_note: RhythmNote) -> void:
