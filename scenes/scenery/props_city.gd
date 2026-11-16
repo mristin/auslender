@@ -328,10 +328,13 @@ static func _fountain(p: Node3D, _r: RandomNumberGenerator, _side: float) -> voi
     Flat.limb(p, 1.0, 1.0, 0.05, Vector3(0, 0.5, 0), Color("6aa8d8"), false, 10)
     Flat.limb(p, 0.12, 0.15, 1.8, Vector3(0, 1.2, 0), Color("9a9a90"), false, 8)
     # NOTE (mristin):
-    # A statue on top: a figure with a flag, in colors.
+    # A statue on top: a figure with a Swiss flag (red, its white cross on
+    # both sides).
     Flat.limb(p, 0.12, 0.15, 0.6, Vector3(0, 2.4, 0), Color("2a4a9a"), false, 6)
     Flat.ball(p, 0.1, Vector3(0, 2.8, 0), Color("e0b48e"))
-    Flat.box(p, Vector3(0.03, 0.5, 0.4), Vector3(0.2, 3.0, 0), RED)
+    Flat.box(p, Vector3(0.03, 0.45, 0.45), Vector3(0.2, 3.0, 0), RED)
+    Flat.box(p, Vector3(0.04, 0.28, 0.085), Vector3(0.2, 3.0, 0), WHITE)
+    Flat.box(p, Vector3(0.04, 0.085, 0.28), Vector3(0.2, 3.0, 0), WHITE)
 
 
 static func _kiosk(p: Node3D, _r: RandomNumberGenerator, side: float) -> void:

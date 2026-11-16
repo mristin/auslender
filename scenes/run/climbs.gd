@@ -540,7 +540,7 @@ static func _build_boulders(node: Node3D, flat_from: float, flat_to: float, end:
         )
 
 
-## The mountain of the glacier: rocks on its sides, a flag on its summit,
+## The mountain of the glacier: rocks on its sides, a banner on its summit,
 ## and the ice of the slide down.
 static func _build_mountain(node: Node3D, flat_from: float, flat_to: float, end: float) -> void:
     var half := WIDTH * 0.5
@@ -560,10 +560,23 @@ static func _build_mountain(node: Node3D, flat_from: float, flat_to: float, end:
             )
             z += random.randf_range(0.8, 1.4)
     var z := (flat_from + flat_to) * 0.5
-    Flat.post(node, 0.04, 2.2, Vector3(half - 0.4, HEIGHT + 1.1, -z), Color("4a4a4a"))
+    # NOTE (mristin):
+    # A banner of hide on a spear (the ice age: no flags yet), with a paw
+    # painted on it.
+    Flat.post(node, 0.04, 2.2, Vector3(half - 0.4, HEIGHT + 1.1, -z), Color("6a4a2a"))
+    Flat.limb(node, 0.0, 0.06, 0.2, Vector3(half - 0.4, HEIGHT + 2.3, -z), Color("8a8a80"))
     Flat.box(
-        node, Vector3(0.02, 0.5, 0.8), Vector3(half - 0.4, HEIGHT + 1.95, -z + 0.4), Color("d82020")
+        node,
+        Vector3(0.02, 0.6, 0.7),
+        Vector3(half - 0.4, HEIGHT + 1.85, -z + 0.37),
+        Color("a8784a")
     )
+    var paw := Flat.ball(node, 0.11, Vector3(half - 0.4, HEIGHT + 1.8, -z + 0.37), Color("5a2a1a"))
+    paw.scale.x = 0.25
+    for k in range(3):
+        var toe := Vector3(half - 0.4, HEIGHT + 1.98, -z + 0.25 + k * 0.12)
+        var pad := Flat.ball(node, 0.04, toe, Color("5a2a1a"))
+        pad.scale.x = 0.5
     _label(node, "SUMMIT", Vector3(0, HEIGHT + 1.6, -flat_from), 96, Color("ffffff"))
     for x in [-1.2, 0.0, 1.2]:
         _bar(

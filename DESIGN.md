@@ -174,11 +174,11 @@ The hero runs straight ahead into the picture, towards the horizon, as the pengu
   | Run | Climb |
   |---|---|
   | Jungle | boulders stacked into rough steps, moss, vines and ferns, and a slide of mud down |
-  | Glacier | a snowy mountain with rocks on its slopes and a flag on its summit, and a slide of ice down |
+  | Glacier | a snowy mountain with rocks on its slopes and a banner of hide on its summit (no flags in the ice age), and a slide of ice down |
   | Streets | concrete stairs up to a footbridge ("PASSERELLE") and down |
   | Campus | ladders up the scaffold of the new Rochartis tower ("COMING SOON: MORE PATENTS"), and the chute for the rubble down |
   | Gardens | ladders up a garden shed ("PRIVAT", a gnome on its roof), and a sledge run down |
-  | Meadow | a snowy hill with firs, a summit cross and a Swiss flag, and a sledge run down |
+  | Meadow | a snowy hill with firs, a summit cross and a Swiss flag (with its white cross), and a sledge run down |
 - **Curves:** the road curves now and then to the left or the right, gently, and straightens again (every 25 to 45 m). It is only the look, as in Out Run: the shaders bend everything ahead to the side by the square of its distance (`scenes/flat/bend.gdshaderinc`), while the game measures everything on the straight road; the view follows the hero, straight ahead.
 - **The code of a run:** `scenes/run/run.gd` runs the road: his pace, the ground under him, the curves, the calls and the judging of the obstacles. `RoadPlan` lays out the road as the run starts (the opponents, the combined obstacles, the platforms, the climb, the forks, the barriers and the boosters); `Encounters` moves the opponents on the road, `Boosts` keeps the boosters which work. While the road holds, the run is in a mode (`scenes/run/modes/`): a `BrawlMode` against an opponent, a `SmashMode` at a barrier, a `LadderMode` up a ladder; each says how he moves, what is called and what his punches do, until it is over. A new kind of stop on the road is a new mode.
 
