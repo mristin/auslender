@@ -140,6 +140,10 @@ var jumping := false
 ## Platforms), in meters.
 var elevation := 0.0
 
+## How far up (or down, below zero) he looks along a climb of a run (see
+## Climbs), in meters at the point he looks at, while his gaze stays level.
+var gaze_rise := 0.0
+
 ## Whether he holds both gloves up in front of his face.
 var covering := false
 
@@ -270,6 +274,7 @@ static func _make_glove(glove: Node3D, inner: float, dress: Dictionary) -> void:
 func reset() -> void:
     health = MAX_HEALTH
     elevation = 0.0
+    gaze_rise = 0.0
     lean = 0.0
     duck = 0.0
     jumping = false
@@ -307,7 +312,7 @@ func face(opponent: Vector3, delta: float) -> void:
         # He looks straight ahead as he ducks and jumps: the view goes down and
         # up with him, without tilting, so that the world stays where it is
         # (a branch over the road passes over his head).
-        look.y = global_position.y + eyes.y - 0.17
+        look.y = global_position.y + eyes.y - 0.17 + gaze_rise
     var body := _body_motion()
     camera.position = eyes + shake + (body[0] as Vector3)
     if camera.global_position.distance_to(look) > 0.1:

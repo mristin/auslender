@@ -272,7 +272,7 @@ const OPPONENTS := {
 ## run, see Chart), its surroundings (see Scenery), and the boosters on the
 ## road of a run (see Boosters: each of its own look, by the land), and its
 ## barriers (see Barriers: the one in the middle of the run, and the one at
-## its end).
+## its end), and its climb (see Climbs).
 const ALL_LEVELS := [
     {
         "id": "jungle",
@@ -287,6 +287,7 @@ const ALL_LEVELS := [
         "sections": ["steer", "jump", "duck", "steer,jump", "steer,jump,duck"],
         "boosters": ["banana", "berries", "steak"],
         "barriers": ["palisade", "stone_wall"],
+        "climb": "boulders",
     },
     {
         "id": "glacier",
@@ -301,6 +302,7 @@ const ALL_LEVELS := [
         "sections": ["steer", "jump", "duck", "steer,duck", "steer,jump,duck"],
         "boosters": ["fish", "fur", "steak"],
         "barriers": ["ice_wall", "palisade"],
+        "climb": "mountain",
     },
     {
         "id": "cave_bear",
@@ -327,6 +329,7 @@ const ALL_LEVELS := [
         "sections": ["steer", "jump", "duck", "steer,jump", "steer,jump,duck"],
         "boosters": ["espresso", "apple", "chocolate"],
         "barriers": ["laundry", "car"],
+        "climb": "footbridge",
     },
     {
         "id": "campus",
@@ -341,6 +344,7 @@ const ALL_LEVELS := [
         "sections": ["steer", "duck", "jump", "steer,duck", "steer,jump,duck"],
         "boosters": ["espresso", "helmet", "chocolate"],
         "barriers": ["crates", "gate"],
+        "climb": "scaffold",
     },
     {
         "id": "ceo",
@@ -367,6 +371,7 @@ const ALL_LEVELS := [
         "sections": ["steer", "jump", "duck", "steer,duck", "steer,jump,duck"],
         "boosters": ["grittibaenz", "mandarin", "scarf"],
         "barriers": ["hedge", "car"],
+        "climb": "shed",
     },
     {
         "id": "meadow",
@@ -381,6 +386,7 @@ const ALL_LEVELS := [
         "sections": ["steer", "duck", "jump", "steer,jump", "steer,jump,duck"],
         "boosters": ["mandarin", "grittibaenz", "peanuts"],
         "barriers": ["hedge", "poster"],
+        "climb": "hill",
     },
     {
         "id": "norgeli",

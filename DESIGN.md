@@ -169,6 +169,16 @@ The hero runs straight ahead into the picture, towards the horizon, as the pengu
   | Past the meadow | the Thuja hedge | the poster of the herd (smug white sheep, "WE STAY AMONG OURSELVES"; the black sheep cheers him on) |
 
 - **Combined obstacles** (`RhythmNote.COMBOS`): in the sections which mix the steering with the jumps or the ducks, most of their jumps and ducks ask for both a way and a move: a fence across the road, low in one part only (go there and jump); a wall with a hole in it (go there and duck); the road split by a post, a beam to duck under on one side and a hurdle to jump on the other (he picks); a hole across the road with a plank over it (run over the plank, or jump anywhere). The way through is marked with warning stripes and a word over it ("JUMP", "DUCK", "RUN"), and the call says what to do with an arrow towards it ("LOW PART: JUMP!", "HOLE: DUCK!", "PLANK OR JUMP!", "DUCK OR JUMP!"). As it reaches him, he must be clear of its blocks and have made the move of his part of it (from a little before its beat on).
+- **Climbs** (`scenes/run/climbs.gd`): once a run (in the third section, instead of its platform), the road goes 3 m up over a climb across its whole width, and he climbs it just by running (lifting his knees): up stacked stones, stairs or a slope at a part of his pace (60 %), up a ladder straight up (the road holds, as in a fight, while he climbs as fast as he runs). The view looks up the climb and down it. On the top waits a booster, and the top gives 100 points; down the other side he goes quickly, down the stairs or down a slide (1.8 times his pace, "WHEEE!"). Each land has its own:
+
+  | Run | Climb |
+  |---|---|
+  | Jungle | boulders stacked into rough steps, moss, vines and ferns, and a slide of mud down |
+  | Glacier | a snowy mountain with rocks on its slopes and a flag on its summit, and a slide of ice down |
+  | Streets | concrete stairs up to a footbridge ("PASSERELLE") and down |
+  | Campus | ladders up the scaffold of the new Rochartis tower ("COMING SOON: MORE PATENTS"), and the chute for the rubble down |
+  | Gardens | ladders up a garden shed ("PRIVAT", a gnome on its roof), and a sledge run down |
+  | Meadow | a snowy hill with firs, a summit cross and a Swiss flag, and a sledge run down |
 - **Curves:** the road curves now and then to the left or the right, gently, and straightens again (every 25 to 45 m). It is only the look, as in Out Run: the shaders bend everything ahead to the side by the square of its distance (`scenes/flat/bend.gdshaderinc`), while the game measures everything on the straight road; the view follows the hero, straight ahead.
 
 ### Which signals each scene reads

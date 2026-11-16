@@ -29,8 +29,9 @@ extends RhythmLevel
 ## Boosters), platforms to jump up on, with gaps to jump over, which he may
 ## fall through to the road below (see Platforms), forks with a shortcut for
 ## him who runs all the way to their side (see Forks), barriers across the
-## road which he must smash to pass (see Barriers), and curves (only the look,
-## see Scenery.set_bend).
+## road which he must smash to pass (see Barriers), climbs up stairs, slopes
+## and ladders, which he runs up and slides down (see Climbs), and curves
+## (only the look, see Scenery.set_bend).
 
 ## The lane around which the free gap of each steering note lies (-1 left, 0
 ## the middle, 1 right; see RhythmNote).
@@ -68,21 +69,6 @@ const SLOW_DOWN := 0.08
 ## How high he flies in a jump, in meters.
 const JUMP_HEIGHT := 0.8
 
-## How far the opponents show ahead on the road, from how far they charge at
-## him (at random speeds in the range, meters a second), in meters.
-const APPEAR := 24.0
-const CHARGE_FROM := 14.0
-const CHARGE := Vector2(1.0, 2.2)
-
-## As he comes, an opponent weaves across the road: he side-steps to a spot
-## (anywhere across the road, at most this far from the middle, in lanes) at
-## this speed (meters a second), and picks a new one every while (seconds, at
-## random); from this far (meters), he homes in on the hero to meet him.
-const WEAVE_MOST := 1.2
-const SIDESTEP := 2.6
-const WEAVE_EVERY := Vector2(0.6, 1.3)
-const MEET_FROM := 7.0
-
 ## How much energy comes back after a knock-out.
 const HEAL := 35.0
 
@@ -107,6 +93,12 @@ const BARRIER_SECTION := 3
 const BARRIER_BARS := 2.0
 const LAST_BARRIER_BARS := 0.5
 
+## The section with a climb (instead of a platform), how far into it it
+## starts (in bars), and the points for its top.
+const CLIMB_SECTION := 2
+const CLIMB_BARS := 1.25
+const TOP_BONUS := 100
+
 ## How much the road curves at most (see Scenery.set_bend), how far it goes
 ## before it turns another way (meters, at random), and how many meters it
 ## takes to turn from straight to the most.
@@ -118,12 +110,7 @@ var _strip: PathStrip
 var _rolled := 0.0
 var _pace := 0.0
 var _brawl := Brawl.new()
-## The opponents on the road, in order: "id", "dist" (how far ahead of the
-## hero, in meters), "x" (across the road), "charge" (his speed, meters a
-## second), "spot" (where across the road he side-steps to, see WEAVE_MOST)
-## and "spot_until" (when he picks a new one), "figure" (an
-## Opponent, once he shows), "state" ("ahead", "fight", "down" or "gone").
-var _encounters: Array = []
+var _encounters := Encounters.new()
 ## The opponent fighting now (-1 if none).
 var _fighting := -1
 ## The black sheep, who cheers the hero on from the roadside while he boxes a
@@ -133,6 +120,10 @@ var _boosters := Boosters.new()
 var _platforms := Platforms.new()
 var _forks := Forks.new()
 var _barriers := Barriers.new()
+var _climbs := Climbs.new()
+## The climb whose ladder he climbs now (-1 if none), and how high he got.
+var _laddering := -1
+var _climbed := 0.0
 ## On which level of a platform he runs now (see Platforms): 0 the road, 1
 ## or 2 on a platform.
 var _level := 0
@@ -173,10 +164,12 @@ func _build() -> void:
     add_child(_strip)
     _strip.setup(SPOT, BODY_HALF * 2.0)
     _brawl.setup(hud, boxer, _scoring, _log, play_sound, _beat_seconds)
+    add_child(_encounters)
     add_child(_boosters)
     add_child(_platforms)
     add_child(_forks)
     add_child(_barriers)
+    add_child(_climbs)
 
 
 ## Put the opponents of the level on the road, each in a breather between two
@@ -184,9 +177,6 @@ func _build() -> void:
 ## of obstacles around them.
 func _on_start() -> void:
     _combine()
-    for encounter in _encounters:
-        if encounter["figure"] != null:
-            (encounter["figure"] as Node).queue_free()
     _encounters.clear()
     _fighting = -1
     _end_fight_mode()
@@ -209,22 +199,7 @@ func _on_start() -> void:
                 var t := _beat_time(n)
                 return t < at - 1.5 * bar or t > at + 0.75 * bar
         )
-        (
-            _encounters
-            . append(
-                {
-                    "id": ids[i],
-                    "dist": at * SPEED + Fight.OPPONENT_DISTANCE,
-                    "x": randf_range(-1.0, 1.0) * Scenery.LANE,
-                    "charge": randf_range(CHARGE.x, CHARGE.y),
-                    "spot": 0.0,
-                    "spot_until": 0.0,
-                    "figure": null,
-                    "state": "ahead",
-                    "seed": randi() & 0xffff,
-                }
-            )
-        )
+        _encounters.add(ids[i], at * SPEED + Fight.OPPONENT_DISTANCE)
     _lay_out(meet)
 
 
@@ -262,6 +237,9 @@ func _lay_out(meet: Array[float]) -> void:
     _platforms.clear()
     _forks.clear()
     _barriers.clear()
+    _climbs.clear()
+    _laddering = -1
+    _climbed = 0.0
     hud.countdown = -1.0
     _level = 0
     _over_gap = false
@@ -278,7 +256,11 @@ func _lay_out(meet: Array[float]) -> void:
     var theme: String = level["scenery"]
     for k in range(_sections.size()):
         var section: float = (_intro_bars + _core.SectionBars() * k) * bar
-        if k % 2 == 0:
+        var clear_until := section
+        if k == CLIMB_SECTION and level.has("climb"):
+            var start := section + CLIMB_BARS * bar
+            clear_until = _lay_climb(start, meet, looks)
+        elif k % 2 == 0:
             var start := section + 1.5 * bar
             var end := start + PLATFORM_BARS * bar
             if _clear_of(meet, start - bar, end + bar):
@@ -294,7 +276,7 @@ func _lay_out(meet: Array[float]) -> void:
         if not looks.is_empty():
             # NOTE (mristin):
             # After the platform, if any, and before the opponent.
-            var at := section + randf_range(4.2, 4.7) * bar
+            var at := maxf(section + randf_range(4.2, 4.7) * bar, clear_until + 0.3)
             _boosters.add(looks.pick_random(), at, randf_range(-1.0, 1.0) * Scenery.LANE)
     _lay_barriers(meet)
 
@@ -318,6 +300,28 @@ func _lay_barriers(meet: Array[float]) -> void:
             continue
         _barriers.add(looks[mini(i, looks.size() - 1)], at, level["scenery"])
         _clear_notes(at - 1.2, at + 0.8)
+
+
+## The climb of the level (see Levels) from the time of the notes
+## [param start], if none of the opponents meets him around it ([param meet]),
+## with a booster of the [param looks] on its top; no obstacles on it. The
+## time at which it ends (or [param start] without a climb).
+func _lay_climb(start: float, meet: Array[float], looks: Array) -> float:
+    var look: String = level["climb"]
+    var spec: Dictionary = Climbs.LOOKS[look]
+    var bar := 4.0 * _beat_seconds
+    var end := _climbs.add(look, start, SPEED)
+    if not _clear_of(meet, start - bar, end + 0.5 * bar):
+        _climbs.clear()
+        return start
+    if not looks.is_empty():
+        var rise := (
+            0.0 if spec["up"] == "ladder" else Climbs.HEIGHT / float(Climbs.STEEP[spec["up"]])
+        )
+        var middle := start + (rise + Climbs.TOP * 0.5) / SPEED
+        _boosters.add(looks.pick_random(), middle, randi_range(-1, 1) * Scenery.LANE, Climbs.HEIGHT)
+    _clear_notes(start - 1.2, end + 0.6)
+    return end
 
 
 ## Whether none of the opponents meets him between the times of the notes
@@ -356,12 +360,21 @@ func _clear_notes(from: float, to: float) -> void:
 
 
 func _holds() -> bool:
-    return _fighting >= 0 or _barriers.smashing()
+    return _fighting >= 0 or _barriers.smashing() or _laddering >= 0
 
 
 ## While they box: the brawl plays; at its end, the run goes on. While he
-## smashes a barrier: its clock runs.
+## smashes a barrier: its clock runs. While he climbs a ladder: he goes up
+## as fast as he runs, and on at its top.
 func _hold(delta: float) -> void:
+    if _laddering >= 0:
+        _run_pace(delta)
+        _climbed += delta * _pace * Climbs.LADDER_SPEED
+        if _climbed >= Climbs.HEIGHT:
+            _t = _climbs.climbed(_laddering)
+            _laddering = -1
+            _on_climb("top")
+        return
     if _barriers.smashing():
         hud.countdown = maxf(0.0, _barriers.time_left())
         return
@@ -371,7 +384,7 @@ func _hold(delta: float) -> void:
         return
     if _brawl.active():
         return
-    var encounter: Dictionary = _encounters[_fighting]
+    var encounter: Dictionary = _encounters.at(_fighting)
     encounter["state"] = "down"
     _fighting = -1
     if _powered:
@@ -429,7 +442,7 @@ func _smashed() -> void:
 
 ## The hero crashed into the opponent: the run turns into a fight.
 func _crash(index: int) -> void:
-    var encounter: Dictionary = _encounters[index]
+    var encounter: Dictionary = _encounters.at(index)
     encounter["state"] = "fight"
     _fighting = index
     var figure: Opponent = encounter["figure"]
@@ -458,89 +471,6 @@ func _end_fight_mode() -> void:
     if _black_sheep != null:
         _black_sheep.queue_free()
         _black_sheep = null
-
-
-## The opponents on the road: they show from afar, charge at the hero, swaying,
-## and steer into his path; the one who reaches him starts a fight. Those
-## knocked out are dragged to the side of the road and roll past.
-func _move_opponents(meters: float, played: float) -> void:
-    for i in range(_encounters.size()):
-        var encounter: Dictionary = _encounters[i]
-        var figure: Opponent = encounter["figure"]
-        match encounter["state"]:
-            "ahead":
-                if i != _next_ahead():
-                    continue
-                var dist: float = encounter["dist"] - meters
-                if dist < CHARGE_FROM:
-                    dist -= float(encounter["charge"]) * played
-                encounter["dist"] = dist
-                if dist > APPEAR:
-                    continue
-                if figure == null:
-                    figure = _new_figure(encounter)
-                var x := _weave(encounter, dist, played)
-                figure.global_position = SPOT + Vector3(x, 0, -dist)
-                figure.target = SPOT + Vector3(boxer.shift, 0, 0)
-                var stride := fposmod(_time * 2.6, 1.0)
-                figure.groove(stride, fposmod(_time * 0.65, 1.0), floori(_time * 0.65))
-                if dist <= Fight.OPPONENT_DISTANCE:
-                    _crash(i)
-                    return
-            "down":
-                var side := 1.0 if figure.global_position.x >= boxer.shift else -1.0
-                var roadside := side * (RhythmNote.ROAD * 0.5 + 0.8)
-                figure.global_position.x = lerpf(
-                    figure.global_position.x, roadside, minf(1.0, played * 3.0)
-                )
-                figure.global_position.z += meters
-                if figure.global_position.z > SPOT.z + 3.0:
-                    figure.queue_free()
-                    encounter["figure"] = null
-                    encounter["state"] = "gone"
-
-
-## Where across the road the opponent is now: far off, he weaves from side to
-## side (side-steps to a spot, then to another); from MEET_FROM on, he homes
-## in on the hero, faster and faster, so that he meets him wherever he is.
-func _weave(encounter: Dictionary, dist: float, played: float) -> float:
-    if _time >= float(encounter["spot_until"]):
-        var spot := randf_range(-WEAVE_MOST, WEAVE_MOST) * Scenery.LANE
-        # NOTE (mristin):
-        # A real side-step: never just a little over.
-        if absf(spot - float(encounter["x"])) < Scenery.LANE * 0.6:
-            spot = (
-                -signf(float(encounter["x"]) + 0.01) * randf_range(0.5, WEAVE_MOST) * Scenery.LANE
-            )
-        encounter["spot"] = spot
-        encounter["spot_until"] = _time + randf_range(WEAVE_EVERY.x, WEAVE_EVERY.y)
-    var meet := clampf(
-        1.0 - (dist - Fight.OPPONENT_DISTANCE) / (MEET_FROM - Fight.OPPONENT_DISTANCE), 0.0, 1.0
-    )
-    var goal := lerpf(float(encounter["spot"]), boxer.shift, meet)
-    var speed := SIDESTEP * (1.0 + 2.0 * meet)
-    var x := move_toward(float(encounter["x"]), goal, speed * played)
-    if meet >= 1.0:
-        x = boxer.shift
-    encounter["x"] = x
-    return x
-
-
-## The index of the next opponent still ahead (-1 if none).
-func _next_ahead() -> int:
-    for i in range(_encounters.size()):
-        if _encounters[i]["state"] == "ahead":
-            return i
-    return -1
-
-
-func _new_figure(encounter: Dictionary) -> Opponent:
-    var figure := Opponent.new()
-    figure.look = Levels.opponent(encounter["id"])["look"]
-    figure.tint = encounter["seed"]
-    add_child(figure)
-    encounter["figure"] = figure
-    return figure
 
 
 ## A punch or a kick of the player counts only in a fight (running lifts the
@@ -581,7 +511,7 @@ func _his_health() -> float:
         return _barriers.health()
     if _fighting < 0:
         return -1.0
-    return (_encounters[_fighting]["figure"] as Opponent).health
+    return (_encounters.at(_fighting)["figure"] as Opponent).health
 
 
 func _idle_command() -> String:
@@ -589,6 +519,9 @@ func _idle_command() -> String:
         return "SMASH IT!"
     if _fighting >= 0:
         return "READY"
+    var going := _climbs.way(_t)
+    if _laddering >= 0 or going == "stairs" or going == "slope":
+        return "CLIMB: KNEES UP!"
     if _pace < 0.15:
         return "LIFT YOUR KNEES!"
     return "RUN!"
@@ -600,13 +533,28 @@ func _on_frame(delta: float) -> void:
     _forks.place(_t, SPEED, SPOT)
     _barriers.place(_t, SPEED, SPOT, _scenery.bend)
     _barriers.step(delta)
-    _scenery.keep_clear(_forks.clearings())
+    _climbs.place(_t, SPEED, SPOT, _scenery.bend)
+    _scenery.keep_clear(_forks.clearings() + _climbs.clearings())
     _show_boosts()
     hud.flash = _flash
     _flash = maxf(0.0, _flash - delta * 2.0)
-    var ground := Platforms.HEIGHT * _level
+    var ground := _ground()
     var climb := 4.0 if ground > boxer.elevation else 3.0
+    if _laddering >= 0 or _climbs.way(_t) != "":
+        climb = 8.0
     boxer.elevation = move_toward(boxer.elevation, ground, delta * climb)
+    # NOTE (mristin):
+    # He looks up the climb ahead (up the ladder), and down it.
+    var rise := _climbs.height(_t + 4.0 / SPEED) - _climbs.height(_t)
+    if _laddering >= 0:
+        rise = 2.5
+    boxer.gaze_rise = lerpf(boxer.gaze_rise, rise, minf(1.0, delta * 4.0))
+    if _laddering >= 0:
+        boxer.shift = lerpf(boxer.shift, Climbs.ladder_at(boxer.shift), minf(1.0, delta * 6.0))
+        boxer.face(SPOT + Vector3(boxer.shift, 0, -6.0), delta)
+        boxer.running_steps = maxf(0.001, _pace * NORMAL_CADENCE * 0.5)
+        hud.speed = _pace
+        return
     if _barriers.smashing():
         boxer.face(_barriers.aim(boxer.shift), delta)
         boxer.running_steps = 0.0
@@ -617,7 +565,7 @@ func _on_frame(delta: float) -> void:
     if _fighting >= 0:
         # NOTE (mristin):
         # In a fight, he stays where he crashed (the slips must not steer).
-        var figure: Opponent = _encounters[_fighting]["figure"]
+        var figure: Opponent = _encounters.at(_fighting)["figure"]
         boxer.face(figure.global_position, delta)
         boxer.running_steps = 0.0
         if _black_sheep != null:
@@ -638,6 +586,45 @@ func _on_frame(delta: float) -> void:
 ## faster quicker (up to FASTEST), slower slower, and standing still stops
 ## him. The obstacles stand on the road: he reaches them at his own pace.
 func _advance(played: float) -> void:
+    _run_pace(played)
+    var boost := Boosters.SPEED_BOOST if _now < _speed_until else 1.0
+    boost *= _climbs.pace(_t)
+    var before := _t
+    _t += played * _pace * boost
+    var meters := played * _pace * boost * SPEED
+    _rolled += meters
+    _scenery.scroll(meters)
+    var meeting := _encounters.move(meters, played, _time, boxer.shift, SPOT)
+    if meeting >= 0:
+        _crash(meeting)
+    if _fighting >= 0:
+        return
+    var barrier := _barriers.reached(_t)
+    if barrier >= 0:
+        _start_smash(barrier)
+        return
+    var ladder := _climbs.ladder(_t, SPEED)
+    if ladder >= 0:
+        _t = _climbs.climb(ladder, SPEED)
+        _laddering = ladder
+        _climbed = 0.0
+        _on_climb("ladder")
+        return
+    for going in _climbs.entered(before, _t):
+        _on_climb(going)
+    _turn(meters)
+    _on_platforms()
+    for look in _boosters.take(_t, boxer.shift, _ground()):
+        _boost(look)
+    var fork := _forks.reached(before, _t, boxer.shift)
+    if not fork.is_empty():
+        _log.write("fork", {"taken": fork["state"] == "taken", "song": _now})
+        if fork["state"] == "taken":
+            _shortcut(float(fork["skip"]))
+
+
+## How fast he runs (see _advance), after [param played] seconds of the song.
+func _run_pace(played: float) -> void:
     var cadence := 0.0
     if vision != null and vision.GetStatus() != "Disabled":
         cadence = vision.GetCadence()
@@ -649,28 +636,41 @@ func _advance(played: float) -> void:
         _pace = lerpf(_pace, wanted, minf(1.0, played * SPEED_UP))
     elif not (_body.jumping or _body.ducking):
         _pace = maxf(wanted, _pace - SLOW_DOWN * played)
-    var boost := Boosters.SPEED_BOOST if _now < _speed_until else 1.0
-    var before := _t
-    _t += played * _pace * boost
-    var meters := played * _pace * boost * SPEED
-    _rolled += meters
-    _scenery.scroll(meters)
-    _move_opponents(meters, played)
-    if _fighting >= 0:
-        return
-    var barrier := _barriers.reached(_t)
-    if barrier >= 0:
-        _start_smash(barrier)
-        return
-    _turn(meters)
-    _on_platforms()
-    for look in _boosters.take(_t, boxer.shift, Platforms.HEIGHT * _level):
-        _boost(look)
-    var fork := _forks.reached(before, _t, boxer.shift)
-    if not fork.is_empty():
-        _log.write("fork", {"taken": fork["state"] == "taken", "song": _now})
-        if fork["state"] == "taken":
-            _shortcut(float(fork["skip"]))
+
+
+## How high he stands: on the climb under him (up the ladder), or on the
+## level of a platform (see Platforms).
+func _ground() -> float:
+    if _laddering >= 0:
+        return _climbed
+    return maxf(_climbs.height(_t), Platforms.HEIGHT * _level)
+
+
+## He goes on [param going] a climb (see Climbs): up it, on its top (points),
+## or down it.
+func _on_climb(going: String) -> void:
+    match going:
+        "stairs", "slope", "ladder":
+            hud.announce("CLIMB!", 1.2)
+            hud.say(
+                "UP %s!" % str(Climbs.LOOKS[_climb_look()]["title"]).trim_prefix("THE "), Hud.GOLD
+            )
+        "top":
+            _scoring.bonus(TOP_BONUS)
+            hud.announce("TOP!", 1.2)
+            hud.say("ON TOP! +%d" % TOP_BONUS, Hud.GOLD)
+            _play("perfect")
+        "slide":
+            hud.announce("WHEEE!", 1.2)
+            _play("dodge")
+        "down_stairs":
+            hud.say("DOWN THE STAIRS!", Hud.GOLD)
+    _log.write("climb", {"part": going, "song": _now})
+
+
+## The look of the climb under him (or the one he climbs up).
+func _climb_look() -> String:
+    return str(level.get("climb", "hill"))
 
 
 ## Curve the road as he runs [param meters] on: it turns now and then to
@@ -763,7 +763,7 @@ func _shortcut(skip: float) -> void:
     var meters := skip * SPEED
     _rolled += meters
     _scenery.scroll(meters)
-    _move_opponents(meters, 0.0)
+    _encounters.move(meters, 0.0, _time, boxer.shift, SPOT)
     _boosters.skip(from, _t)
     for note in _notes.duplicate():
         if note.result == "" and note.at <= _t + 0.3:
