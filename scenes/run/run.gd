@@ -85,11 +85,10 @@ const MEET_FROM := 7.0
 ## How much energy comes back after a knock-out.
 const HEAL := 35.0
 
-## How long a platform is, how long its gaps (in bars and seconds of the
-## notes), and how many blocks it has at most.
-const PLATFORM_BARS := 2.0
+## How long a platform is (in bars), and how long its gaps (in seconds of the
+## notes).
+const PLATFORM_BARS := 2.5
 const PLATFORM_GAP := 0.5
-const PLATFORM_BLOCKS := 3
 
 ## How far ahead a shortcut takes him, in bars.
 const SHORTCUT_BARS := 3.0
@@ -119,8 +118,11 @@ var _black_sheep: Node3D
 var _boosters := Boosters.new()
 var _platforms := Platforms.new()
 var _forks := Forks.new()
-## Whether he runs on a platform now (see Platforms).
-var _on_deck := false
+## On which level of a platform he runs now (see Platforms): 0 the road, 1
+## or 2 on a platform.
+var _level := 0
+## Whether he flies over a gap now, which he jumped (see _on_platforms).
+var _over_gap := false
 ## Until when (the song's time) the boosters of speed and of the shield work,
 ## and whether his punches are powered up for the next fight (see Boosters).
 var _speed_until := -1.0
@@ -217,7 +219,8 @@ func _lay_out(meet: Array[float]) -> void:
     _boosters.clear()
     _platforms.clear()
     _forks.clear()
-    _on_deck = false
+    _level = 0
+    _over_gap = false
     _speed_until = -1.0
     _shield_until = -1.0
     _powered = false
@@ -245,7 +248,9 @@ func _lay_out(meet: Array[float]) -> void:
                 _forks.add(at, side, skip, road, Scenery.LANE * 1.5 + 0.4)
                 _clear_notes(at - 0.75, at + 0.4)
         if not looks.is_empty():
-            var at := section + randf_range(3.6, 4.6) * bar
+            # NOTE (mristin):
+            # After the platform, if any, and before the opponent.
+            var at := section + randf_range(4.2, 4.7) * bar
             _boosters.add(looks.pick_random(), at, randf_range(-1.0, 1.0) * Scenery.LANE)
 
 
@@ -258,23 +263,20 @@ static func _clear_of(meet: Array[float], from: float, to: float) -> bool:
     return true
 
 
-## A platform from the time of the notes [param start] to [param end], in a
-## lane at random, of a few blocks with gaps between, a booster on each block;
-## no obstacles around it.
+## A platform from the time of the notes [param start] to about [param end],
+## in a lane at random, of blocks one or two levels high with gaps (see
+## Platforms.segments), a booster on each block of the upper level; no
+## obstacles around it.
 func _lay_platform(start: float, end: float, looks: Array, theme: String) -> void:
-    var count := randi_range(2, PLATFORM_BLOCKS)
-    var length := (end - start - PLATFORM_GAP * (count - 1)) / count
-    var blocks: Array = []
-    var t := start
-    for i in range(count):
-        blocks.append(Vector2(t, t + length))
-        t += length + PLATFORM_GAP
+    var segments := Platforms.segments(start, end, PLATFORM_GAP)
     var x := randi_range(-1, 1) * Scenery.LANE
-    _platforms.add(x, blocks, SPEED, theme)
+    _platforms.add(x, segments, SPEED, theme)
     if not looks.is_empty():
-        for block: Vector2 in blocks:
-            _boosters.add(looks.pick_random(), (block.x + block.y) * 0.5, x, Platforms.HEIGHT)
-    _clear_notes(start - 1.0, end + 0.6)
+        for segment: Array in segments:
+            if int(segment[2]) == 2:
+                var middle := (float(segment[0]) + float(segment[1])) * 0.5
+                _boosters.add(looks.pick_random(), middle, x, Platforms.HEIGHT * 2.0)
+    _clear_notes(start - 1.0, float(segments[segments.size() - 1][1]) + 0.6)
 
 
 ## Take the obstacles off the road between the times of the notes [param from]
@@ -326,7 +328,7 @@ func _crash(index: int) -> void:
     boxer.running_steps = 0.0
     boxer.level_gaze = false
     boxer.take_damage(0.0, true)
-    _on_deck = false
+    _level = 0
     hud.speed = -1.0
     hud.announce("FIGHT!", 1.5)
     play_sound("hurt", -8.0)
@@ -462,8 +464,9 @@ func _on_frame(delta: float) -> void:
     _show_boosts()
     hud.flash = _flash
     _flash = maxf(0.0, _flash - delta * 2.0)
-    var ground := Platforms.HEIGHT if _on_deck else 0.0
-    boxer.elevation = move_toward(boxer.elevation, ground, delta * (4.0 if _on_deck else 2.5))
+    var ground := Platforms.HEIGHT * _level
+    var climb := 4.0 if ground > boxer.elevation else 3.0
+    boxer.elevation = move_toward(boxer.elevation, ground, delta * climb)
     if _fighting >= 0:
         # NOTE (mristin):
         # In a fight, he stays where he crashed (the slips must not steer).
@@ -509,8 +512,8 @@ func _advance(played: float) -> void:
     if _fighting >= 0:
         return
     _turn(meters)
-    _on_platforms(before)
-    for look in _boosters.take(_t, boxer.shift, Platforms.HEIGHT if _on_deck else 0.0):
+    _on_platforms()
+    for look in _boosters.take(_t, boxer.shift, Platforms.HEIGHT * _level):
         _boost(look)
     var fork := _forks.reached(before, _t, boxer.shift)
     if not fork.is_empty():
@@ -529,50 +532,40 @@ func _turn(meters: float) -> void:
     _scenery.set_bend(_curve)
 
 
-## Up onto a platform, along it and down again, since the time of the notes
-## [param before]: he gets up if he jumps as its front reaches him (else it
-## bumps him), and falls to the road below through a gap which he does not
-## jump over, or off its side.
-func _on_platforms(before: float) -> void:
-    var reached := _platforms.reached(before, _t)
-    if not reached.is_empty() and not _on_deck and Platforms.over(reached, boxer.shift):
-        if _body.jumping:
-            _on_deck = true
+## Up onto a platform, along it and down again: he steps up onto a level
+## which comes under him (he need not jump), and falls to the level under him
+## if he does not jump over a gap (or steps off the side): one level does
+## not hurt, two at once do (see Platforms). A gap which he jumped over gives
+## points.
+func _on_platforms() -> void:
+    var ground := _platforms.ground(_t, boxer.shift)
+    if ground >= _level:
+        if _over_gap:
+            _over_gap = false
             _scoring.met("dodged")
-            hud.say("UP!", Hud.GOLD)
+            hud.say("NICE JUMP!", Hud.GOLD)
             _play("dodge")
-            _log.write("platform", {"result": "up", "song": _now})
-        else:
-            _bump()
-    if not _on_deck:
+            _log.write("platform", {"result": "jumped", "song": _now})
+        if ground > _level:
+            _level = ground
+            _log.write("platform", {"result": "up", "level": _level, "song": _now})
         return
-    var deck := _platforms.under(_t)
-    var why := ""
-    if deck.is_empty():
-        why = "end"
-    elif not Platforms.over(deck, boxer.shift):
-        why = "off"
-    elif not Platforms.solid(deck, _t) and not _body.jumping:
-        why = "through"
-    if why == "":
+    if _body.jumping:
+        _over_gap = true
         return
-    _on_deck = false
-    _log.write("platform", {"result": why, "song": _now})
-    if why != "end":
-        hud.say("FELL DOWN!", Hud.PAPER)
-
-
-## He ran into a platform without jumping: it hurts as an obstacle (unless
-## his shield is on).
-func _bump() -> void:
-    _log.write("platform", {"result": "bump", "song": _now})
+    var drop := _level - ground
+    _level = ground
+    _over_gap = false
+    _log.write("platform", {"result": "fell", "levels": drop, "song": _now})
+    if drop < 2:
+        return
     if _now < _shield_until:
         hud.say("SHIELD!", Boosters.KINDS["shield"]["color"])
         return
     _scoring.failed("hit")
     _play("hurt")
     boxer.take_damage(HURT)
-    hud.say("BUMP!", Hud.RED)
+    hud.say("OUCH! TWO DOWN!", Hud.RED)
     if boxer.health <= 0.0:
         _finish(false)
 
@@ -641,17 +634,19 @@ func _hurt(note: RhythmNote) -> void:
     super(note)
 
 
-## Call what comes on the road: a platform in his way to jump up on, and a
-## fork with its shortcut, from its side.
+## Call what comes on the road: a gap of the platform under him to jump
+## over (not the end of the platform), and a fork with its shortcut, to its
+## side.
 func _call() -> Array:
     if _fighting >= 0:
         return []
-    var deck := _platforms.next(_t)
-    if not deck.is_empty() and not _on_deck and Platforms.over(deck, boxer.shift):
-        var left := float(deck["start"]) - _t
+    var drop := _platforms.next_drop(_t, _level)
+    var deck := _platforms.under(_t)
+    if drop > 0.0 and not deck.is_empty() and drop < float(deck["end"]):
+        var left := drop - _t
         var span := _beat_seconds * 2.0
         if left <= span:
-            return ["JUMP UP!", "low", clampf(1.0 - left / span, 0.0, 1.0)]
+            return ["JUMP!", "low", clampf(1.0 - left / span, 0.0, 1.0)]
     var fork := _forks.next(_t)
     if not fork.is_empty():
         var left := float(fork["at"]) - _t

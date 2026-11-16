@@ -372,7 +372,7 @@ const ALL_LEVELS := [
         "progression": 3,
         "transpose": 0,
         "sections": ["steer", "duck", "jump", "steer,jump", "steer,jump,duck"],
-        "boosters": ["mandarin", "grittibaenz", "nuts"],
+        "boosters": ["mandarin", "grittibaenz", "peanuts"],
     },
     {
         "id": "norgeli",

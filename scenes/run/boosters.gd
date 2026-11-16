@@ -38,7 +38,7 @@ const LOOKS := {
     "grittibaenz": {"kind": "health", "title": "GRITTIBÄNZ"},
     "mandarin": {"kind": "speed", "title": "MANDARIN"},
     "scarf": {"kind": "shield", "title": "SCARF"},
-    "nuts": {"kind": "power", "title": "NUTS"},
+    "peanuts": {"kind": "power", "title": "PEANUTS"},
 }
 
 ## How fast he runs with a speed booster, as many times his pace.
@@ -258,19 +258,33 @@ static func build(look: String, node: Node3D) -> void:
             node.add_child(roll)
             for x in [-0.06, 0.06]:
                 Flat.box(node, Vector3(0.08, 0.26, 0.03), Vector3(x, -0.2, -0.09), Color("c8302c"))
-        "nuts":
+        "peanuts":
             # NOTE (mristin):
-            # Peanuts in their shells, from Samichlaus' sack.
-            for k in range(5):
-                var angle := k * TAU / 5.0
-                var nut := Flat.ball(
-                    node,
-                    0.06,
-                    Vector3(cos(angle) * 0.1, (k % 2) * 0.05, sin(angle) * 0.1),
-                    Color("d8b07a"),
-                    false,
-                    1.8
-                )
-                nut.rotation = Vector3(0.6 * k, 0, 1.2)
+            # Peanuts in their shells (Spanisch Nüssli), from Samichlaus'
+            # sack: each shell two lobes with a waist, its net of ridges;
+            # one shell is cracked open, its two kernels in their red skins.
+            var shell := Flat.striped(Color("c89a5e"), Color("9a7040"), 70.0)
+            var places := [
+                Vector3(-0.1, 0.0, 0.04), Vector3(0.09, 0.04, -0.03), Vector3(0, -0.06, -0.08)
+            ]
+            for k in range(places.size()):
+                var peanut := Node3D.new()
+                node.add_child(peanut)
+                peanut.position = places[k]
+                peanut.rotation = Vector3(0.5 * k, 0.9 * k, 0.4 - 0.5 * k)
+                for lobe in [[-0.055, 0.058], [0.055, 0.052], [0.0, 0.043]]:
+                    var part := Flat.ball(peanut, lobe[1], Vector3(lobe[0], 0, 0), Color.WHITE)
+                    part.material_override = shell
+                    part.scale = Vector3(1.0, 0.9, 0.9)
+            var open := Node3D.new()
+            node.add_child(open)
+            open.position = Vector3(0.02, 0.1, 0.08)
+            open.rotation = Vector3(0.3, 0.2, 0.1)
+            var half := Flat.ball(open, 0.06, Vector3.ZERO, Color.WHITE)
+            half.material_override = shell
+            half.scale = Vector3(2.0, 0.45, 1.0)
+            for x in [-0.045, 0.045]:
+                var kernel := Flat.ball(open, 0.038, Vector3(x, 0.03, 0), Color("a0503a"))
+                kernel.scale = Vector3(1.15, 0.9, 0.9)
         _:
             Flat.ball(node, 0.15, Vector3.ZERO, Color.WHITE)
