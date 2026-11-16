@@ -14,24 +14,21 @@ extends RhythmLevel
 ## does not lie over the scene while he plays (only the panel in the corner
 ## shows it, see CameraPanel): it is for the menus.
 ##
-## On the road, he meets the opponents of the level (see Levels), one by one,
-## in the breathers between the sections (the road is free of obstacles
-## around them), each in random colors of his own (see Looks.recolor). Each
-## charges at him, weaving across the road from side to side, and in the last
-## meters homes in on him: there is no way around him, he always meets the
-## hero. Then the
-## run turns into a fight (see Brawl): the clock of the run holds, the land
-## stops, and they box freely until one goes down. After the knock-out, the
-## opponent is dragged to the side of the road, and the run goes on (a little
-## of the hero's energy comes back).
+## On the road, he meets the opponents of the level (see Levels and
+## Encounters), one by one, in the breathers between the sections (see
+## RoadPlan): there is no way around them, and the run turns into a fight
+## (see BrawlMode). While he fights, smashes a barrier or climbs a ladder, the
+## run is in a mode (see RunMode): the clock of the run holds, and the mode
+## says what goes on.
 ##
-## The road has more on it (see DESIGN.md): boosters to pick up (see
-## Boosters), platforms to jump up on, with gaps to jump over, which he may
-## fall through to the road below (see Platforms), forks with a shortcut for
-## him who runs all the way to their side (see Forks), barriers across the
-## road which he must smash to pass (see Barriers), climbs up stairs, slopes
-## and ladders, which he runs up and slides down (see Climbs), and curves
-## (only the look, see Scenery.set_bend).
+## The road has more on it (see DESIGN.md and RoadPlan): boosters to pick up
+## (see Boosters and Boosts), platforms to jump up on, with gaps to jump over,
+## which he may fall through to the road below (see Platforms), forks with a
+## shortcut for him who runs all the way to their side (see Forks), barriers
+## across the road which he must smash to pass (see Barriers and SmashMode),
+## climbs up stairs, slopes and ladders, which he runs up and slides down
+## (see Climbs and LadderMode), and curves (only the look, see
+## Scenery.set_bend).
 
 ## The lane around which the free gap of each steering note lies (-1 left, 0
 ## the middle, 1 right; see RhythmNote).
@@ -69,34 +66,11 @@ const SLOW_DOWN := 0.08
 ## How high he flies in a jump, in meters.
 const JUMP_HEIGHT := 0.8
 
-## How much energy comes back after a knock-out.
-const HEAL := 35.0
-
-## How long a platform is (in bars), and how long its gaps (in seconds of the
-## notes).
-const PLATFORM_BARS := 2.5
-const PLATFORM_GAP := 0.5
-
-## How often a jump or a duck in a section which mixes it with the steering
-## becomes a combined obstacle (see RhythmNote.COMBOS), and how early before
-## its beat (in seconds of the notes) his jump or duck counts for it.
-const COMBO_SHARE := 0.6
+## How early before the beat of a combined obstacle (see RhythmNote.COMBOS;
+## in seconds of the notes) his jump or duck counts for it.
 const COMBO_EARLY := 1.2
 
-## How far ahead a shortcut takes him, in bars.
-const SHORTCUT_BARS := 3.0
-
-## The section with a barrier in its middle (instead of a fork), how far into
-## it (in bars), and how far before the end of the road the last barrier
-## stands (in bars).
-const BARRIER_SECTION := 3
-const BARRIER_BARS := 2.0
-const LAST_BARRIER_BARS := 0.5
-
-## The section with a climb (instead of a platform), how far into it it
-## starts (in bars), and the points for its top.
-const CLIMB_SECTION := 2
-const CLIMB_BARS := 1.25
+## The points for the top of a climb.
 const TOP_BONUS := 100
 
 ## How much the road curves at most (see Scenery.set_bend), how far it goes
@@ -111,29 +85,19 @@ var _rolled := 0.0
 var _pace := 0.0
 var _brawl := Brawl.new()
 var _encounters := Encounters.new()
-## The opponent fighting now (-1 if none).
-var _fighting := -1
-## The black sheep, who cheers the hero on from the roadside while he boxes a
-## white sheep (see DESIGN.md).
-var _black_sheep: Node3D
 var _boosters := Boosters.new()
 var _platforms := Platforms.new()
 var _forks := Forks.new()
 var _barriers := Barriers.new()
 var _climbs := Climbs.new()
-## The climb whose ladder he climbs now (-1 if none), and how high he got.
-var _laddering := -1
-var _climbed := 0.0
+var _boosts := Boosts.new()
+## The mode which holds the run now (see RunMode), or null while he runs.
+var _mode: RunMode
 ## On which level of a platform he runs now (see Platforms): 0 the road, 1
 ## or 2 on a platform.
 var _level := 0
 ## Whether he flies over a gap now, which he jumped (see _on_platforms).
 var _over_gap := false
-## Until when (the song's time) the boosters of speed and of the shield work,
-## and whether his punches are powered up for the next fight (see Boosters).
-var _speed_until := -1.0
-var _shield_until := -1.0
-var _powered := false
 ## How much the road curves now, how much it turns to, and from how far (in
 ## meters rolled) it turns another way.
 var _curve := 0.0
@@ -164,363 +128,90 @@ func _build() -> void:
     add_child(_strip)
     _strip.setup(SPOT, BODY_HALF * 2.0)
     _brawl.setup(hud, boxer, _scoring, _log, play_sound, _beat_seconds)
-    add_child(_encounters)
-    add_child(_boosters)
-    add_child(_platforms)
-    add_child(_forks)
-    add_child(_barriers)
-    add_child(_climbs)
+    for node: Node in [_encounters, _boosters, _platforms, _forks, _barriers, _climbs]:
+        add_child(node)
 
 
-## Put the opponents of the level on the road, each in a breather between two
-## sections (spread over the run, a little off at random), and clear the road
-## of obstacles around them.
+## Lay out the road (see RoadPlan) and start afresh.
 func _on_start() -> void:
-    _combine()
-    _encounters.clear()
-    _fighting = -1
-    _end_fight_mode()
-    var ids: Array = level.get("opponents", [])
-    var bar := 4.0 * _beat_seconds
-    var used := {}
-    var meet: Array[float] = []
-    for i in range(ids.size()):
-        var k := clampi(roundi((i + 1) * float(_sections.size()) / (ids.size() + 1)), 1, 99)
-        while used.has(k):
-            k += 1
-        used[k] = true
-        # NOTE (mristin):
-        # The middle of the breather, the last bar of the section before.
-        var at: float = (_intro_bars + _core.SectionBars() * k - 0.5) * bar
-        at += randf_range(-0.2, 0.2) * bar
-        meet.append(at)
-        _chart = _chart.filter(
-            func(n: Dictionary) -> bool:
-                var t := _beat_time(n)
-                return t < at - 1.5 * bar or t > at + 0.75 * bar
-        )
-        _encounters.add(ids[i], at * SPEED + Fight.OPPONENT_DISTANCE)
-    _lay_out(meet)
-
-
-## Make some of the jumps and the ducks of the sections which mix them with
-## the steering into combined obstacles (see RhythmNote.COMBOS): he must go
-## to the right place and jump or duck there. A jump becomes a fence low in
-## one part or a plank over a hole; a duck, a wall with a hole; in a section
-## of both, either may become the road split into a beam and a hurdle.
-func _combine() -> void:
-    var bar := 4.0 * _beat_seconds
-    for note: Dictionary in _chart:
-        var kind: String = note["kind"]
-        if kind != "jump" and kind != "duck":
-            continue
-        var k := floori((_beat_time(note) / bar - _intro_bars) / _core.SectionBars())
-        if k < 0 or k >= _sections.size():
-            continue
-        var moves := _sections[k].split(",")
-        if not moves.has("steer") or randf() >= COMBO_SHARE:
-            continue
-        var choices: Array = (
-            ["fence_jump", "fence_jump", "plank"] if kind == "jump" else ["fence_duck"]
-        )
-        if moves.has("jump") and moves.has("duck"):
-            choices.append("split")
-        note["kind"] = choices.pick_random()
-
-
-## Lay out the road besides the obstacles and the opponents (who meet him at
-## the times of the notes in [param meet]): in every other section a platform
-## (with a booster on each of its blocks), in the others a fork, a booster on
-## the road late in every section, and the curves.
-func _lay_out(meet: Array[float]) -> void:
-    _boosters.clear()
-    _platforms.clear()
-    _forks.clear()
-    _barriers.clear()
-    _climbs.clear()
-    _laddering = -1
-    _climbed = 0.0
+    if _mode != null:
+        _leave_mode()
     hud.countdown = -1.0
     _level = 0
     _over_gap = false
-    _speed_until = -1.0
-    _shield_until = -1.0
-    _powered = false
+    _boosts.reset()
     _brawl.power = 1.0
     _curve = 0.0
     _curve_goal = 0.0
     _curve_next = 0.0
     _scenery.set_bend(0.0)
-    var bar := 4.0 * _beat_seconds
-    var looks: Array = level.get("boosters", [])
-    var theme: String = level["scenery"]
-    for k in range(_sections.size()):
-        var section: float = (_intro_bars + _core.SectionBars() * k) * bar
-        var clear_until := section
-        if k == CLIMB_SECTION and level.has("climb"):
-            var start := section + CLIMB_BARS * bar
-            clear_until = _lay_climb(start, meet, looks)
-        elif k % 2 == 0:
-            var start := section + 1.5 * bar
-            var end := start + PLATFORM_BARS * bar
-            if _clear_of(meet, start - bar, end + bar):
-                _lay_platform(start, end, looks, theme)
-        elif k != BARRIER_SECTION:
-            var at := section + 0.5 * bar
-            var skip := SHORTCUT_BARS * bar
-            if _clear_of(meet, at, at + skip + bar) and at + skip < _goal() - bar:
-                var road: Color = Scenery.LOOKS.get(theme, Scenery.LOOKS["jungle"])["road"]
-                var side: float = [-1.0, 1.0].pick_random()
-                _forks.add(at, side, skip, road, Scenery.LANE * 1.5 + 0.4)
-                _clear_notes(at - 0.75, at + 0.4)
-        if not looks.is_empty():
-            # NOTE (mristin):
-            # After the platform, if any, and before the opponent.
-            var at := maxf(section + randf_range(4.2, 4.7) * bar, clear_until + 0.3)
-            _boosters.add(looks.pick_random(), at, randf_range(-1.0, 1.0) * Scenery.LANE)
-    _lay_barriers(meet)
-
-
-## The barriers of the level (see Levels): the first in the middle of
-## BARRIER_SECTION, the last just before the end of the road; no obstacles
-## around them.
-func _lay_barriers(meet: Array[float]) -> void:
-    var looks: Array = level.get("barriers", [])
-    if looks.is_empty():
-        return
-    var bar := 4.0 * _beat_seconds
-    var spots: Array[float] = []
-    if _sections.size() > BARRIER_SECTION + 1:
-        var section: float = (_intro_bars + _core.SectionBars() * BARRIER_SECTION) * bar
-        spots.append(section + BARRIER_BARS * bar)
-    spots.append(_goal() - LAST_BARRIER_BARS * bar)
-    for i in range(spots.size()):
-        var at := spots[i]
-        if not _clear_of(meet, at - bar, at + bar):
-            continue
-        _barriers.add(looks[mini(i, looks.size() - 1)], at, level["scenery"])
-        _clear_notes(at - 1.2, at + 0.8)
-
-
-## The climb of the level (see Levels) from the time of the notes
-## [param start], if none of the opponents meets him around it ([param meet]),
-## with a booster of the [param looks] on its top; no obstacles on it. The
-## time at which it ends (or [param start] without a climb).
-func _lay_climb(start: float, meet: Array[float], looks: Array) -> float:
-    var look: String = level["climb"]
-    var spec: Dictionary = Climbs.LOOKS[look]
-    var bar := 4.0 * _beat_seconds
-    var end := _climbs.add(look, start, SPEED)
-    if not _clear_of(meet, start - bar, end + 0.5 * bar):
-        _climbs.clear()
-        return start
-    if not looks.is_empty():
-        var rise := (
-            0.0 if spec["up"] == "ladder" else Climbs.HEIGHT / float(Climbs.STEEP[spec["up"]])
-        )
-        var middle := start + (rise + Climbs.TOP * 0.5) / SPEED
-        _boosters.add(looks.pick_random(), middle, randi_range(-1, 1) * Scenery.LANE, Climbs.HEIGHT)
-    _clear_notes(start - 1.2, end + 0.6)
-    return end
-
-
-## Whether none of the opponents meets him between the times of the notes
-## [param from] and [param to].
-static func _clear_of(meet: Array[float], from: float, to: float) -> bool:
-    for at in meet:
-        if at >= from and at <= to:
-            return false
-    return true
-
-
-## A platform from the time of the notes [param start] to about [param end],
-## in a lane at random, of blocks one or two levels high with gaps (see
-## Platforms.segments), a booster on each block of the upper level; no
-## obstacles around it.
-func _lay_platform(start: float, end: float, looks: Array, theme: String) -> void:
-    var segments := Platforms.segments(start, end, PLATFORM_GAP)
-    var x := randi_range(-1, 1) * Scenery.LANE
-    _platforms.add(x, segments, SPEED, theme)
-    if not looks.is_empty():
-        for segment: Array in segments:
-            if int(segment[2]) == 2:
-                var middle := (float(segment[0]) + float(segment[1])) * 0.5
-                _boosters.add(looks.pick_random(), middle, x, Platforms.HEIGHT * 2.0)
-    _clear_notes(start - 1.0, float(segments[segments.size() - 1][1]) + 0.6)
-
-
-## Take the obstacles off the road between the times of the notes [param from]
-## and [param to].
-func _clear_notes(from: float, to: float) -> void:
-    _chart = _chart.filter(
-        func(n: Dictionary) -> bool:
-            var t := _beat_time(n)
-            return t < from or t > to
+    var road := {
+        "encounters": _encounters,
+        "boosters": _boosters,
+        "platforms": _platforms,
+        "forks": _forks,
+        "barriers": _barriers,
+        "climbs": _climbs,
+    }
+    var plan := RoadPlan.new(
+        level,
+        _chart,
+        _beat_time,
+        _beat_seconds,
+        _intro_bars,
+        _core.SectionBars(),
+        _sections,
+        _goal(),
+        road
     )
+    plan.lay()
+    _chart = plan.chart
 
 
 func _holds() -> bool:
-    return _fighting >= 0 or _barriers.smashing() or _laddering >= 0
+    return _mode != null
 
 
-## While they box: the brawl plays; at its end, the run goes on. While he
-## smashes a barrier: its clock runs. While he climbs a ladder: he goes up
-## as fast as he runs, and on at its top.
+## While the run is in a mode: the mode goes on, until it is over.
 func _hold(delta: float) -> void:
-    if _laddering >= 0:
-        _run_pace(delta)
-        _climbed += delta * _pace * Climbs.LADDER_SPEED
-        if _climbed >= Climbs.HEIGHT:
-            _t = _climbs.climbed(_laddering)
-            _laddering = -1
-            _on_climb("top")
-        return
-    if _barriers.smashing():
-        hud.countdown = maxf(0.0, _barriers.time_left())
-        return
-    _brawl.step(delta, _body.dodges())
-    if boxer.health <= 0.0:
-        _finish(false)
-        return
-    if _brawl.active():
-        return
-    var encounter: Dictionary = _encounters.at(_fighting)
-    encounter["state"] = "down"
-    _fighting = -1
-    if _powered:
-        _powered = false
-        _brawl.power = 1.0
-    boxer.health = minf(Boxer.MAX_HEALTH, boxer.health + HEAL)
-    _end_fight_mode()
-    hud.announce("RUN!", 1.5)
-    _log.write("run_on", {"song": _now})
+    if _mode.hold(delta) and _phase == Phase.PLAYING:
+        _leave_mode()
+
+
+## The run goes into the [param mode] (see RunMode).
+func _enter_mode(mode: RunMode) -> void:
+    _mode = mode
+    mode.enter()
+
+
+## The mode is over: back to running.
+func _leave_mode() -> void:
+    var mode := _mode
+    _mode = null
+    mode.leave()
 
 
 func _threatened() -> bool:
-    return _fighting >= 0 and _brawl.threatened()
+    return _mode != null and _mode.threatened()
 
 
-## He ran into a barrier (the [param index] of it): the run stops, and he
-## smashes it (see Barriers).
-func _start_smash(index: int) -> void:
-    _barriers.start(index, boxer.shift)
-    var look := _barriers.look()
-    boxer.running_steps = 0.0
-    boxer.level_gaze = false
-    _level = 0
-    _over_gap = false
-    hud.speed = -1.0
-    hud.opponent_name = str(Barriers.LOOKS[look]["title"]).trim_prefix("THE ")
-    hud.countdown = Barriers.LIMIT
-    hud.announce("SMASH IT!", 1.5)
-    play_sound("bell", -6.0)
-    if look == "poster":
-        _black_sheep = Looks.black_sheep()
-        add_child(_black_sheep)
-        _black_sheep.position = SPOT + Vector3(boxer.shift + 1.6, 0, -1.2)
-        _black_sheep.rotation.y = 0.6
-    _log.write("barrier_start", {"look": look, "song": _now})
-
-
-## He smashed the barrier: the bonus for the time left, and the run goes on.
-func _smashed() -> void:
-    var left := _barriers.time_left()
-    _scoring.met("landed")
-    if left > 0.0:
-        var points := Barriers.BONUS * ceili(left)
-        _scoring.bonus(points)
-        hud.say("SMASHED! +%d" % points, Hud.GOLD)
-    else:
-        hud.say("SMASHED!", Hud.GOLD)
-    hud.countdown = -1.0
-    play_sound("perfect", -4.0)
-    play_sound("hit", -2.0)
-    _end_fight_mode()
-    hud.announce("RUN!", 1.5)
-    _log.write("barrier_smashed", {"seconds": Barriers.LIMIT - left, "song": _now})
-
-
-## The hero crashed into the opponent: the run turns into a fight.
-func _crash(index: int) -> void:
-    var encounter: Dictionary = _encounters.at(index)
-    encounter["state"] = "fight"
-    _fighting = index
-    var figure: Opponent = encounter["figure"]
-    figure.global_position = SPOT + Vector3(boxer.shift, 0, -Fight.OPPONENT_DISTANCE)
-    figure.target = SPOT + Vector3(boxer.shift, 0, 0)
-    boxer.running_steps = 0.0
-    boxer.level_gaze = false
-    boxer.take_damage(0.0, true)
-    _level = 0
-    hud.speed = -1.0
-    hud.announce("FIGHT!", 1.5)
-    play_sound("hurt", -8.0)
-    play_sound("bell", -6.0)
-    _brawl.start(encounter["id"], figure)
-    if figure.look == "white_sheep":
-        _black_sheep = Looks.black_sheep()
-        add_child(_black_sheep)
-        _black_sheep.position = SPOT + Vector3(boxer.shift + 1.6, 0, -2.4)
-        _black_sheep.rotation.y = 0.6
-
-
-## Back to running.
-func _end_fight_mode() -> void:
-    boxer.level_gaze = true
-    hud.opponent_name = ""
-    if _black_sheep != null:
-        _black_sheep.queue_free()
-        _black_sheep = null
-
-
-## A punch or a kick of the player counts only in a fight (running lifts the
+## A punch or a kick of the player counts only in a mode (running lifts the
 ## knees, too, which the classifier may take for kicks).
 func throw(kind: String, side: String, _source := "vision") -> void:
-    if _phase != Phase.PLAYING or _paused:
+    if _phase != Phase.PLAYING or _paused or _mode == null:
         return
-    if _barriers.smashing():
-        _show_strike(kind, side)
-        _smash(kind, side)
-        return
-    if _fighting < 0:
-        return
-    _show_strike(kind, side)
-    _brawl.punch(kind, side)
-
-
-## A punch or a kick at the barrier: chunks fly (see Barriers.hit); the
-## power booster works on it, too.
-func _smash(kind: String, side: String) -> void:
-    var result := _barriers.hit(kind, side, _brawl.power)
-    _log.write("barrier_hit", {"kind": kind, "side": side, "result": result, "song": _now})
-    match result:
-        "target":
-            _scoring.bonus(50)
-            hud.say("CRASH!", Hud.GOLD)
-            play_sound("hit", -2.0)
-        "hit":
-            _scoring.bonus(20)
-            hud.say("BAM!", Hud.PAPER)
-            play_sound("hit", -6.0)
-        "smashed":
-            _smashed()
+    _mode.throw(kind, side)
 
 
 func _his_health() -> float:
-    if _barriers.smashing():
-        return _barriers.health()
-    if _fighting < 0:
-        return -1.0
-    return (_encounters.at(_fighting)["figure"] as Opponent).health
+    return -1.0 if _mode == null else _mode.health()
 
 
 func _idle_command() -> String:
-    if _barriers.smashing():
-        return "SMASH IT!"
-    if _fighting >= 0:
-        return "READY"
+    if _mode != null:
+        return _mode.command()
     var going := _climbs.way(_t)
-    if _laddering >= 0 or going == "stairs" or going == "slope":
+    if going == "stairs" or going == "slope":
         return "CLIMB: KNEES UP!"
     if _pace < 0.15:
         return "LIFT YOUR KNEES!"
@@ -535,49 +226,26 @@ func _on_frame(delta: float) -> void:
     _barriers.step(delta)
     _climbs.place(_t, SPEED, SPOT, _scenery.bend)
     _scenery.keep_clear(_forks.clearings() + _climbs.clearings())
-    _show_boosts()
+    hud.boosts = _boosts.shown(_now)
     hud.flash = _flash
     _flash = maxf(0.0, _flash - delta * 2.0)
     var ground := _ground()
     var climb := 4.0 if ground > boxer.elevation else 3.0
-    if _laddering >= 0 or _climbs.way(_t) != "":
+    if _climbs.way(_t) != "" or (_mode != null and _mode.ground() >= 0.0):
         climb = 8.0
     boxer.elevation = move_toward(boxer.elevation, ground, delta * climb)
     # NOTE (mristin):
-    # He looks up the climb ahead (up the ladder), and down it.
+    # He looks up the climb ahead, and down it.
     var rise := _climbs.height(_t + 4.0 / SPEED) - _climbs.height(_t)
-    if _laddering >= 0:
-        rise = 2.5
+    if _mode != null:
+        rise = _mode.gaze_rise()
     boxer.gaze_rise = lerpf(boxer.gaze_rise, rise, minf(1.0, delta * 4.0))
-    if _laddering >= 0:
-        boxer.shift = lerpf(boxer.shift, Climbs.ladder_at(boxer.shift), minf(1.0, delta * 6.0))
-        boxer.face(SPOT + Vector3(boxer.shift, 0, -6.0), delta)
-        boxer.running_steps = maxf(0.001, _pace * NORMAL_CADENCE * 0.5)
-        hud.speed = _pace
-        return
-    if _barriers.smashing():
-        boxer.face(_barriers.aim(boxer.shift), delta)
-        boxer.running_steps = 0.0
-        if _black_sheep != null:
-            _black_sheep.position.y = 0.12 * absf(sin(_time * PI / _beat_seconds))
-        hud.speed = -1.0
-        return
-    if _fighting >= 0:
-        # NOTE (mristin):
-        # In a fight, he stays where he crashed (the slips must not steer).
-        var figure: Opponent = _encounters.at(_fighting)["figure"]
-        boxer.face(figure.global_position, delta)
-        boxer.running_steps = 0.0
-        if _black_sheep != null:
-            _black_sheep.position.y = 0.12 * absf(sin(_time * PI / _beat_seconds))
-        hud.speed = -1.0
+    if _mode != null:
+        _mode.frame(delta)
         return
     boxer.shift = lerpf(boxer.shift, _body.steer * Scenery.LANE, minf(1.0, delta * 10.0))
     boxer.face(SPOT + Vector3(boxer.shift, 0, -6.0), delta)
-    hud.speed = _pace
-    # NOTE (mristin):
-    # His arms pump at his own steps.
-    boxer.running_steps = maxf(0.001, _pace * NORMAL_CADENCE * 0.5)
+    show_running()
     _strip.follow(boxer.shift, _rolled)
 
 
@@ -586,32 +254,26 @@ func _on_frame(delta: float) -> void:
 ## faster quicker (up to FASTEST), slower slower, and standing still stops
 ## him. The obstacles stand on the road: he reaches them at his own pace.
 func _advance(played: float) -> void:
-    _run_pace(played)
-    var boost := Boosters.SPEED_BOOST if _now < _speed_until else 1.0
-    boost *= _climbs.pace(_t)
+    var pace := run_pace(played) * _boosts.speed(_now) * _climbs.pace(_t)
     var before := _t
-    _t += played * _pace * boost
-    var meters := played * _pace * boost * SPEED
+    _t += played * pace
+    var meters := played * pace * SPEED
     _rolled += meters
     _scenery.scroll(meters)
     var meeting := _encounters.move(meters, played, _time, boxer.shift, SPOT)
     if meeting >= 0:
-        _crash(meeting)
-    if _fighting >= 0:
+        _enter_mode(BrawlMode.new(self, meeting))
         return
     var barrier := _barriers.reached(_t)
     if barrier >= 0:
-        _start_smash(barrier)
+        _enter_mode(SmashMode.new(self, barrier))
         return
     var ladder := _climbs.ladder(_t, SPEED)
     if ladder >= 0:
-        _t = _climbs.climb(ladder, SPEED)
-        _laddering = ladder
-        _climbed = 0.0
-        _on_climb("ladder")
+        _enter_mode(LadderMode.new(self, ladder))
         return
     for going in _climbs.entered(before, _t):
-        _on_climb(going)
+        on_climb(going)
     _turn(meters)
     _on_platforms()
     for look in _boosters.take(_t, boxer.shift, _ground()):
@@ -623,8 +285,9 @@ func _advance(played: float) -> void:
             _shortcut(float(fork["skip"]))
 
 
-## How fast he runs (see _advance), after [param played] seconds of the song.
-func _run_pace(played: float) -> void:
+## How fast he runs now (see _advance), after [param played] seconds of the
+## song: the share of the normal pace.
+func run_pace(played: float) -> float:
     var cadence := 0.0
     if vision != null and vision.GetStatus() != "Disabled":
         cadence = vision.GetCadence()
@@ -636,25 +299,25 @@ func _run_pace(played: float) -> void:
         _pace = lerpf(_pace, wanted, minf(1.0, played * SPEED_UP))
     elif not (_body.jumping or _body.ducking):
         _pace = maxf(wanted, _pace - SLOW_DOWN * played)
+    return _pace
 
 
-## How high he stands: on the climb under him (up the ladder), or on the
-## level of a platform (see Platforms).
+## How high he stands: as the mode says (up a ladder), on the climb under
+## him, or on the level of a platform (see Platforms).
 func _ground() -> float:
-    if _laddering >= 0:
-        return _climbed
+    if _mode != null and _mode.ground() >= 0.0:
+        return _mode.ground()
     return maxf(_climbs.height(_t), Platforms.HEIGHT * _level)
 
 
 ## He goes on [param going] a climb (see Climbs): up it, on its top (points),
 ## or down it.
-func _on_climb(going: String) -> void:
+func on_climb(going: String) -> void:
     match going:
         "stairs", "slope", "ladder":
+            var title := str(Climbs.LOOKS[level.get("climb", "hill")]["title"])
             hud.announce("CLIMB!", 1.2)
-            hud.say(
-                "UP %s!" % str(Climbs.LOOKS[_climb_look()]["title"]).trim_prefix("THE "), Hud.GOLD
-            )
+            hud.say("UP %s!" % title.trim_prefix("THE "), Hud.GOLD)
         "top":
             _scoring.bonus(TOP_BONUS)
             hud.announce("TOP!", 1.2)
@@ -665,12 +328,7 @@ func _on_climb(going: String) -> void:
             _play("dodge")
         "down_stairs":
             hud.say("DOWN THE STAIRS!", Hud.GOLD)
-    _log.write("climb", {"part": going, "song": _now})
-
-
-## The look of the climb under him (or the one he climbs up).
-func _climb_look() -> String:
-    return str(level.get("climb", "hill"))
+    log_event("climb", {"part": going})
 
 
 ## Curve the road as he runs [param meters] on: it turns now and then to
@@ -710,7 +368,7 @@ func _on_platforms() -> void:
     _log.write("platform", {"result": "fell", "levels": drop, "song": _now})
     if drop < 2:
         return
-    if _now < _shield_until:
+    if _boosts.shields(_now):
         hud.say("SHIELD!", Boosters.KINDS["shield"]["color"])
         return
     _scoring.failed("hit")
@@ -721,38 +379,17 @@ func _on_platforms() -> void:
         _finish(false)
 
 
-## He picked up the booster of the [param look] (see Boosters).
+## He picked up the booster of the [param look] (see Boosters and Boosts).
 func _boost(look: String) -> void:
     var kind: String = Boosters.LOOKS[look]["kind"]
     var spec: Dictionary = Boosters.KINDS[kind]
-    match kind:
-        "speed":
-            _speed_until = _now + float(spec["seconds"])
-        "health":
-            boxer.health = minf(Boxer.MAX_HEALTH, boxer.health + Boosters.HEALTH)
-        "power":
-            _powered = true
-            _brawl.power = Boosters.POWER
-        "shield":
-            _shield_until = _now + float(spec["seconds"])
+    _boosts.take(kind, _now)
+    if kind == "health":
+        boxer.health = minf(Boxer.MAX_HEALTH, boxer.health + Boosters.HEALTH)
+    _brawl.power = _boosts.power()
     hud.say("%s: %s" % [Boosters.LOOKS[look]["title"], spec["effect"]], spec["color"])
     _play("perfect")
     _log.write("booster", {"look": look, "kind": kind, "song": _now})
-
-
-## The boosters which work now, on the HUD.
-func _show_boosts() -> void:
-    var boosts: Array = []
-    var timed := {"speed": _speed_until, "shield": _shield_until}
-    for kind in timed:
-        var spec: Dictionary = Boosters.KINDS[kind]
-        var left: float = timed[kind] - _now
-        if left > 0.0:
-            var name: String = spec["effect"]
-            boosts.append([name.trim_suffix("!"), left / float(spec["seconds"]), spec["color"]])
-    if _powered:
-        boosts.append(["POWER PUNCHES", -1.0, Boosters.KINDS["power"]["color"]])
-    hud.boosts = boosts
 
 
 ## He took a fork: the side road takes him [param skip] ahead in the time of
@@ -778,21 +415,19 @@ func _shortcut(skip: float) -> void:
 
 ## A shield (see Boosters) keeps the obstacles off him.
 func _hurt(note: RhythmNote) -> void:
-    if _now < _shield_until:
+    if _boosts.shields(_now):
         _met(note, "dodged")
         hud.say("SHIELD!", Boosters.KINDS["shield"]["color"])
         return
     super(note)
 
 
-## Call what comes on the road: a gap of the platform under him to jump
-## over (not the end of the platform), and a fork with its shortcut, to its
-## side.
+## Call what comes: what the mode calls, if any; else on the road, a gap of
+## the platform under him to jump over (not the end of the platform), and a
+## fork with its shortcut, to its side.
 func _call() -> Array:
-    if _barriers.smashing():
-        return _barriers.call_target()
-    if _fighting >= 0:
-        return []
+    if _mode != null:
+        return _mode.cue()
     var drop := _platforms.next_drop(_t, _level)
     var deck := _platforms.under(_t)
     if drop > 0.0 and not deck.is_empty() and drop < float(deck["end"]):
@@ -855,41 +490,11 @@ func _set_up(note: RhythmNote, kind: String, side: String, at: float, arrive: Ve
         gap = Vector2(clampf(middle, -half, half), width)
     var parts: Array = []
     if kind in RhythmNote.COMBOS:
-        var across := _combo_parts(kind)
+        var across := RhythmNote.combo_parts(kind)
         gap = across[0]
         parts = across[1]
     var color: Color = OBSTACLES.get(level["scenery"], RhythmNote.ATTACK)
     note.setup(kind, side, at, arrive, SPEED, color, level["scenery"], gap, parts)
-
-
-## The parts across the road of a combined obstacle of the [param kind] (see
-## RhythmNote.parts), at random: [its way through (middle, width), the
-## parts].
-static func _combo_parts(kind: String) -> Array:
-    var half := RhythmNote.ROAD * 0.5
-    var lane := randi_range(-1, 1) * Scenery.LANE + randf_range(-0.4, 0.4)
-    var width := randf_range(1.3, 1.7)
-    match kind:
-        "plank":
-            width = randf_range(0.9, 1.2)
-        "split":
-            # NOTE (mristin):
-            # Where the road splits, and which side asks for which move.
-            var divide := randf_range(-0.9, 0.9)
-            var moves := ["duck", "jump"]
-            moves.shuffle()
-            var left := Vector2((-half + divide) * 0.5, divide + half)
-            return [left, [[-half, divide, moves[0]], [divide, half, moves[1]]]]
-    var middle := clampf(lane, -half + width * 0.5, half - width * 0.5)
-    var from := middle - width * 0.5
-    var to := middle + width * 0.5
-    var way: String = {"fence_jump": "jump", "fence_duck": "duck", "plank": ""}[kind]
-    var side := "jump" if kind == "plank" else "block"
-    var parts: Array = [[-half, from, side], [from, to, way], [to, half, side]]
-    return [
-        Vector2(middle, width),
-        parts.filter(func(part: Array) -> bool: return float(part[1]) - float(part[0]) > 0.05)
-    ]
 
 
 ## Judge a steering note as its obstacles reach him: is he clear of them (in
@@ -936,25 +541,12 @@ func _judge_combo(note: RhythmNote) -> bool:
     return true
 
 
-## The call of a combined obstacle: where the way through is from him, and
-## what to do there; the other notes as usual.
+## The call of a combined obstacle (see RhythmNote.combo_call); the other
+## notes as usual.
 func _note_call(note: RhythmNote) -> Array:
     if not note.kind in RhythmNote.COMBOS:
         return super(note)
-    var off := note.gap - boxer.shift
-    var from := "front"
-    if off < -0.5:
-        from = "right"
-    elif off > 0.5:
-        from = "left"
-    match note.kind:
-        "fence_jump":
-            return ["LOW PART: JUMP!", from if from != "front" else "low"]
-        "fence_duck":
-            return ["HOLE: DUCK!", from]
-        "plank":
-            return ["PLANK OR JUMP!", from]
-    return ["DUCK OR JUMP!", "front"]
+    return note.combo_call(boxer.shift)
 
 
 func _on_hurt(_note: RhythmNote) -> void:
@@ -971,3 +563,89 @@ func _banner(won: bool) -> String:
 func _loop_music() -> void:
     if _phase == Phase.PLAYING:
         _music.play()
+
+
+# NOTE (mristin):
+# Below, what the modes of the run (see RunMode) use of it.
+
+
+## The opponents on the road.
+func encounters() -> Encounters:
+    return _encounters
+
+
+## The barriers on the road.
+func barriers() -> Barriers:
+    return _barriers
+
+
+## The climbs on the road.
+func climbs() -> Climbs:
+    return _climbs
+
+
+## The fight with an opponent.
+func brawl() -> Brawl:
+    return _brawl
+
+
+## The score of the run.
+func score() -> Scoring:
+    return _scoring
+
+
+## How he dodges now (see BodyReader.dodges).
+func dodges() -> Array:
+    return _body.dodges()
+
+
+## The song's clock (seconds since the level started, running on while the
+## run holds).
+func song_clock() -> float:
+    return _time
+
+
+## How long a beat of the song is, in seconds.
+func beat_seconds() -> float:
+    return _beat_seconds
+
+
+## He lost: knocked out.
+func lose() -> void:
+    _finish(false)
+
+
+## The fight is over: the power punches are spent.
+func spend_power() -> void:
+    _boosts.spend_power()
+    _brawl.power = _boosts.power()
+
+
+## Write the event of the [param name] with the [param fields] into the log,
+## at the song's time.
+func log_event(name: String, fields: Dictionary) -> void:
+    fields["song"] = _now
+    _log.write(name, fields)
+
+
+## Show his strike (see RhythmLevel._show_strike).
+func show_strike(kind: String, side: String) -> void:
+    _show_strike(kind, side)
+
+
+## He stands on the road, off any platform (to fight).
+func stand_on_road() -> void:
+    _level = 0
+    _over_gap = false
+
+
+## Put him at the time of the notes [param t] on the road.
+func move_to(t: float) -> void:
+    _t = t
+
+
+## Show him running at his pace: his arms pump at his own steps, and the
+## speedometer.
+func show_running() -> void:
+    boxer.running_steps = maxf(0.001, _pace * NORMAL_CADENCE * 0.5)
+    hud.speed = _pace

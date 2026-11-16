@@ -180,6 +180,7 @@ The hero runs straight ahead into the picture, towards the horizon, as the pengu
   | Gardens | ladders up a garden shed ("PRIVAT", a gnome on its roof), and a sledge run down |
   | Meadow | a snowy hill with firs, a summit cross and a Swiss flag, and a sledge run down |
 - **Curves:** the road curves now and then to the left or the right, gently, and straightens again (every 25 to 45 m). It is only the look, as in Out Run: the shaders bend everything ahead to the side by the square of its distance (`scenes/flat/bend.gdshaderinc`), while the game measures everything on the straight road; the view follows the hero, straight ahead.
+- **The code of a run:** `scenes/run/run.gd` runs the road: his pace, the ground under him, the curves, the calls and the judging of the obstacles. `RoadPlan` lays out the road as the run starts (the opponents, the combined obstacles, the platforms, the climb, the forks, the barriers and the boosters); `Encounters` moves the opponents on the road, `Boosts` keeps the boosters which work. While the road holds, the run is in a mode (`scenes/run/modes/`): a `BrawlMode` against an opponent, a `SmashMode` at a barrier, a `LadderMode` up a ladder; each says how he moves, what is called and what his punches do, until it is over. A new kind of stop on the road is a new mode.
 
 ### Which signals each scene reads
 

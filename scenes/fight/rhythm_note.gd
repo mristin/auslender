@@ -498,6 +498,55 @@ func blocks(x: float, half: float) -> bool:
     return false
 
 
+## The parts across the road of a combined obstacle of the [param kind] (see
+## RhythmNote.parts), at random: [its way through (middle, width), the
+## parts].
+static func combo_parts(kind: String) -> Array:
+    var half := ROAD * 0.5
+    var lane := randi_range(-1, 1) * Scenery.LANE + randf_range(-0.4, 0.4)
+    var width := randf_range(1.3, 1.7)
+    match kind:
+        "plank":
+            width = randf_range(0.9, 1.2)
+        "split":
+            # NOTE (mristin):
+            # Where the road splits, and which side asks for which move.
+            var divide := randf_range(-0.9, 0.9)
+            var moves := ["duck", "jump"]
+            moves.shuffle()
+            var left := Vector2((-half + divide) * 0.5, divide + half)
+            return [left, [[-half, divide, moves[0]], [divide, half, moves[1]]]]
+    var middle := clampf(lane, -half + width * 0.5, half - width * 0.5)
+    var from := middle - width * 0.5
+    var to := middle + width * 0.5
+    var way: String = {"fence_jump": "jump", "fence_duck": "duck", "plank": ""}[kind]
+    var side := "jump" if kind == "plank" else "block"
+    var parts: Array = [[-half, from, side], [from, to, way], [to, half, side]]
+    return [
+        Vector2(middle, width),
+        parts.filter(func(part: Array) -> bool: return float(part[1]) - float(part[0]) > 0.05)
+    ]
+
+
+## The call of a combined obstacle for him at [param x] across the road:
+## what to do at its way through, and where the way through is from him.
+func combo_call(x: float) -> Array:
+    var off := gap - x
+    var from := "front"
+    if off < -0.5:
+        from = "right"
+    elif off > 0.5:
+        from = "left"
+    match kind:
+        "fence_jump":
+            return ["LOW PART: JUMP!", from if from != "front" else "low"]
+        "fence_duck":
+            return ["HOLE: DUCK!", from]
+        "plank":
+            return ["PLANK OR JUMP!", from]
+    return ["DUCK OR JUMP!", "front"]
+
+
 ## The obstacles of a steering note: blocks of varied widths across the road,
 ## but in its free gap (anywhere, of any width: as the holes of Antarctic
 ## Adventure, the road is not cut into lanes).

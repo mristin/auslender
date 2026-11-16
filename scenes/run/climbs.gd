@@ -146,6 +146,14 @@ func add(look: String, start: float, speed: float) -> float:
     return end
 
 
+## The time of the notes at the middle of the top of a climb of the
+## [param look] whose foot is at [param start] (at [param speed]).
+static func top_middle(look: String, start: float, speed: float) -> float:
+    var up: String = LOOKS[look]["up"]
+    var rise := 0.0 if up == "ladder" else HEIGHT / float(STEEP[up])
+    return start + (rise + TOP * 0.5) / speed
+
+
 ## Place the climbs at the time of the notes [param t], from the player's
 ## [param spot], with the road bending by [param bend] (see Scenery.set_bend).
 func place(t: float, speed: float, spot: Vector3, bend: float) -> void:
