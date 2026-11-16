@@ -35,6 +35,30 @@ const ROAD := LANE * 3.0 + 0.4
 
 const _HOLE := preload("res://scenes/run/hole.gdshader")
 
+## The obstacles of a run which ask for a way and a move at once (see
+## [member parts]): a fence, low in one part only, to jump over there; a wall
+## with a hole, to duck through; the road split, a beam to duck under on one
+## side and a hurdle to jump on the other (he picks); a hole across the road
+## with a plank over it (run over the plank, or jump anywhere).
+const COMBOS := ["fence_jump", "fence_duck", "split", "plank"]
+
+## How high the fences are, and their low part; how high the hole in a wall,
+## and the wall.
+const FENCE_HIGH := 1.5
+const FENCE_LOW := 0.4
+const HOLE_HIGH := 0.95
+const WALL_HIGH := 2.1
+
+## The colors of the fences and walls, by the surroundings: the boards, the
+## posts, and the mark of the way through.
+const FENCES := {
+    "jungle": [Color("a8a048"), Color("6a5a2a"), Color("f2c14e")],
+    "ice": [Color("bfe4f2"), Color("6aaad8"), Color("f2c14e")],
+    "cave": [Color("7a6a5a"), Color("4a3e34"), Color("f2c14e")],
+    "city": [Color("c8ccd2"), Color("8a2a24"), Color("f2c14e")],
+    "suburbs": [Color("f4f2ee"), Color("8a6a4a"), Color("e8701a")],
+}
+
 const LABELS := {
     "lane_left": "",
     "lane_middle": "",
@@ -47,6 +71,10 @@ const LABELS := {
     "slip_right": "SLIP",
     "duck": "DUCK",
     "jump": "JUMP",
+    "fence_jump": "",
+    "fence_duck": "",
+    "split": "",
+    "plank": "",
 }
 
 ## The width of a symbol's stroke, and the size of its arrowhead, in meters.
@@ -80,6 +108,11 @@ var side := ""
 var at := 0.0
 ## How it was judged ("" not yet; "perfect", "good", "dodged", "miss").
 var result := ""
+## The parts across the road of a combined obstacle (see COMBOS), from left
+## to right: [from, to, what] (meters from the middle of the road), where
+## "what" is "block" (no way through), "" (free), "jump" or "duck" (the move
+## it asks for).
+var parts: Array = []
 
 var _arrive := Vector3.ZERO
 var _from := Vector3.ZERO
@@ -97,6 +130,7 @@ var _theme := ""
 ## the middle of the road).
 var _blocks: Array[Vector2] = []
 var _symbol_parts: Array[MeshInstance3D] = []
+var _words: Array[Label3D] = []
 
 
 ## Set the note up: its move, its side ("" for an attack), the song time of
@@ -110,7 +144,8 @@ func setup(
     speed: float,
     attack_color := ATTACK,
     theme := "",
-    gap_at := Vector2(0.0, 1.5)
+    gap_at := Vector2(0.0, 1.5),
+    across: Array = []
 ) -> void:
     kind = note_kind
     side = note_side
@@ -121,6 +156,10 @@ func setup(
     _theme = theme
     gap = gap_at.x
     gap_width = gap_at.y
+    parts = across
+    for part: Array in parts:
+        if part[2] == "block":
+            _blocks.append(Vector2(part[0], part[1]))
     # NOTE (mristin):
     # It comes from far ahead, closer to the middle, and spreads out to its
     # lane as it comes.
@@ -143,7 +182,9 @@ func setup(
 ## road, rather than following the player): a branch, a hole, or blocks in
 ## the lanes.
 func spans_road() -> bool:
-    return kind.begins_with("lane_") or (_theme != "" and kind in ["duck", "jump"])
+    return (
+        kind.begins_with("lane_") or kind in COMBOS or (_theme != "" and kind in ["duck", "jump"])
+    )
 
 
 ## Place it at the song time [param now], and fade it in and out.
@@ -174,6 +215,9 @@ func place(now: float) -> void:
         material.albedo_color.a = alpha * (0.35 if material.has_meta("fill") else 1.0)
     _label.modulate.a = alpha
     _label.outline_modulate.a = alpha
+    for word in _words:
+        word.modulate.a = alpha
+        word.outline_modulate.a = alpha
 
 
 ## Judge it at the song time [param now].
@@ -186,6 +230,8 @@ func judge(how: String, now: float) -> void:
         # ducked under it, jumped over it, or ran through its gap); only its
         # marks go.
         _label.visible = false
+        for word in _words:
+            word.visible = false
         _symbol_parts_hide()
         return
     if how == "miss":
@@ -217,6 +263,8 @@ func _build() -> void:
             _build_lanes(color)
         "duck", "jump" when _theme != "":
             _build_across(color)
+        "fence_jump", "fence_duck", "split", "plank":
+            _build_combo()
         "duck", "jump":
             var bar := MeshInstance3D.new()
             var box := BoxMesh.new()
@@ -276,7 +324,7 @@ func _build() -> void:
     white.albedo_color = Color(1, 1, 1, 0)
     _approach.material_override = white
     add_child(_approach)
-    if kind.begins_with("lane_"):
+    if kind.begins_with("lane_") or kind in COMBOS:
         _approach.position = Vector3(gap, 0.5, 0)
 
     _add_symbol()
@@ -356,6 +404,26 @@ func _symbol() -> Array:
             # Down into the free lane.
             var x := gap
             strokes = [[PackedVector2Array([Vector2(x, 0.75), Vector2(x, 0.5)]), true]]
+        "fence_jump", "fence_duck", "split", "plank":
+            # NOTE (mristin):
+            # Over each way through: up for a jump, down for a duck, into it
+            # for a free one.
+            for part: Array in parts:
+                var x := (float(part[0]) + float(part[1])) * 0.5
+                match part[2]:
+                    "jump":
+                        var y := FENCE_LOW + 0.25 if kind != "plank" else 0.35
+                        strokes.append(
+                            [PackedVector2Array([Vector2(x, y), Vector2(x, y + 0.3)]), true]
+                        )
+                    "duck":
+                        strokes.append(
+                            [PackedVector2Array([Vector2(x, 0.75), Vector2(x, 0.45)]), true]
+                        )
+                    "":
+                        strokes.append(
+                            [PackedVector2Array([Vector2(x, 0.75), Vector2(x, 0.5)]), true]
+                        )
         "cover":
             # NOTE (mristin):
             # Both gloves up: two upright bars.
@@ -410,6 +478,15 @@ static func _stroke(
         var back := end - along * grow
         for p in [tip, back + across * (HEAD_WIDTH + grow), back - across * (HEAD_WIDTH + grow)]:
             mesh.surface_add_vertex(Vector3(p.x, p.y, 0.0))
+
+
+## What a combined obstacle asks of a body at [param x] (meters from the
+## middle of the road; see parts): "block", "", "jump" or "duck".
+func move_at(x: float) -> String:
+    for part: Array in parts:
+        if x >= float(part[0]) and x <= float(part[1]):
+            return part[2]
+    return ""
 
 
 ## Whether the obstacles of a steering note block a body at [param x] (meters
@@ -642,3 +719,127 @@ func _symbol_parts_hide() -> void:
     for part in _symbol_parts:
         part.visible = false
     _approach.visible = false
+
+
+## A combined obstacle (see COMBOS), in the look of the surroundings: its
+## parts across the road, the way through marked, with a word over it.
+func _build_combo() -> void:
+    var colors: Array = FENCES.get(_theme, FENCES["jungle"])
+    if kind == "plank":
+        var random := RandomNumberGenerator.new()
+        random.seed = hash(at)
+        _build_hole(random)
+    for part: Array in parts:
+        var from: float = part[0]
+        var to: float = part[1]
+        var middle := (from + to) * 0.5
+        var width := to - from
+        match [kind, part[2]]:
+            ["fence_jump", "block"]:
+                _fence(from, to, FENCE_HIGH, colors)
+            ["fence_jump", "jump"]:
+                _fence(from, to, FENCE_LOW, colors)
+                _stripes(middle, width, FENCE_LOW, colors[2])
+                _word("JUMP", middle, FENCE_LOW + 0.75)
+            ["fence_duck", "block"]:
+                _part(
+                    Vector3(width, WALL_HIGH, 0.25), Vector3(middle, WALL_HIGH * 0.5, 0), colors[0]
+                )
+                _joints(from, to, 0.0, WALL_HIGH, colors[1])
+            ["fence_duck", "duck"]:
+                var lintel := WALL_HIGH - HOLE_HIGH
+                _part(
+                    Vector3(width, lintel, 0.25),
+                    Vector3(middle, HOLE_HIGH + lintel * 0.5, 0),
+                    colors[0]
+                )
+                _joints(from, to, HOLE_HIGH, WALL_HIGH, colors[1])
+                _stripes(middle, width, HOLE_HIGH, colors[2])
+                _word("DUCK", middle, HOLE_HIGH + 0.45)
+            ["split", "duck"]:
+                # NOTE (mristin):
+                # A beam at the height of his head, on posts.
+                _part(Vector3(width, 0.2, 0.2), Vector3(middle, 1.3, 0), colors[1])
+                _stripes(middle, width, 1.2, colors[2])
+                _word("DUCK", middle, 1.75)
+            ["split", "jump"]:
+                # NOTE (mristin):
+                # A hurdle, low.
+                _part(Vector3(width, 0.12, 0.12), Vector3(middle, FENCE_LOW, 0), colors[0])
+                _stripes(middle, width, FENCE_LOW + 0.06, colors[2])
+                for x in [from + 0.1, to - 0.1]:
+                    _part(Vector3(0.08, FENCE_LOW, 0.08), Vector3(x, FENCE_LOW * 0.5, 0), colors[1])
+                _word("JUMP", middle, FENCE_LOW + 0.75)
+            ["plank", ""]:
+                _part(Vector3(width, 0.06, 2.0), Vector3(middle, 0.05, 0), Color("8a5a2a"))
+                for x in [from + 0.04, to - 0.04]:
+                    _part(Vector3(0.05, 0.08, 2.0), Vector3(x, 0.1, 0), Color("5a3a1a"))
+                _word("RUN", middle, 0.9)
+    if kind == "split":
+        # NOTE (mristin):
+        # A post where the road splits.
+        var divide: float = parts[0][1]
+        _part(Vector3(0.14, 1.6, 0.14), Vector3(divide, 0.8, 0), colors[1])
+    if kind == "plank":
+        _word("OR JUMP", 0.0, 1.5)
+
+
+## A fence from [param from] to [param to] across the road, [param height]
+## high: posts and boards.
+func _fence(from: float, to: float, height: float, colors: Array) -> void:
+    var width := to - from
+    var middle := (from + to) * 0.5
+    var rails := maxi(1, roundi(height / 0.45))
+    for k in range(rails):
+        var y := height * (k + 0.6) / (rails + 0.1)
+        _part(Vector3(width, 0.16, 0.06), Vector3(middle, y, 0), colors[0])
+    var x := from + 0.05
+    while x <= to:
+        _part(Vector3(0.1, height + 0.08, 0.1), Vector3(x, (height + 0.08) * 0.5, -0.04), colors[1])
+        x += 0.6
+
+
+## The joints of the bricks (or the blocks of ice, the logs) of a wall, from
+## [param from] to [param to] across the road, between the heights
+## [param low] and [param high].
+func _joints(from: float, to: float, low: float, high: float, color: Color) -> void:
+    var row := 0
+    var y := low + 0.3
+    while y < high:
+        _part(Vector3(to - from, 0.03, 0.02), Vector3((from + to) * 0.5, y, 0.13), color)
+        var x := from + (0.3 if row % 2 == 0 else 0.6)
+        while x < to:
+            _part(Vector3(0.03, 0.3, 0.02), Vector3(x, y - 0.15, 0.13), color)
+            x += 0.6
+        y += 0.3
+        row += 1
+
+
+## Warning stripes along the top of the way through, at [param y].
+func _stripes(middle: float, width: float, y: float, color: Color) -> void:
+    var count := maxi(2, roundi(width / 0.3))
+    for k in range(count):
+        var x := middle - width * 0.5 + width * (k + 0.5) / count
+        _part(
+            Vector3(width / count - 0.02, 0.07, 0.08),
+            Vector3(x, y, 0.1),
+            color if k % 2 == 0 else Color("1a1a1a")
+        )
+
+
+## A word over the way through (it fades with the note, and goes once
+## judged).
+func _word(text: String, x: float, y: float) -> void:
+    var word := Label3D.new()
+    word.text = text
+    word.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+    word.no_depth_test = true
+    word.render_priority = 3
+    word.outline_render_priority = 2
+    word.font_size = 64
+    word.outline_size = 14
+    word.pixel_size = 0.004
+    word.outline_modulate = Color("1a1a1a")
+    word.position = Vector3(x, y, 0)
+    _shape.add_child(word)
+    _words.append(word)

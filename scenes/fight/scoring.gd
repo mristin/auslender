@@ -57,6 +57,12 @@ func met(how: String) -> void:
 
 
 ## A note was missed ("miss"), or an attack or an obstacle hit him ("hit").
+## Points besides the judgements (smashing a barrier, see Barriers), which
+## neither count for the accuracy nor the combo.
+func bonus(points: int) -> void:
+    score += points
+
+
 func failed(how: String) -> void:
     counts[how] += 1
     combo = 0

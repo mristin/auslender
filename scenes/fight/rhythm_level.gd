@@ -69,6 +69,10 @@ const ARRIVE := {
     "lane_left": Vector3(0.0, 0.0, HIT_AHEAD),
     "lane_middle": Vector3(0.0, 0.0, HIT_AHEAD),
     "lane_right": Vector3(0.0, 0.0, HIT_AHEAD),
+    "fence_jump": Vector3(0.0, 0.0, HIT_AHEAD),
+    "fence_duck": Vector3(0.0, 0.0, HIT_AHEAD),
+    "split": Vector3(0.0, 0.0, HIT_AHEAD),
+    "plank": Vector3(0.0, 0.0, HIT_AHEAD),
 }
 
 ## How far off its beat a move may be, in seconds: PERFECT, and GOOD (late;
@@ -730,8 +734,9 @@ func _update_hud() -> void:
                 continue
             var left := note.at - _t
             if left <= _beat_seconds * 1.5 and left > -0.1:
-                call = CALLS[note.kind][0]
-                call_from = CALLS[note.kind][1]
+                var called: Array = _note_call(note)
+                call = called[0]
+                call_from = called[1]
                 call_progress = clampf(1.0 - left / (_beat_seconds * 1.5), 0.0, 1.0)
             break
     if call == "" and _phase == Phase.PLAYING:
@@ -744,6 +749,12 @@ func _update_hud() -> void:
     hud.warning_from = call_from
     hud.warning_progress = call_progress
     _update_panel(call != "" or _threatened())
+
+
+## The call of a note which comes, and where its arrow comes from (see
+## CALLS; the subclasses call their own obstacles).
+func _note_call(note: RhythmNote) -> Array:
+    return CALLS[note.kind]
 
 
 ## The command of the body when he does nothing (in the subclasses).

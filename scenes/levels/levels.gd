@@ -270,7 +270,9 @@ const OPPONENTS := {
 ## its title, the opponents (see OPPONENTS), the tempo, the chord progression
 ## and the key of its song (see BeatSynth), its sections (the obstacles of a
 ## run, see Chart), its surroundings (see Scenery), and the boosters on the
-## road of a run (see Boosters: each of its own look, by the land).
+## road of a run (see Boosters: each of its own look, by the land), and its
+## barriers (see Barriers: the one in the middle of the run, and the one at
+## its end).
 const ALL_LEVELS := [
     {
         "id": "jungle",
@@ -284,6 +286,7 @@ const ALL_LEVELS := [
         "transpose": 0,
         "sections": ["steer", "jump", "duck", "steer,jump", "steer,jump,duck"],
         "boosters": ["banana", "berries", "steak"],
+        "barriers": ["palisade", "stone_wall"],
     },
     {
         "id": "glacier",
@@ -297,6 +300,7 @@ const ALL_LEVELS := [
         "transpose": 2,
         "sections": ["steer", "jump", "duck", "steer,duck", "steer,jump,duck"],
         "boosters": ["fish", "fur", "steak"],
+        "barriers": ["ice_wall", "palisade"],
     },
     {
         "id": "cave_bear",
@@ -322,6 +326,7 @@ const ALL_LEVELS := [
         "transpose": 2,
         "sections": ["steer", "jump", "duck", "steer,jump", "steer,jump,duck"],
         "boosters": ["espresso", "apple", "chocolate"],
+        "barriers": ["laundry", "car"],
     },
     {
         "id": "campus",
@@ -335,6 +340,7 @@ const ALL_LEVELS := [
         "transpose": 0,
         "sections": ["steer", "duck", "jump", "steer,duck", "steer,jump,duck"],
         "boosters": ["espresso", "helmet", "chocolate"],
+        "barriers": ["crates", "gate"],
     },
     {
         "id": "ceo",
@@ -360,6 +366,7 @@ const ALL_LEVELS := [
         "transpose": -3,
         "sections": ["steer", "jump", "duck", "steer,duck", "steer,jump,duck"],
         "boosters": ["grittibaenz", "mandarin", "scarf"],
+        "barriers": ["hedge", "car"],
     },
     {
         "id": "meadow",
@@ -373,6 +380,7 @@ const ALL_LEVELS := [
         "transpose": 0,
         "sections": ["steer", "duck", "jump", "steer,jump", "steer,jump,duck"],
         "boosters": ["mandarin", "grittibaenz", "peanuts"],
+        "barriers": ["hedge", "poster"],
     },
     {
         "id": "norgeli",

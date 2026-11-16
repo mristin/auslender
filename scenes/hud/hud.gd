@@ -64,6 +64,10 @@ var boosts: Array = []
 
 ## How white the screen flashes (a shortcut), in [0, 1].
 var flash := 0.0
+## The seconds left to smash a barrier for the bonus (see Barriers), big
+## under its bar, as the clock of the bonus stage of the old fighting games;
+## negative: none.
+var countdown := -1.0
 
 ## The lines of the results, under the banner at the end of the fight.
 var results: Array = []
@@ -136,6 +140,10 @@ func _draw_hud() -> void:
         _text(combo_text, Vector2(_SCREEN.x * 0.5, 118), 34, GOLD)
     _canvas.draw_rect(Rect2(40, 4, _SCREEN.x - 80, 6), Color(INK, 0.8))
     _canvas.draw_rect(Rect2(40, 4, (_SCREEN.x - 80) * clampf(progress, 0.0, 1.0), 6), GOLD)
+
+    if countdown >= 0.0:
+        var urgent := countdown < 4.0 and fposmod(countdown, 0.5) < 0.25
+        _text("TIME %d" % ceili(countdown), Vector2(1500, 230), 64, RED if urgent else GOLD)
 
     if _announcement_left > 0.0:
         var fade := clampf(_announcement_left / 0.4, 0.0, 1.0)
