@@ -20,6 +20,9 @@ func setup(spot: Vector3, width: float) -> void:
     _spot = spot
     var plane := PlaneMesh.new()
     plane.size = Vector2(width, LENGTH)
+    # NOTE (mristin):
+    # Fine along, so that it bends with the road (see bend.gdshaderinc).
+    plane.subdivide_depth = int(LENGTH)
     mesh = plane
     var material := ShaderMaterial.new()
     material.shader = _SHADER

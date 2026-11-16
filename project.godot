@@ -37,3 +37,14 @@ project/assembly_name="Auslender"
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 anti_aliasing/quality/msaa_3d=2
+
+[shader_globals]
+
+road_bend={
+"type": "float",
+"value": 0.0
+}
+road_spot_z={
+"type": "float",
+"value": 1.5
+}

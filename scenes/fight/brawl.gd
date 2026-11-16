@@ -114,6 +114,9 @@ var opponent: Opponent
 ## The opponent (see Levels.OPPONENTS).
 var spec := {}
 var state := State.OVER
+## How many times as hard the player's punches hit (a booster of a run, see
+## Boosters).
+var power := 1.0
 
 var _hud: Hud
 var _boxer: Boxer
@@ -271,6 +274,7 @@ func punch(kind: String, side: String) -> void:
     var clean := 100.0 / (BOSS_CLEAN_HITS if _boss else CLEAN_HITS)
     if kind == "kick":
         clean *= KICK
+    clean *= power
     var fields := {"kind": kind, "side": side, "clock": _clock, "result": lands}
     _log.write("punch", fields)
     match lands:

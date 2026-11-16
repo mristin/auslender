@@ -31,8 +31,8 @@ var sees_player := false
 var sees_feet := true
 
 ## The call of the attack which comes ("" if none), where it comes from
-## ("left", "right", "front" or "low", as the player sees it), and how far
-## its wind-up got.
+## ("left", "right", "front" or "low", as the player sees it; or where to go,
+## "to_left" or "to_right"), and how far its wind-up got.
 var warning := ""
 var warning_from := ""
 var warning_progress := 0.0
@@ -57,6 +57,13 @@ var progress := 0.0
 var speed := -1.0
 var speed_most := 1.5
 var speed_needed := 0.85
+
+## The boosters which work now (see Boosters), each [its name, how much of
+## its time is left in [0, 1] (negative: until the next fight), its color].
+var boosts: Array = []
+
+## How white the screen flashes (a shortcut), in [0, 1].
+var flash := 0.0
 
 ## The lines of the results, under the banner at the end of the fight.
 var results: Array = []
@@ -111,6 +118,8 @@ func _process(delta: float) -> void:
 func _draw_hud() -> void:
     if hurt > 0.0:
         _canvas.draw_rect(Rect2(Vector2.ZERO, _SCREEN), Color(RED, 0.35 * hurt))
+    if flash > 0.0:
+        _canvas.draw_rect(Rect2(Vector2.ZERO, _SCREEN), Color(Color.WHITE, 0.85 * flash))
 
     _bar(Rect2(40, 30, 760, 34), player_health, RED, "YOU", false)
     if opponent_health >= 0.0:
@@ -156,6 +165,7 @@ func _draw_hud() -> void:
 
     if speed >= 0.0:
         _draw_speedometer()
+    _draw_boosts()
 
     if replay.x >= 0.0:
         _text(
@@ -220,6 +230,11 @@ func _draw_warning() -> void:
             _arrow(middle + Vector2(reach, 0), Vector2.LEFT, color)
         "low":
             _arrow(Vector2(middle.x, _SCREEN.y - 60), Vector2.UP, color)
+        "to_left", "to_right":
+            # NOTE (mristin):
+            # Where to go (a fork of a run), not where something comes from.
+            var out := Vector2.LEFT if warning_from == "to_left" else Vector2.RIGHT
+            _arrow(middle + out * (760.0 - reach * 0.5), out, color)
         "front":
             _canvas.draw_arc(middle, 60.0 + 90.0 * (1.0 - warning_progress), 0, TAU, 48, color, 10)
 
@@ -254,6 +269,21 @@ func _text(text: String, center: Vector2, size: int, color: Color) -> void:
         _font, at, text, HORIZONTAL_ALIGNMENT_CENTER, width, size, 12, Color(INK, color.a)
     )
     _canvas.draw_string(_font, at, text, HORIZONTAL_ALIGNMENT_CENTER, width, size, color)
+
+
+## The boosters which work now, on the right above the speedometer: each
+## its name and a bar of the time it has left.
+func _draw_boosts() -> void:
+    for i in range(boosts.size()):
+        var boost: Array = boosts[i]
+        var color: Color = boost[2]
+        var share: float = boost[1]
+        var rect := Rect2(_SCREEN.x - 400, _SCREEN.y - 360 - 62 * i, 360, 50)
+        _canvas.draw_rect(rect, Color(INK, 0.75))
+        if share >= 0.0:
+            var bar := Rect2(rect.position + Vector2(0, 42), Vector2(rect.size.x * share, 8))
+            _canvas.draw_rect(bar, color)
+        _text(str(boost[0]), Vector2(rect.get_center().x, rect.position.y + 36), 32, color)
 
 
 ## The speedometer of a run: a dial at the bottom right, red where he is too

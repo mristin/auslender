@@ -10,6 +10,8 @@ shader_type spatial;
 
 render_mode specular_disabled;
 
+#include "res://scenes/flat/bend.gdshaderinc"
+
 uniform vec4 albedo : source_color = vec4(1.0);
 uniform vec4 flash_color : source_color = vec4(1.0);
 uniform float flash : hint_range(0.0, 1.0) = 0.0;
@@ -20,6 +22,7 @@ varying vec3 local;
 
 void vertex() {
     local = VERTEX;
+    VERTEX = bent(VERTEX, MODEL_MATRIX);
 }
 
 void fragment() {

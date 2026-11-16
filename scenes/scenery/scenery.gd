@@ -29,6 +29,11 @@ extends Node3D
 ## a run ([method scroll]), the props roll towards him on the beat, as the road
 ## of Antarctic Adventure, and come round again from far ahead; the road has
 ## three lanes (see [constant LANE]).
+##
+## The road of a run curves (see [method set_bend]): only the look, drawn by
+## the shaders (see bend.gdshaderinc), while the game measures everything on
+## the straight road. What the shaders can not bend (the text of the signs,
+## glass and glowing things) is moved along with the curve here.
 
 ## How far apart the lanes of a run are, in meters.
 const LANE := 1.4
@@ -126,12 +131,18 @@ const LOOKS := {
 ## Where the player stands.
 var spot := Vector3.ZERO
 
+## How much the road curves now (see [method set_bend]).
+var bend := 0.0
+
 var _look := "savannah"
 var _edge := FIGHT_EDGE
 var _dust: ShaderMaterial
 var _scrolled := 0.0
 var _props: Array[Node3D] = []
 var _random := RandomNumberGenerator.new()
+## The parts which the shaders do not bend (see [method _rigid_parts]), each
+## [node, its position in its parent].
+var _rigid: Array = []
 
 
 ## Build the look at the player's spot; with [param road], a road of three
@@ -142,12 +153,16 @@ func setup(look: String, player_spot: Vector3, road: bool) -> void:
     _random.seed = hash(_look)
     var colors: Dictionary = LOOKS[_look]
     _build_light(colors)
-    Flat.box(self, Vector3(80, 0.1, 80), spot + Vector3(0, -0.05, -20), colors["ground"])
+    var ground := Flat.box(
+        self, Vector3(80, 0.1, 80), spot + Vector3(0, -0.05, -20), colors["ground"]
+    )
+    _fine(ground, 40)
     _edge = LANE * 1.5 + 0.5 if road else FIGHT_EDGE
     if road or _look == "city":
         var width := _edge * 2.0 - 0.2
         var middle := spot + Vector3(0, 0.0, (BEHIND - AHEAD) * 0.5)
         var strip := Flat.box(self, Vector3(width, 0.02, AHEAD + BEHIND), middle, colors["road"])
+        _fine(strip, 50)
         if DUSTY.has(_look):
             # NOTE (mristin):
             # No lanes in prehistoric times: a dusty path (see
@@ -182,7 +197,82 @@ func setup(look: String, player_spot: Vector3, road: bool) -> void:
     if _look == "cave":
         # NOTE (mristin):
         # The rock overhead.
-        Flat.box(self, Vector3(40, 0.5, 80), spot + Vector3(0, 6.2, -20), Color("2a2420"))
+        _fine(
+            Flat.box(self, Vector3(40, 0.5, 80), spot + Vector3(0, 6.2, -20), Color("2a2420")), 40
+        )
+    for prop in _props:
+        _rigid_parts(prop)
+    set_bend(0.0)
+
+
+## Curve the road by [param amount] (meters to the side per square meter
+## ahead; positive to the right, see bend.gdshaderinc), or straighten it with
+## zero. The shaders bend everything at once; the rigid parts follow here.
+func set_bend(amount: float) -> void:
+    bend = amount
+    RenderingServer.global_shader_parameter_set("road_bend", amount)
+    RenderingServer.global_shader_parameter_set("road_spot_z", spot.z)
+    _bend_rigid()
+
+
+## Keep the props off the [param clearings] beside the road (the side roads
+## of the forks, see Forks), each [the side (-1 left, 1 right), the nearest z,
+## the farthest z] in the world; the others show.
+func keep_clear(clearings: Array) -> void:
+    for node in _props:
+        var hide := false
+        for clearing in clearings:
+            var side: float = clearing[0]
+            var near: float = clearing[1]
+            var far: float = clearing[2]
+            var z := node.position.z
+            if node.position.x * side > _edge - 0.1 and z <= near and z >= far:
+                hide = true
+                break
+        node.visible = not hide
+
+
+## How far to the side the road is bent at [param z] (in the world), in
+## meters.
+func bend_at(z: float) -> float:
+    var ahead := maxf(0.0, spot.z - z)
+    return bend * ahead * ahead
+
+
+func _exit_tree() -> void:
+    # NOTE (mristin):
+    # The curve is global to every shader: straight again for the menus.
+    RenderingServer.global_shader_parameter_set("road_bend", 0.0)
+
+
+## Split a long box into many pieces along, so that it bends smoothly.
+static func _fine(box: MeshInstance3D, pieces: int) -> void:
+    (box.mesh as BoxMesh).subdivide_depth = pieces
+
+
+## Remember the parts of the prop which the shaders do not bend: the text and
+## the meshes of a material of Godot's own (the glass of the ice, the
+## glowing crystals and flames).
+func _rigid_parts(node: Node) -> void:
+    for child in node.get_children():
+        var rigid := child is Label3D
+        if child is MeshInstance3D:
+            rigid = (child as MeshInstance3D).material_override is BaseMaterial3D
+        if rigid:
+            _rigid.append([child, (child as Node3D).position])
+        else:
+            _rigid_parts(child)
+
+
+## Move the rigid parts to the side by the bend of the road where they are.
+func _bend_rigid() -> void:
+    for entry in _rigid:
+        var node: Node3D = entry[0]
+        var parent := node.get_parent() as Node3D
+        var rest: Vector3 = entry[1]
+        var world := parent.global_transform * rest
+        var shift := parent.global_basis.inverse() * Vector3(bend_at(world.z), 0, 0)
+        node.position = rest + shift
 
 
 ## Roll the props towards the player by [param distance] meters (a run); those
@@ -195,6 +285,7 @@ func scroll(distance: float) -> void:
         node.position.z += distance
         if node.position.z > spot.z + BEHIND:
             node.position.z -= AHEAD + BEHIND
+    _bend_rigid()
 
 
 func _build_light(colors: Dictionary) -> void:
@@ -359,18 +450,20 @@ func _build_sidewalks() -> void:
     var middle_z := (BEHIND - AHEAD) * 0.5
     for side in [-1.0, 1.0]:
         var x: float = side * (_edge + SIDEWALK * 0.5)
-        Flat.box(
+        var pavement := Flat.box(
             self,
             Vector3(SIDEWALK, SIDEWALK_HEIGHT, length),
             spot + Vector3(x, SIDEWALK_HEIGHT * 0.5, middle_z),
             Color("b4b0a8")
         )
-        Flat.box(
+        _fine(pavement, 50)
+        var curb := Flat.box(
             self,
             Vector3(0.14, SIDEWALK_HEIGHT + 0.01, length),
             spot + Vector3(side * (_edge + 0.07), SIDEWALK_HEIGHT * 0.5, middle_z),
             Color("d8d4cc")
         )
+        _fine(curb, 50)
         var z := BEHIND
         while z > -AHEAD:
             _props.append(

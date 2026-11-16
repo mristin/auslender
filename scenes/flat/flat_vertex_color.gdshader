@@ -6,6 +6,12 @@ shader_type spatial;
 
 render_mode specular_disabled, cull_disabled;
 
+#include "res://scenes/flat/bend.gdshaderinc"
+
+void vertex() {
+    VERTEX = bent(VERTEX, MODEL_MATRIX);
+}
+
 void fragment() {
     NORMAL = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));
     ALBEDO = COLOR.rgb;

@@ -269,7 +269,8 @@ const OPPONENTS := {
 ## the road, in order; "boss": the boss of the world, in a level of his own),
 ## its title, the opponents (see OPPONENTS), the tempo, the chord progression
 ## and the key of its song (see BeatSynth), its sections (the obstacles of a
-## run, see Chart), and its surroundings (see Scenery).
+## run, see Chart), its surroundings (see Scenery), and the boosters on the
+## road of a run (see Boosters: each of its own look, by the land).
 const ALL_LEVELS := [
     {
         "id": "jungle",
@@ -282,6 +283,7 @@ const ALL_LEVELS := [
         "progression": 3,
         "transpose": 0,
         "sections": ["steer", "jump", "duck", "steer,jump", "steer,jump,duck"],
+        "boosters": ["banana", "berries", "steak"],
     },
     {
         "id": "glacier",
@@ -294,6 +296,7 @@ const ALL_LEVELS := [
         "progression": 0,
         "transpose": 2,
         "sections": ["steer", "jump", "duck", "steer,duck", "steer,jump,duck"],
+        "boosters": ["fish", "fur", "steak"],
     },
     {
         "id": "cave_bear",
@@ -318,6 +321,7 @@ const ALL_LEVELS := [
         "progression": 1,
         "transpose": 2,
         "sections": ["steer", "jump", "duck", "steer,jump", "steer,jump,duck"],
+        "boosters": ["espresso", "apple", "chocolate"],
     },
     {
         "id": "campus",
@@ -330,6 +334,7 @@ const ALL_LEVELS := [
         "progression": 3,
         "transpose": 0,
         "sections": ["steer", "duck", "jump", "steer,duck", "steer,jump,duck"],
+        "boosters": ["espresso", "helmet", "chocolate"],
     },
     {
         "id": "ceo",
@@ -354,6 +359,7 @@ const ALL_LEVELS := [
         "progression": 1,
         "transpose": -3,
         "sections": ["steer", "jump", "duck", "steer,duck", "steer,jump,duck"],
+        "boosters": ["grittibaenz", "mandarin", "scarf"],
     },
     {
         "id": "meadow",
@@ -366,6 +372,7 @@ const ALL_LEVELS := [
         "progression": 3,
         "transpose": 0,
         "sections": ["steer", "duck", "jump", "steer,jump", "steer,jump,duck"],
+        "boosters": ["mandarin", "grittibaenz", "nuts"],
     },
     {
         "id": "norgeli",

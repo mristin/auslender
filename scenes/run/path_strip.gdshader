@@ -9,10 +9,16 @@ shader_type spatial;
 
 render_mode unshaded, cull_disabled, depth_draw_never, blend_add, fog_disabled;
 
+#include "res://scenes/flat/bend.gdshaderinc"
+
 uniform vec4 color : source_color = vec4(1.0, 0.78, 0.3, 1.0);
 uniform float scroll = 0.0;
 // How many chevrons along the whole strip.
 uniform float chevrons = 60.0;
+
+void vertex() {
+    VERTEX = bent(VERTEX, MODEL_MATRIX);
+}
 
 void fragment() {
     // UV.y: 0 far ahead, 1 at his feet; UV.x across, 0.5 in the middle.

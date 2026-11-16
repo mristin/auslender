@@ -7,6 +7,8 @@ shader_type spatial;
 
 render_mode specular_disabled;
 
+#include "res://scenes/flat/bend.gdshaderinc"
+
 uniform vec4 base : source_color = vec4(0.48, 0.35, 0.21, 1.0);
 uniform vec4 dust : source_color = vec4(0.66, 0.53, 0.36, 1.0);
 uniform vec4 stone : source_color = vec4(0.32, 0.27, 0.22, 1.0);
@@ -17,7 +19,9 @@ uniform float tracks = 0.9;
 varying vec3 world;
 
 void vertex() {
+    // NOTE: the pattern lies on the straight road, then the road bends
     world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+    VERTEX = bent(VERTEX, MODEL_MATRIX);
 }
 
 float hash(vec2 p) {

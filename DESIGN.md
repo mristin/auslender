@@ -144,6 +144,20 @@ The hero runs straight ahead into the picture, towards the horizon, as the pengu
 - **The road:** in the prehistoric runs (the jungle, the glacier, the cave) a dusty path without lanes (a shader of dust, stones and worn tracks); in the city and the suburbs, a road with its dashes.
 - **Energy:** an obstacle which the player does not jump, duck or steer around costs energy (as an attack in a fight), breaks the combo and costs the grade; with no energy left he is down. The run is won with a grade of C or better.
 - **Fitness:** steps, jumps and squats, the most cardio-heavy scene.
+- **Boosters** (`scenes/run/boosters.gd`): things of the land float over the road (one late in every section) and on the platforms; the hero picks one up by running through it. Each works one of four ways: **speed** (he runs 1.4 times as fast for 6 s, however fast his knees go), **health** (25 energy back), **power** (his punches hit twice as hard in the next fight on the road) and **shield** (the obstacles and the platforms do not hurt him for 8 s). The HUD shows what works, with the time left, above the speedometer. Each run has three of its own:
+
+  | Run | Speed | Health | Power | Shield |
+  |---|---|---|---|---|
+  | Through the jungle | banana | berries | mammoth steak | |
+  | Over the glacier | | fish | mammoth steak | fur |
+  | Through the streets | espresso | apple | chocolate | |
+  | To the Rochartis campus | espresso | | chocolate | helmet |
+  | Through the gardens | mandarin | Grittibänz | | scarf |
+  | Past the meadow | mandarin | Grittibänz | nuts | |
+
+- **Platforms** (`scenes/run/platforms.gd`): in every other section, a raised deck (0.5 m, a lane wide, in a lane at random) of two or three blocks with gaps between, a booster on each block: logs in the jungle, ice on the glacier, rock in the cave, crates in the city, a snowy wall of bricks in the suburbs. He gets up if he jumps as its front reaches him ("JUMP UP!" is called while he is in its lane); running into it without jumping bumps him, as an obstacle. On it, he jumps over its gaps; if he falls through one (or steps off its side), he goes on, on the road below: the lower level, without its boosters. The road under and around a platform is free of obstacles.
+- **Forks** (`scenes/run/forks.gd`): in the other sections, a side road branches off to the left or the right, with a signpost, the edge of the road glowing on its side, and "SHORTCUT!" called with an arrow to it. If he runs all the way to that side (beyond the outer lane) as the fork reaches him, he takes it: a white flash, and he comes out three bars further ahead, past the obstacles and the boosters in between. No fork leads past an opponent.
+- **Curves:** the road curves now and then to the left or the right, gently, and straightens again (every 25 to 45 m). It is only the look, as in Out Run: the shaders bend everything ahead to the side by the square of its distance (`scenes/flat/bend.gdshaderinc`), while the game measures everything on the straight road; the view follows the hero, straight ahead.
 
 ### Which signals each scene reads
 

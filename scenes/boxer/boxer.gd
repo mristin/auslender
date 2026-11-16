@@ -136,6 +136,10 @@ var jump_seconds := 0.0
 ## Whether he is in a jump now.
 var jumping := false
 
+## How high he stands above the road (in a run, on a platform; see
+## Platforms), in meters.
+var elevation := 0.0
+
 ## Whether he holds both gloves up in front of his face.
 var covering := false
 
@@ -265,6 +269,7 @@ static func _make_glove(glove: Node3D, inner: float, dress: Dictionary) -> void:
 ## Start the fight again: full health, standing straight.
 func reset() -> void:
     health = MAX_HEALTH
+    elevation = 0.0
     lean = 0.0
     duck = 0.0
     jumping = false
@@ -293,7 +298,9 @@ func face(opponent: Vector3, delta: float) -> void:
     else:
         _jump_height = lerpf(_jump_height, jump_height if jumping else 0.0, minf(1.0, delta * 10.0))
     var shake := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * _shake * 0.03
-    var eyes := Vector3(shift + lean * LEAN_SHIFT, EYES - duck * DUCK_DROP + _jump_height, 0)
+    var eyes := Vector3(
+        shift + lean * LEAN_SHIFT, EYES - duck * DUCK_DROP + _jump_height + elevation, 0
+    )
     var look := opponent + Vector3(0, 1.45, 0)
     if level_gaze:
         # NOTE (mristin):

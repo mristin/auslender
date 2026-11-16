@@ -10,6 +10,8 @@ shader_type spatial;
 
 render_mode blend_mix, cull_disabled, depth_draw_never, specular_disabled;
 
+#include "res://scenes/flat/bend.gdshaderinc"
+
 uniform vec4 rim : source_color = vec4(0.54, 0.42, 0.27, 1.0);
 uniform vec4 wall : source_color = vec4(0.48, 0.34, 0.2, 1.0);
 uniform vec4 strata : source_color = vec4(0.36, 0.24, 0.13, 1.0);
@@ -32,6 +34,10 @@ float noise(vec2 p) {
         mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
         mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),
         u.y);
+}
+
+void vertex() {
+    VERTEX = bent(VERTEX, MODEL_MATRIX);
 }
 
 void fragment() {
