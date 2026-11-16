@@ -161,8 +161,8 @@ The hero runs straight ahead into the picture, towards the horizon, as the pengu
 
   | Run | Middle | End |
   |---|---|---|
-  | Through the jungle | the palisade of the first ones ("WE WERE HERE FIRST!") | the wall of boulders ("OURS!") |
-  | Over the glacier | the ice wall ("MAMMOTHS ONLY") | the palisade, frosted |
+  | Through the jungle | the palisade of the first ones (a hide painted with them and their spears) | the wall of boulders (its owners painted on a slab, as on a cave wall) |
+  | Over the glacier | the ice wall (a mammoth scratched in it, and a person crossed out) | the palisade, frosted |
   | Through the streets | the laundry-room roster ("WASCHPLAN", "NOT YOUR DAY!") | the Bünzli's car ("ORDNUNG MUSS SEIN", a garden gnome on its roof) |
   | To the Rochartis campus | the crates of patents ("PATENTED") | the gate of Rochartis ("AUTHORIZED PERSONNEL ONLY") |
   | Through the gardens | the Thuja hedge ("PRIVAT", garden gnomes on guard) | the Bünzli's car |
@@ -174,7 +174,7 @@ The hero runs straight ahead into the picture, towards the horizon, as the pengu
   | Run | Climb |
   |---|---|
   | Jungle | boulders stacked into rough steps, moss, vines and ferns, and a slide of mud down |
-  | Glacier | a snowy mountain with rocks on its slopes and a banner of hide on its summit (no flags in the ice age), and a slide of ice down |
+  | Glacier | a snowy mountain with rocks on its slopes and a banner of hide and a standing stone painted with a peak on its summit (no flags and no writing in the ice age), and a slide of ice down |
   | Streets | concrete stairs up to a footbridge ("PASSERELLE") and down |
   | Campus | ladders up the scaffold of the new Rochartis tower ("COMING SOON: MORE PATENTS"), and the chute for the rubble down |
   | Gardens | ladders up a garden shed ("PRIVAT", a gnome on its roof), and a sledge run down |

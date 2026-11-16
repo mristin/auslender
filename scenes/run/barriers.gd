@@ -127,9 +127,12 @@ func place(t: float, speed: float, spot: Vector3, bend: float) -> void:
         # NOTE (mristin):
         # The texts do not bend with the shaders: move them as the road bends.
         var offset := bend * maxf(0.0, ahead) * maxf(0.0, ahead)
-        for label: Label3D in item["labels"]:
+        # NOTE (mristin):
+        # Untyped: the labels fly off with their chunks and are freed, and a
+        # typed loop variable must not take a freed one.
+        for label: Variant in item["labels"]:
             if is_instance_valid(label):
-                label.position.x = float(label.get_meta("x")) + offset
+                (label as Label3D).position.x = float(label.get_meta("x")) + offset
 
 
 ## The index of the barrier which he reaches by the time of the notes
@@ -304,10 +307,17 @@ func _new_target() -> void:
 
 ## The next chunk of the part to fly off, or null.
 func _next_chunk(zone: String) -> Node3D:
-    for chunk: Node3D in _chunks.get(zone, []):
-        if is_instance_valid(chunk) and not chunk.has_meta("flying"):
+    for chunk: Variant in _chunks.get(zone, []):
+        if _standing(chunk):
             return chunk
     return null
+
+
+## Whether the [param chunk] still stands: not flying, and not freed after it
+## flew (the parts keep their chunks which flew; a typed loop variable must
+## not take a freed one).
+static func _standing(chunk: Variant) -> bool:
+    return is_instance_valid(chunk) and not (chunk as Node3D).has_meta("flying")
 
 
 ## Knock off the chunks of the part as its health goes: as many of them as it
@@ -319,14 +329,14 @@ func _knock_off(zone: String) -> void:
         var lost := 1.0 - float(_health[zone]) / maxf(1.0, float(_full[zone]))
         gone = clampi(ceili(chunks.size() * lost), 1, chunks.size() - 1)
     var flown := 0
-    for chunk: Node3D in chunks:
-        if chunk.has_meta("flying"):
+    for chunk: Variant in chunks:
+        if not _standing(chunk):
             flown += 1
     var more := maxi(1 if float(_health[zone]) > 0.0 else 0, gone - flown)
-    for chunk: Node3D in chunks:
+    for chunk: Variant in chunks:
         if more <= 0:
             break
-        if not chunk.has_meta("flying"):
+        if _standing(chunk):
             _fly(chunk, 1.0)
             more -= 1
 
@@ -334,8 +344,8 @@ func _knock_off(zone: String) -> void:
 ## The barrier is smashed: all that is left of it flies apart.
 func _smash() -> void:
     for zone in _chunks:
-        for chunk: Node3D in _chunks[zone]:
-            if is_instance_valid(chunk) and not chunk.has_meta("flying"):
+        for chunk: Variant in _chunks[zone]:
+            if _standing(chunk):
                 _fly(chunk, 1.4)
     var node: Node3D = _items[_current]["node"]
     node.get_node("Target").visible = false
@@ -419,7 +429,7 @@ static func build(look: String, chunks: Node3D, theme: String) -> void:
 
 
 ## A palisade of sharpened logs, bound with a mammoth's tusks, a hide hung on
-## it: "WE WERE HERE FIRST" (on the glacier, the logs are frosted).
+## it, painted with the first ones and their spears (on the glacier, the logs are frosted).
 static func _build_palisade(chunks: Node3D, random: RandomNumberGenerator, theme: String) -> void:
     var wood := Color("7a4a22") if theme != "ice" else Color("8a7a6a")
     var x := -WIDTH * 0.5 + 0.17
@@ -458,11 +468,16 @@ static func _build_palisade(chunks: Node3D, random: RandomNumberGenerator, theme
         Flat.box(
             hide, Vector3(0.1, 0.12, 0.02), Vector3(-0.45 + k * 0.45, -0.25, 0.03), Color("a8281e")
         )
-    _label(hide, "WE WERE\nHERE FIRST!", Vector3(0, 0.05, 0.03), 72, Color("f6e8c8"))
+    # NOTE (mristin):
+    # Painted on it, as on a cave wall: the first ones, with their spears.
+    for k in range(3):
+        CavePaint.person(
+            hide, Vector3(-0.36 + k * 0.36, -0.15, 0.03), 0.4, Color("f6e8c8"), k == 1, true
+        )
 
 
-## A wall of boulders, piled in rows, a slab in it painted as a cave wall:
-## "OURS!"
+## A wall of boulders, piled in rows, a slab in it painted as a cave wall: its
+## owners with their spears
 static func _build_stone_wall(chunks: Node3D, random: RandomNumberGenerator) -> void:
     var rows := [0.3, 0.8, 1.3]
     for r in range(rows.size()):
@@ -487,11 +502,13 @@ static func _build_stone_wall(chunks: Node3D, random: RandomNumberGenerator) -> 
     for k in range(4):
         var hand := Vector3(-0.45 + k * 0.3, -0.25 + (k % 2) * 0.1, 0.16)
         Flat.ball(slab, 0.06, hand, Color("a8281e"), false, 0.4)
-    _label(slab, "OURS!", Vector3(0, 0.12, 0.16), 120, Color("a8281e"))
+    CavePaint.person(slab, Vector3(-0.36, -0.08, 0.16), 0.42, Color("a8281e"), false, true)
+    CavePaint.person(slab, Vector3(0.0, -0.08, 0.16), 0.48, Color("a8281e"), true, true)
+    CavePaint.person(slab, Vector3(0.36, -0.08, 0.16), 0.42, Color("a8281e"), false, true)
 
 
-## A wall of ice blocks, with icicles, and a sign scratched in it: "MAMMOTHS
-## ONLY".
+## A wall of ice blocks, with icicles, and a sign scratched in it: a mammoth,
+## and a person crossed out.
 static func _build_ice_wall(chunks: Node3D, random: RandomNumberGenerator) -> void:
     var colors := [Color("dff0fb"), Color("b8dcf2"), Color("9ccbea")]
     for row in range(4):
@@ -513,7 +530,11 @@ static func _build_ice_wall(chunks: Node3D, random: RandomNumberGenerator) -> vo
             x += 0.7
     var sign := _chunk(chunks, Vector3(0, 1.1, 0.03))
     Flat.box(sign, Vector3(1.4, 0.5, 0.04), Vector3.ZERO, Color("4a8ac0"))
-    _label(sign, "MAMMOTHS ONLY", Vector3(0, 0, 0.03), 72, Color("eef6fc"))
+    # NOTE (mristin):
+    # Scratched in it: a mammoth, and a person crossed out.
+    CavePaint.mammoth(sign, Vector3(-0.3, -0.2, 0.03), 0.4, Color("eef6fc"))
+    CavePaint.person(sign, Vector3(0.38, -0.19, 0.03), 0.36, Color("eef6fc"))
+    CavePaint.cross(sign, Vector3(0.38, -0.21, 0.04), 0.42, Color("c8302c"))
 
 
 ## The washing machines of the laundry room, two high across the road, and the

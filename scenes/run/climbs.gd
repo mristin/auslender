@@ -577,7 +577,12 @@ static func _build_mountain(node: Node3D, flat_from: float, flat_to: float, end:
         var toe := Vector3(half - 0.4, HEIGHT + 1.98, -z + 0.25 + k * 0.12)
         var pad := Flat.ball(node, 0.04, toe, Color("5a2a1a"))
         pad.scale.x = 0.5
-    _label(node, "SUMMIT", Vector3(0, HEIGHT + 1.6, -flat_from), 96, Color("ffffff"))
+    # NOTE (mristin):
+    # A standing stone at the top, a peak painted on it (nobody writes yet).
+    var stone := Flat.box(
+        node, Vector3(0.7, 1.1, 0.2), Vector3(-half + 0.5, HEIGHT + 0.55, -z), Color("8a7a6a")
+    )
+    CavePaint.summit(stone, Vector3(0, -0.3, 0.11), 0.7, Color("a8281e"))
     for x in [-1.2, 0.0, 1.2]:
         _bar(
             node, Vector3(x, HEIGHT + 0.01, -flat_to), Vector3(x, 0.01, -end), 0.06, Color("e8f6ff")
