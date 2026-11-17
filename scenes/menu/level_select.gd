@@ -4,7 +4,7 @@ extends MenuScreen
 ## Choose a level of the session (see Levels and Profile): the worlds side by
 ## side, each with its levels in order. A level opens once the one before it
 ## is won; the locked ones are dim. The next level to play is crimson; the
-## levels won show their best grade. Each shows a small picture of its land
+## levels won show their best stars. Each shows a small picture of its land
 ## and its opponent (see LevelThumbnails), dim while it is locked.
 ##
 ## Keys: the arrows move between the levels, Enter plays, Esc goes back to the
@@ -35,9 +35,11 @@ func _build() -> void:
             var text: String = level["title"]
             if not open:
                 text = "LOCKED"
-            elif best.get("won", false):
-                text += "   " + str(best.get("grade", ""))
             var button := _button(text, Vector2(x, 210 + row * 135), Vector2(580, 115), 32)
+            if open and best.get("won", false):
+                var stars := Stars.new(Profile.stars_of(best), 11.0)
+                stars.position = Vector2(580 - Stars.width(11.0) - 10, 115 - 30)
+                button.add_child(stars)
             button.disabled = not open
             button.primary = i == next
             button.pressed.connect(func() -> void: Flow.play(get_tree(), level["id"]))

@@ -144,6 +144,16 @@ func reached(t: float) -> int:
     return -1
 
 
+## How far ahead of him (in meters) the front of the next barrier which still
+## stands is, at the time of the notes [param t] and the [param speed] of the
+## road (INF if none).
+func wall_ahead(t: float, speed: float) -> float:
+    for item in _items:
+        if item["state"] != "smashed":
+            return (float(item["at"]) - t) * speed + STAND
+    return INF
+
+
 ## Start smashing the barrier of the [param index], as he stands at
 ## [param x] across the road: its parts are to his left, in front of him and
 ## to his right; the nearest chunks of each fly off first.

@@ -119,7 +119,7 @@ def summarize(path):
             details = ""
             if "counts" in e:
                 details = (
-                    f" grade {e['grade']} accuracy {100 * e['accuracy']:.0f}% {e['counts']}"
+                    f" stars {e.get('stars', e.get('grade'))} accuracy {100 * e['accuracy']:.0f}% {e['counts']}"
                     f" best combo {e['best_combo']} health {e['health']:.0f} his {e['his_health']:.0f}"
                 )
             print(

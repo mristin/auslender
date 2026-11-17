@@ -4,7 +4,7 @@ extends RefCounted
 ## The score of a level (see Run and Fight): how the player met the obstacles
 ## of a run and how he boxed (see Brawl): the punches which landed (a counter
 ## more), and the attacks he dodged; the combo of these in a row, which
-## multiplies the points, the accuracy and the grade. A punch into the guard
+## multiplies the points, the accuracy and the stars. A punch into the guard
 ## counts for nothing either way.
 
 ## The points of each judgement, before the combo's multiplier; the combo
@@ -17,8 +17,13 @@ const MULTIPLIER_MOST := 4
 ## is allowed).
 const GOOD_SHARE := 0.75
 
-## The grades, from the accuracy.
-const GRADES := [[0.95, "S"], [0.85, "A"], [0.7, "B"], [0.5, "C"]]
+## The stars, from 1 to STARS_MOST, by the accuracy: the least accuracy of
+## each (one star for less than the last). Stars, not grades: the kids who play
+## know stars, not the letters of the English grades. A level is won with
+## STARS_TO_WIN or more.
+const STARS := [[0.95, 6], [0.85, 5], [0.7, 4], [0.5, 3], [0.3, 2]]
+const STARS_MOST := 6
+const STARS_TO_WIN := 3
 
 ## The names of the counts in the results, in order.
 const NAMES := {
@@ -87,18 +92,18 @@ func accuracy() -> float:
     return met_notes / maxf(1.0, total)
 
 
-func grade() -> String:
+func stars() -> int:
     var share := accuracy()
-    for step in GRADES:
+    for step in STARS:
         if share >= step[0]:
             return step[1]
-    return "D"
+    return 1
 
 
-## The lines of the results.
+## The lines of the results (the stars show above them, see Hud.stars).
 func lines() -> Array:
     return [
-        "SCORE %d   GRADE %s" % [score, grade()],
+        "SCORE %d" % score,
         _counts_line(),
         "BEST COMBO %d" % best_combo,
     ]

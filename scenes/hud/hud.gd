@@ -41,7 +41,6 @@ var warning_progress := 0.0
 var hurt := 0.0
 
 var status := ""
-var help := ""
 var banner := ""
 
 ## The score, the combo of notes met in a row and its multiplier, and how far
@@ -69,8 +68,10 @@ var flash := 0.0
 ## negative: none.
 var countdown := -1.0
 
-## The lines of the results, under the banner at the end of the fight.
+## The lines of the results, under the banner at the end of the fight, and
+## the stars above them (1 to Scoring.STARS_MOST; negative: none).
 var results: Array = []
+var stars := -1
 
 var _font: Font
 var _canvas: Control
@@ -201,8 +202,14 @@ func _draw_hud() -> void:
 
     if banner != "":
         _text(banner, Vector2(_SCREEN.x * 0.5, 560), 160, GOLD)
+    var lines_from := 660.0
+    if stars >= 0:
+        var star_radius := 34.0
+        var left := (_SCREEN.x - Stars.width(star_radius)) * 0.5 + star_radius * 1.2
+        Stars.draw_row(_canvas, Vector2(left, 650), stars, star_radius)
+        lines_from = 740.0
     for i in range(results.size()):
-        _text(str(results[i]), Vector2(_SCREEN.x * 0.5, 660 + 56 * i), 44, PAPER)
+        _text(str(results[i]), Vector2(_SCREEN.x * 0.5, lines_from + 56 * i), 44, PAPER)
 
     if not sees_player:
         _text("Step in front of the camera.", Vector2(_SCREEN.x * 0.5, 680), 48, PAPER)
@@ -216,9 +223,6 @@ func _draw_hud() -> void:
 
     _canvas.draw_string(
         _font, Vector2(1120, 140), status, HORIZONTAL_ALIGNMENT_RIGHT, 760, 22, PAPER
-    )
-    _canvas.draw_string(
-        _font, Vector2(380, 1050), help, HORIZONTAL_ALIGNMENT_CENTER, 1500, 22, Color(PAPER, 0.8)
     )
 
 

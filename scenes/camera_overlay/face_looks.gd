@@ -46,13 +46,17 @@ func _init() -> void:
 ## The height of the middle of the unibrow at x, in eye distances (negative is up).
 static func brow_y(x: float) -> float:
     # A bushy arch over each eye, which dips a little where the brows meet.
-    return -0.42 - 0.07 * cos(clampf(absf(x) - 0.5, -0.5, 0.5) * PI) + 0.03 * maxf(0.0, 0.3 - absf(x))
+    return (
+        -0.42 - 0.07 * cos(clampf(absf(x) - 0.5, -0.5, 0.5) * PI) + 0.03 * maxf(0.0, 0.3 - absf(x))
+    )
 
 
 ## Draw the looks on the canvas over the face with its center (between the
 ## eyes, in screen pixels), the eye distance (in screen pixels), the tilt
 ## (radians, clockwise) and the alpha.
-func draw(canvas: CanvasItem, center: Vector2, eye_distance: float, angle: float, alpha: float) -> void:
+func draw(
+    canvas: CanvasItem, center: Vector2, eye_distance: float, angle: float, alpha: float
+) -> void:
     if alpha <= 0.0 or eye_distance <= 1.0:
         return
     canvas.draw_set_transform(center, angle, Vector2(eye_distance, eye_distance))

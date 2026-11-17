@@ -229,3 +229,15 @@ Then run the checks (`dev/continuous_integration/precommit.py`; the tests load t
 The features are computed twice: in Python for the training (`sequences` in `dev/moves/ml/moves_ml.py`) and in C# for the game (`MoveFeatures`).
 If you change them, change both, regenerate the case of the parity test (`tests/Auslender.Tests/data/move_features_cases.json`) with `venv-ml/bin/python dev/moves/ml/parity_cases.py`, so that `MoveFeaturesTests` checks that both agree, and retrain the model: the game refuses a model which reads another number of features.
 Keep every model evaluable in C# without new dependencies (XGBoost as JSON, or a network as ONNX through `OnnxMoveModel`).
+
+### The moves of the opponents
+
+The opponents box with moves captured from the same guided recordings (`scenes/opponent/moves/moves.json`, played by `Moves` and `Opponent`): each punch, knee, slip, duck and cover is the average of the adults' repetitions, lifted to 3D and fitted to the opponents' rig.
+After new recordings, regenerate them with:
+
+```
+venv-ml/bin/python dev/animation/extract_moves.py
+```
+
+and check them in a fight (a boss level shows the attacks best).
+The lifter was trained on Human3.6M, licensed for research only (see `scenes/vision/lifting/model/lifting.json`): check this before a release.

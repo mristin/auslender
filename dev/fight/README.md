@@ -21,7 +21,7 @@ It holds only game events, never pictures:
 | `attack`, `attack_end` | the opponent winds up an attack, and it is judged | the attack, its wind-up; the result (`dodged`, `hit`), whether the player covered |
 | `knock_out` | an opponent goes down | the opponent |
 | `run_on` | a run goes on after a fight | |
-| `fight_end` | the fight ends | why (`knock_out`, `time`, `down`, `restarted`), the score, the grade, the accuracy, the counts, the best combo, the latency, the health |
+| `fight_end` | the fight ends | why (`knock_out`, `time`, `down`, `restarted`), the score, the stars (1 to 6), the accuracy, the counts, the best combo, the latency, the health |
 
 The logs are in `~/.local/share/godot/app_userdata/Auslender/fight_logs/` on
 Linux. Summarize the latest (or the given ones) with:

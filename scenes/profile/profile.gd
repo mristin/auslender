@@ -24,7 +24,7 @@ const FORMAT := 1
 const MAX_NAME := 24
 
 ## The session now (empty if none): "id", "name", "created", "updated", and
-## "levels": {level id: {"grade", "score", "won"}}.
+## "levels": {level id: {"stars", "score", "won"}}.
 static var session := {}
 
 
@@ -142,16 +142,16 @@ static func save() -> void:
 
 
 ## Note the result of a level: whether he won it (which opens the next), his
-## grade and his score; the best ones are kept.
-static func finish_level(id: String, won: bool, grade: String, score: int) -> void:
+## stars (see Scoring.stars) and his score; the best ones are kept.
+static func finish_level(id: String, won: bool, stars: int, score: int) -> void:
     if session.is_empty():
         return
     var levels: Dictionary = session["levels"]
-    var best: Dictionary = levels.get(id, {"won": false, "grade": "", "score": 0})
+    var best: Dictionary = levels.get(id, {"won": false, "stars": 0, "score": 0})
     best["won"] = best["won"] or won
     best["score"] = maxi(int(best["score"]), score)
-    if best["grade"] == "" or _rank(grade) > _rank(best["grade"]):
-        best["grade"] = grade
+    best["stars"] = maxi(stars_of(best), stars)
+    best.erase("grade")
     levels[id] = best
     save()
 
@@ -184,8 +184,12 @@ static func next_index() -> int:
     return Levels.ALL_LEVELS.size() - 1
 
 
-static func _rank(grade: String) -> int:
-    return "DCBAS".find(grade)
+## The best stars of a result (see [method best]); the sessions of before
+## kept a grade instead (S to D), which counts as its stars.
+static func stars_of(result: Dictionary) -> int:
+    if result.has("stars"):
+        return int(result["stars"])
+    return {"S": 6, "A": 5, "B": 4, "C": 3, "D": 1}.get(str(result.get("grade", "")), 0)
 
 
 static func _path(id: String) -> String:

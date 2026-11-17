@@ -14,8 +14,8 @@ extends Node3D
 ## banana in the jungle, an espresso in the city, a Grittibänz in the winter.
 
 ## The kinds: what the HUD and the announcement call them, their color (the
-## glow under the booster), and how long they work (seconds; 0: at once, -1:
-## until the next fight).
+## glow under and around the booster, see booster_glow.gdshader), and how
+## long they work (seconds; 0: at once, -1: until the next fight).
 const KINDS := {
     "speed": {"effect": "FASTER!", "color": Color("f2c14e"), "seconds": 6.0},
     "health": {"effect": "+ENERGY!", "color": Color("6ccf5e"), "seconds": 0.0},
@@ -53,6 +53,13 @@ const POWER := 2.0
 const REACH := 0.6
 const FLOAT := 0.9
 
+## The glow of the boosters: how wide the pool of light under it is, and how
+## high its column of light reaches, in meters.
+const GLOW_WIDE := 1.8
+const GLOW_HIGH := 1.7
+
+static var _glow_shader: Shader = preload("res://scenes/run/booster_glow.gdshader")
+
 ## The boosters on the road: "node", "look", "at" (the time of the notes at
 ## which he reaches it), "x" (across the road), "y" (the height of its ground:
 ## 0 the road, above a platform's deck) and "state" ("ahead", "taken",
@@ -75,7 +82,7 @@ func add(look: String, at: float, x: float, y := 0.0) -> void:
     var node := Node3D.new()
     add_child(node)
     var kind: String = LOOKS[look]["kind"]
-    Flat.limb(node, 0.3, 0.3, 0.02, Vector3(0, -FLOAT + 0.03, 0), KINDS[kind]["color"])
+    _glow(node, KINDS[kind]["color"], at)
     var thing := Node3D.new()
     thing.name = "Thing"
     node.add_child(thing)
@@ -94,9 +101,13 @@ func place(t: float, speed: float, spot: Vector3, delta: float) -> void:
         node.visible = item["state"] != "taken" and ahead < Scenery.AHEAD and ahead > -3.0
         if not node.visible:
             continue
+        # NOTE (mristin):
+        # The thing bobs; its glow stays on the ground.
         var bob := 0.08 * sin(_clock * 3.0 + float(item["at"]))
-        node.position = spot + Vector3(item["x"], float(item["y"]) + FLOAT + bob, -ahead)
-        (node.get_node("Thing") as Node3D).rotation.y = _clock * 2.0
+        node.position = spot + Vector3(item["x"], float(item["y"]) + FLOAT, -ahead)
+        var thing := node.get_node("Thing") as Node3D
+        thing.position.y = bob
+        thing.rotation.y = _clock * 2.0
 
 
 ## The boosters which he picks up as he reaches them by the time of the notes
@@ -123,6 +134,38 @@ func skip(from: float, to: float) -> void:
     for item in _items:
         if item["state"] == "ahead" and float(item["at"]) > from and float(item["at"]) <= to:
             item["state"] = "missed"
+
+
+## The glow of a booster of the [param color] under the [param node] (which
+## floats FLOAT over the ground), to draw the eye: a pool of light with rings
+## spreading out on the ground, and a column of light around the booster.
+static func _glow(node: Node3D, color: Color, seed: float) -> void:
+    for aura in [false, true]:
+        var material := ShaderMaterial.new()
+        material.shader = _glow_shader
+        material.set_shader_parameter("color", color)
+        material.set_shader_parameter("aura", aura)
+        material.set_shader_parameter("phase", fposmod(seed * 1.7, TAU))
+        var instance := MeshInstance3D.new()
+        instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+        instance.material_override = material
+        if aura:
+            var column := CylinderMesh.new()
+            column.top_radius = 0.42
+            column.bottom_radius = 0.55
+            column.height = GLOW_HIGH
+            column.cap_top = false
+            column.cap_bottom = false
+            column.radial_segments = 24
+            column.rings = 1
+            instance.mesh = column
+            instance.position = Vector3(0, -FLOAT + GLOW_HIGH * 0.5, 0)
+        else:
+            var pool := PlaneMesh.new()
+            pool.size = Vector2(GLOW_WIDE, GLOW_WIDE)
+            instance.mesh = pool
+            instance.position = Vector3(0, -FLOAT + 0.02, 0)
+        node.add_child(instance)
 
 
 ## Build the look of the booster of the name into the node: a little thing of

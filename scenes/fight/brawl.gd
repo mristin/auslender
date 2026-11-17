@@ -97,6 +97,10 @@ const TURTLE := 1.0
 ## How long after the knock-out the brawl is over, in seconds.
 const DOWN_SECONDS := 2.0
 
+## What an opponent on the road shouts as he runs away, if he has no lines of
+## his own ("flee", see Levels.OPPONENTS).
+const FLEE_LINES := ["I'm out of here!", "Mommy!", "Not today!", "You win, I'm off!"]
+
 ## He says a line at most this often, in seconds.
 const QUIP_EVERY := 5.0
 
@@ -308,8 +312,18 @@ func punch(kind: String, side: String) -> void:
     if opponent.health <= 0.0:
         state = State.DOWN
         _down_at = _clock
-        opponent.knock_out()
-        _log.write("knock_out", {"opponent": spec["look"], "clock": _clock})
+        if _boss:
+            opponent.knock_out()
+            _log.write("knock_out", {"opponent": spec["look"], "clock": _clock})
+        else:
+            # NOTE (mristin):
+            # The game does not knock out the opponents on the road: beaten,
+            # they give up and run away.
+            opponent.flee()
+            _hud.say("HE RUNS AWAY!", Hud.GOLD)
+            var lines: Array = spec["lines"].get("flee", FLEE_LINES)
+            _hud.taunt(lines[randi() % lines.size()])
+            _log.write("flee", {"opponent": spec["look"], "clock": _clock})
 
 
 ## How the punch thrown at [param when] (on the brawl's clock) goes: "counter",

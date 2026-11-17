@@ -2,11 +2,11 @@ class_name Encounters
 extends Node3D
 
 ## The opponents on the road of a run (see Run), one after the other: each
-## shows from afar, in random colors of his own (see Looks.recolor), charges
-## at the hero, weaving across the road from side to side, and in the last
-## meters homes in on him: there is no way around him, he always meets the
-## hero (then they fight, see Run). Those knocked out are dragged to the side
-## of the road and roll past.
+## shows from afar, in random colors of his own (see Looks.recolor), runs
+## at the hero (see Opponent.running), weaving across the road from side to
+## side, and in the last meters homes in on him and raises his guard: there
+## is no way around him, he always meets the hero (then they fight, see Run).
+## Those beaten run away (see Opponent.flee), and are gone once out of sight.
 
 ## How far the opponents show ahead on the road, from how far they charge at
 ## him (at random speeds in the range, meters a second), in meters.
@@ -23,11 +23,19 @@ const SIDESTEP := 2.6
 const WEAVE_EVERY := Vector2(0.6, 1.3)
 const MEET_FROM := 7.0
 
+## How far behind a barrier (see Barriers) an opponent who comes from behind
+## it stops, in meters: he never charges through it.
+const BEHIND_WALL := 0.8
+
+## How far from the hero an opponent who runs at him stops running and raises
+## his guard, in meters.
+const RAISES_GUARD := 1.6
+
 ## The opponents on the road, in order: "id", "dist" (how far ahead of the
 ## hero, in meters), "x" (across the road), "charge" (his speed, meters a
 ## second), "spot" (where across the road he side-steps to, see WEAVE_MOST)
 ## and "spot_until" (when he picks a new one), "figure" (an
-## Opponent, once he shows), "state" ("ahead", "fight", "down" or "gone").
+## Opponent, once he shows), "state" ("ahead", "fight", "fled" or "gone").
 var _items: Array = []
 
 
@@ -66,18 +74,31 @@ func at(index: int) -> Dictionary:
 
 ## Move the opponents as the hero runs [param meters] on, in [param played]
 ## seconds (at the time [param time], at [param shift] across the road, from
-## his [param spot]): the index of the one who reaches him now (-1 if none).
-func move(meters: float, played: float, time: float, shift: float, spot: Vector3) -> int:
+## his [param spot]), with the next barrier still standing [param wall] meters
+## ahead of him (INF if none): the index of the one who reaches him now (-1 if
+## none).
+func move(
+    meters: float, played: float, time: float, shift: float, spot: Vector3, wall := INF
+) -> int:
     for i in range(_items.size()):
         var item: Dictionary = _items[i]
         var figure: Opponent = item["figure"]
         match item["state"]:
             "ahead":
-                if i != _next_ahead():
-                    continue
+                # NOTE (mristin):
+                # Everyone ahead comes closer as the hero runs; only the next
+                # one charges and shows. (Otherwise those after him would keep
+                # their distance and show up later far behind the barriers
+                # which they are in front of.)
                 var dist: float = item["dist"] - meters
+                if i != _next_ahead():
+                    item["dist"] = dist
+                    continue
                 if dist < CHARGE_FROM:
+                    var before := dist
                     dist -= float(item["charge"]) * played
+                    if before > wall:
+                        dist = maxf(dist, wall + BEHIND_WALL)
                 item["dist"] = dist
                 if dist > APPEAR:
                     continue
@@ -86,18 +107,18 @@ func move(meters: float, played: float, time: float, shift: float, spot: Vector3
                 var x := _weave(item, dist, played, time, shift)
                 figure.global_position = spot + Vector3(x, 0, -dist)
                 figure.target = spot + Vector3(shift, 0, 0)
+                figure.running = dist > Fight.OPPONENT_DISTANCE + RAISES_GUARD
                 var stride := fposmod(time * 2.6, 1.0)
                 figure.groove(stride, fposmod(time * 0.65, 1.0), floori(time * 0.65))
                 if dist <= Fight.OPPONENT_DISTANCE:
                     return i
-            "down":
-                var side := 1.0 if figure.global_position.x >= shift else -1.0
-                var roadside := side * (RhythmNote.ROAD * 0.5 + 0.8)
-                figure.global_position.x = lerpf(
-                    figure.global_position.x, roadside, minf(1.0, played * 3.0)
-                )
+            "fled":
+                # NOTE (mristin):
+                # He runs by himself (see Opponent.flee); the road rolls under
+                # him as the hero runs on.
                 figure.global_position.z += meters
-                if figure.global_position.z > spot.z + 3.0:
+                var away := spot.z - figure.global_position.z
+                if away > Scenery.AHEAD or away < -3.0:
                     figure.queue_free()
                     item["figure"] = null
                     item["state"] = "gone"

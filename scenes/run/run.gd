@@ -260,7 +260,8 @@ func _advance(played: float) -> void:
     var meters := played * pace * SPEED
     _rolled += meters
     _scenery.scroll(meters)
-    var meeting := _encounters.move(meters, played, _time, boxer.shift, SPOT)
+    var wall := _barriers.wall_ahead(_t, SPEED)
+    var meeting := _encounters.move(meters, played, _time, boxer.shift, SPOT, wall)
     if meeting >= 0:
         _enter_mode(BrawlMode.new(self, meeting))
         return
@@ -445,7 +446,7 @@ func _call() -> Array:
     return []
 
 
-## Arrived at the end of the road: the run is won by the grade; the time
+## Arrived at the end of the road: the run is won by the stars; the time
 ## (the song's length and some, see TIME_SLACK) ran out before: too slow.
 func _check_end() -> void:
     if _t >= _goal():

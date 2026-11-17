@@ -21,7 +21,7 @@ extends Node3D
 ## A note not met is a MISS; an attack or an obstacle which he did not dodge
 ## costs him energy, and with none left he is down.
 ##
-## A level is won with a grade of C or better at the end of the song (see
+## A level is won with Scoring.STARS_TO_WIN stars or more at the end of the song (see
 ## Scoring; a fight also with a knock-out); winning opens the next level (see
 ## Profile). A panel in the upper left (see [CameraPanel]) shows the player
 ## how the game sees him. The level pauses while the camera does not see the
@@ -300,6 +300,7 @@ func _start() -> void:
     Engine.time_scale = 1.0
     hud.banner = ""
     hud.results = []
+    hud.stars = -1
     hud.announce(level["title"], 3.0)
     _on_start()
     _log.write("fight_start", {"notes": _chart.size()})
@@ -644,7 +645,7 @@ func _finish(knocked_out: bool) -> void:
     _music.stop()
     _play("bell")
     hud.warning = ""
-    var grade := _scoring.grade()
+    var stars := _scoring.stars()
     var why := "time"
     var won := false
     if knocked_out:
@@ -655,9 +656,10 @@ func _finish(knocked_out: bool) -> void:
         why = "down"
         hud.banner = "DOWN!"
     else:
-        won = grade != "D" and not _failed
+        won = stars >= Scoring.STARS_TO_WIN and not _failed
         hud.banner = _banner(won)
-    Profile.finish_level(level["id"], won, grade, _scoring.score)
+    Profile.finish_level(level["id"], won, stars, _scoring.score)
+    hud.stars = stars
     hud.results = _scoring.lines()
     var results := Results.new()
     _results.add_child(results)
@@ -667,7 +669,7 @@ func _finish(knocked_out: bool) -> void:
         "won": won,
         "song": _now,
         "score": _scoring.score,
-        "grade": grade,
+        "stars": stars,
         "accuracy": _scoring.accuracy(),
         "counts": _scoring.counts.duplicate(),
         "best_combo": _scoring.best_combo,
@@ -790,7 +792,7 @@ func _update_panel(threatened: bool) -> void:
     panel.calibration_progress = vision.GetCalibrationProgress()
     hud.replay = vision.GetReplayTime() if vision.IsReplaying() else Vector2(-1, -1)
     hud.sees_feet = vision.SeesFeet() or not camera_on
-    hud.status = VisionStatus.new().text(vision, true)
+    hud.status = VisionStatus.new().text(vision, false)
 
 
 ## Log the state of the level now and then, and every change of the pose.
