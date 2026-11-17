@@ -128,8 +128,7 @@ def reformat(overwrite: bool) -> int:
 
     exit_code = call_and_report(
         verb="re-format the C# code" if overwrite else "check the formatting of the C# code",
-        cmd=["dotnet", "format", "Auslender.sln"]
-        + ([] if overwrite else ["--verify-no-changes"]),
+        cmd=["dotnet", "format", "Auslender.sln"] + ([] if overwrite else ["--verify-no-changes"]),
         cwd=REPO_ROOT,
     )
     if exit_code != 0:

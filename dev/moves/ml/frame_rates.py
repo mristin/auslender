@@ -42,12 +42,21 @@ class Stream:
 
     def halved(self):
         keep = slice(None, None, 2)
-        return Stream(self.name + " halved", self.t[keep], self.k[keep], self.y[keep], self.fold[keep], self.events)
+        return Stream(
+            self.name + " halved",
+            self.t[keep],
+            self.k[keep],
+            self.y[keep],
+            self.fold[keep],
+            self.events,
+        )
 
     def rows(self, rng):
         """The training rows: the stream, its resized copies, and all of them mirrored."""
         streams = [(self.k, self.y)]
-        streams += [(M.augment(self.k, rng, scale=rng.uniform(lo, hi)), self.y) for lo, hi in SCALES]
+        streams += [
+            (M.augment(self.k, rng, scale=rng.uniform(lo, hi)), self.y) for lo, hi in SCALES
+        ]
         streams += [(M.mirror(s), X.mirror_labels(l)) for s, l in streams]
         Xs = [X.features(self.t, s)[l >= 0] for s, l in streams]
         Ys = [l[l >= 0] for _, l in streams]
@@ -81,7 +90,9 @@ def main():
         tests = [test] + ([test.halved()] if test.fps > SLOW_FPS else [])
         print(f"\nTest on {test.name} ({test.fps:.0f} frames/s)", flush=True)
         for name, parts in trainings.items():
-            model = X.fit(np.concatenate([p[0] for p in parts]), np.concatenate([p[1] for p in parts]))
+            model = X.fit(
+                np.concatenate([p[0] for p in parts]), np.concatenate([p[1] for p in parts])
+            )
             for s in tests:
                 label = f"{name:12s} -> {'halved (15/s)' if s is not test else 'as recorded'}"
                 X.line(label, [X.evaluate(s, model.predict_proba(s.X), everything)])

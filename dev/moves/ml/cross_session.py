@@ -50,7 +50,9 @@ class Session:
             self.t, self.k, marks, steps, M.load_skips(recording)
         )
         streams = [(self.k, self.y)]
-        streams += [(M.augment(self.k, rng, scale=rng.uniform(lo, hi)), self.y) for lo, hi in SCALES]
+        streams += [
+            (M.augment(self.k, rng, scale=rng.uniform(lo, hi)), self.y) for lo, hi in SCALES
+        ]
         streams += [(M.mirror(s), mirror_labels(l)) for s, l in streams]
         self.train = [(features(self.t, s), l) for s, l in streams]
         self.X = self.train[0][0]
@@ -146,7 +148,10 @@ def main():
         Yo = np.concatenate([p[1] for p in parts])
         model = fit(Xo, Yo)
         everything = set(range(5))
-        mistakes = line("(1) trained on the other sessions", [evaluate(test, model.predict_proba(test.X), everything)])
+        mistakes = line(
+            "(1) trained on the other sessions",
+            [evaluate(test, model.predict_proba(test.X), everything)],
+        )
         for name, X in test.scaled.items():
             line(f"    {name}", [evaluate(test, model.predict_proba(X), everything)])
         print("      mistakes:", ", ".join(sorted(mistakes)) or "none")

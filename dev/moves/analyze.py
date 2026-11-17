@@ -294,14 +294,27 @@ def report_gait(face, body, steps, marks):
     ankles = legs["lift_left"]
 
     segments = []
-    for label in ("stand 1", "look around", "twist", "walk slow", "walk fast", "turn left", "turn right"):
+    for label in (
+        "stand 1",
+        "look around",
+        "twist",
+        "walk slow",
+        "walk fast",
+        "turn left",
+        "turn right",
+    ):
         for name, a, b in [s for s in steps if s[0] == label]:
             state = "walking" if label.startswith("walk") else "standing"
             segments.append((f"{label} ({state})", a + 0.5, b))
     walk_names = {"": "standing", "start_walking": "walking", "stop": "standing"}
     for state, a, b in states_from_calls(marks, steps, "walk stop", walk_names):
         segments.append((f"walk stop ({state})", a, b))
-    turn_names = {"": "walking", "turn_left": "walking", "turn_right": "walking", "face_camera": "walking"}
+    turn_names = {
+        "": "walking",
+        "turn_left": "walking",
+        "turn_right": "walking",
+        "face_camera": "walking",
+    }
     for label in ("walk turning left", "walk turning right"):
         for state, a, b in states_from_calls(marks, steps, label, turn_names):
             segments.append((f"{label} ({state})", a, b))
@@ -339,11 +352,15 @@ def report_gait(face, body, steps, marks):
         found = best_threshold(walking[key], standing[key])
         if found:
             c, tpr, fpr, np_, nn = found
-            print(f"    {key:9s} from {c:.3f}: walking {tpr:5.0%} of {np_}, standing {fpr:5.0%} of {nn}")
+            print(
+                f"    {key:9s} from {c:.3f}: walking {tpr:5.0%} of {np_}, standing {fpr:5.0%} of {nn}"
+            )
     slow = [r for n, v in rows.items() if n.startswith("walk slow") for r in v]
     fast = [r for n, v in rows.items() if n.startswith("walk fast") for r in v]
     if slow and fast:
-        s, f = np.nanmedian(np.array(slow, float), axis=0), np.nanmedian(np.array(fast, float), axis=0)
+        s, f = np.nanmedian(np.array(slow, float), axis=0), np.nanmedian(
+            np.array(fast, float), axis=0
+        )
         print(
             f"  slow against fast: head {s[0]:.2f} against {f[0]:.2f} Hz (bob {s[1]:.3f} against"
             f" {f[1]:.3f}), knees {s[2]:.2f} against {f[2]:.2f} Hz ({s[3]:.3f} against {f[3]:.3f})"
@@ -387,7 +404,10 @@ def turn_measures(face, body):
         "eyes - head box": (eyes_mid[:, 0] - head_mid) / head_width,
         "eye distance / head": eye_distance / head_width,
     }
-    return {**{k: (body.t, v) for k, v in pose.items()}, **{k: (face.t, v) for k, v in faces.items()}}
+    return {
+        **{k: (body.t, v) for k, v in pose.items()},
+        **{k: (face.t, v) for k, v in faces.items()},
+    }
 
 
 def report_turns(face, body, steps, marks):
@@ -405,13 +425,21 @@ def report_turns(face, body, steps, marks):
         for state, a, b, _ in segments:
             mask = (t >= a) & (t < b) & ~np.isnan(values)
             groups[state].extend(values[mask])
-        stats = {k: (np.mean(v), np.std(v), len(v)) if v else (np.nan, np.nan, 0) for k, v in groups.items()}
+        stats = {
+            k: (np.mean(v), np.std(v), len(v)) if v else (np.nan, np.nan, 0)
+            for k, v in groups.items()
+        }
         spread = np.sqrt(np.nanmean([s[1] ** 2 for s in stats.values()])) + 1e-9
-        separation = min(
-            abs(stats["left"][0] - stats["facing"][0]),
-            abs(stats["right"][0] - stats["facing"][0]),
-        ) / spread
-        sign_ok = (stats["left"][0] - stats["facing"][0]) * (stats["right"][0] - stats["facing"][0]) < 0
+        separation = (
+            min(
+                abs(stats["left"][0] - stats["facing"][0]),
+                abs(stats["right"][0] - stats["facing"][0]),
+            )
+            / spread
+        )
+        sign_ok = (stats["left"][0] - stats["facing"][0]) * (
+            stats["right"][0] - stats["facing"][0]
+        ) < 0
         ranked.append((separation if sign_ok else separation * 0.25, name, stats, sign_ok))
     ranked.sort(reverse=True)
     for separation, name, stats, sign_ok in ranked:
@@ -462,22 +490,41 @@ def report_game(moves, marks, steps):
             print(f"  {name:18s} {counts}{latency}")
 
     print("  false alarms where nothing was called:")
-    quiet = {"stand 1", "look around", "twist", "walk slow", "walk fast", "walk stop", "turn left",
-             "turn right", "walk turning left", "walk turning right", "duck", "stand 2"}
+    quiet = {
+        "stand 1",
+        "look around",
+        "twist",
+        "walk slow",
+        "walk fast",
+        "walk stop",
+        "turn left",
+        "turn right",
+        "walk turning left",
+        "walk turning right",
+        "duck",
+        "stand 2",
+    }
     for label, start, end in steps:
         if label not in quiet:
             continue
-        found = collections.Counter(f"{m['side']} {m['move']}".strip() for m in moves if start <= m["t"] <= end)
+        found = collections.Counter(
+            f"{m['side']} {m['move']}".strip() for m in moves if start <= m["t"] <= end
+        )
         if found:
             per_minute = sum(found.values()) / max(1e-6, (end - start) / 60.0)
-            print(f"    {label:20s} {per_minute:5.1f}/min: " + ", ".join(f"{k} {v}" for k, v in found.most_common()))
+            print(
+                f"    {label:20s} {per_minute:5.1f}/min: "
+                + ", ".join(f"{k} {v}" for k, v in found.most_common())
+            )
 
 
 # ---------------------------------------------------------------------------
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("recording")
     parser.add_argument("--plot", help="Draw the main measures over time into this PNG")
     args = parser.parse_args()
@@ -489,17 +536,28 @@ def main():
     marks, moves = data["mark"], data["move"]
 
     duration = face.t[-1] - face.t[0] if len(face.t) else 0
-    print(f"{args.recording}: {duration:.0f} s, {len(face.t)} face frames ({len(face.t) / max(duration, 1):.1f}/s),"
-          f" {len(body.t)} poses ({len(body.t) / max(duration, 1):.1f}/s), {len(marks)} calls, {len(moves)} moves")
+    print(
+        f"{args.recording}: {duration:.0f} s, {len(face.t)} face frames ({len(face.t) / max(duration, 1):.1f}/s),"
+        f" {len(body.t)} poses ({len(body.t) / max(duration, 1):.1f}/s), {len(marks)} calls, {len(moves)} moves"
+    )
     seen = collections.Counter(f["label"] for f in data["face"] if f.get("eyes") is not None)
     for label, start, end in steps:
         frames = sum(1 for f in data["face"] if f["label"] == label)
-        print(f"  {label:20s} {end - start:5.1f} s, {frames:4d} face frames, face found in {seen[label] / max(frames, 1):4.0%}")
+        print(
+            f"  {label:20s} {end - start:5.1f} s, {frames:4d} face frames, face found in {seen[label] / max(frames, 1):4.0%}"
+        )
 
     def calls_of(*names):
         return [m["t"] for m in marks if m["name"].removeprefix("call:") in names]
 
-    punch_steps = {"straight left", "straight right", "hook left", "hook right", "uppercut left", "uppercut right"}
+    punch_steps = {
+        "straight left",
+        "straight right",
+        "hook left",
+        "hook right",
+        "uppercut left",
+        "uppercut right",
+    }
     kick_steps = {"knee left", "knee right"}
     for side in ("left", "right"):
         measures = {k: (face.t, v) for k, v in punch_measures(face, side).items()}
@@ -526,8 +584,13 @@ def main():
 
     down = face.y - np.nanmedian(face.y[[l == "stand 1" for l in face.label]])
     down = down / face.unit
-    report_stumps("DUCK: how far the eyes go below home (in units)", {"down": (face.t, down)},
-                  calls_of("duck"), steps, excluded={"duck"})
+    report_stumps(
+        "DUCK: how far the eyes go below home (in units)",
+        {"down": (face.t, down)},
+        calls_of("duck"),
+        steps,
+        excluded={"duck"},
+    )
     report_stumps(
         "JUMP: how far the eyes rise above home (units) and both feet rise (torsos)",
         {"up": (face.t, -down), "feet up": (body.t, legs["feet_up"])},
@@ -554,7 +617,11 @@ def plot(path, face, body, steps, marks, legs, down):
     ls, rs = body.point(L_SHOULDER), body.point(R_SHOULDER)
     panels = [
         ("eyes below home (units)", face.t, [down]),
-        ("fist growth in 0.15 s (L, R)", face.t, [punch_measures(face, s)["growth"] for s in ("left", "right")]),
+        (
+            "fist growth in 0.15 s (L, R)",
+            face.t,
+            [punch_measures(face, s)["growth"] for s in ("left", "right")],
+        ),
         ("ankle above the other (L, R; torsos)", body.t, [legs["lift_left"], legs["lift_right"]]),
         ("shoulders dx / torso", body.t, [(ls[:, 0] - rs[:, 0]) / torso]),
     ]

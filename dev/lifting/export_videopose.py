@@ -54,7 +54,10 @@ class Lifter(nn.Module):
         super().__init__()
         self.expand = Unit(JOINTS * 2, CHANNELS)
         self.blocks = nn.ModuleList(
-            [nn.ModuleList([Unit(CHANNELS, CHANNELS), Unit(CHANNELS, CHANNELS)]) for _ in range(BLOCKS)]
+            [
+                nn.ModuleList([Unit(CHANNELS, CHANNELS), Unit(CHANNELS, CHANNELS)])
+                for _ in range(BLOCKS)
+            ]
         )
         self.head = nn.Linear(CHANNELS, JOINTS * 3)
 
@@ -105,7 +108,9 @@ def main():
         expected = model(torch.from_numpy(probe)).numpy()
     session = ort.InferenceSession(out, providers=["CPUExecutionProvider"])
     got = session.run(None, {"keypoints_2d": probe})[0]
-    print(f"Wrote {out}; ONNX Runtime vs PyTorch: max difference {np.abs(got - expected).max():.2e}")
+    print(
+        f"Wrote {out}; ONNX Runtime vs PyTorch: max difference {np.abs(got - expected).max():.2e}"
+    )
 
 
 if __name__ == "__main__":

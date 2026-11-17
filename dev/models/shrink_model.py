@@ -49,11 +49,14 @@ def drop_unused(gltf: dict) -> None:
             image["bufferView"] = new_view[image["bufferView"]]
     for mesh in gltf.get("meshes", []):
         for primitive in mesh["primitives"]:
-            primitive["attributes"] = {k: new_accessor[v] for k, v in primitive["attributes"].items()}
+            primitive["attributes"] = {
+                k: new_accessor[v] for k, v in primitive["attributes"].items()
+            }
             if "indices" in primitive:
                 primitive["indices"] = new_accessor[primitive["indices"]]
             primitive["targets"] = [
-                {k: new_accessor[v] for k, v in target.items()} for target in primitive.get("targets", [])
+                {k: new_accessor[v] for k, v in target.items()}
+                for target in primitive.get("targets", [])
             ]
             if not primitive["targets"]:
                 del primitive["targets"]
@@ -94,7 +97,9 @@ def main() -> int:
         picture.save(out, format="PNG", optimize=True)
         replaced[image["bufferView"]] = out.getvalue()
         image["mimeType"] = "image/png"
-        print(f"image {image['bufferView']}: {view['byteLength']} -> {len(out.getvalue())} bytes, {picture.size}")
+        print(
+            f"image {image['bufferView']}: {view['byteLength']} -> {len(out.getvalue())} bytes, {picture.size}"
+        )
 
     # NOTE: lay the buffer views out anew, each aligned to 4 bytes.
     chunks = []

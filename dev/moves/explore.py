@@ -89,7 +89,9 @@ def face_signals(faces):
     eyes = (gauge[:, 1] - np.nanmedian(gauge[:, 1])) / np.nanmedian(gauge[:, 2])
     signals = {"eyes below median (units)": eyes}
     for side in ("left", "right"):
-        hand = np.array([f[side] if f.get(side) is not None else [np.nan] * 3 for f in faces], float)
+        hand = np.array(
+            [f[side] if f.get(side) is not None else [np.nan] * 3 for f in faces], float
+        )
         growth = np.full(len(t), np.nan)
         j = 0
         for i in range(len(t)):
@@ -99,9 +101,13 @@ def face_signals(faces):
             if not np.isnan(hand[i, 2]) and np.any(~np.isnan(segment)):
                 growth[i] = hand[i, 2] / np.nanmin(segment)
         signals[f"{side} fist growth in 0.15 s"] = growth
-    face = np.array([f["face"] if f.get("face") is not None else [np.nan] * 14 for f in faces], float)
+    face = np.array(
+        [f["face"] if f.get("face") is not None else [np.nan] * 14 for f in faces], float
+    )
     eyes_mid = (face[:, 4:6] + face[:, 6:8]) / 2
-    signals["face yaw (nose - eyes)"] = (face[:, 8] - eyes_mid[:, 0]) / np.hypot(*(face[:, 4:6] - face[:, 6:8]).T)
+    signals["face yaw (nose - eyes)"] = (face[:, 8] - eyes_mid[:, 0]) / np.hypot(
+        *(face[:, 4:6] - face[:, 6:8]).T
+    )
     return t, signals
 
 
@@ -140,7 +146,9 @@ class Sheet:
         self.row = 0
 
     def x(self, t):
-        return self.left + (t - self.start) / (self.end - self.start) * (self.width - self.left - 20)
+        return self.left + (t - self.start) / (self.end - self.start) * (
+            self.width - self.left - 20
+        )
 
     def panel(self, title, series, marks=(), fixed=None):
         top = 30 + self.row * self.height
@@ -189,7 +197,9 @@ class Sheet:
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("recording")
     parser.add_argument("out")
     parser.add_argument("--from", dest="start", type=float)
@@ -211,27 +221,62 @@ def main():
 
     sheet = Sheet(start, end, 9)
     sheet.panel("eyes below median (units)", [("eyes", ft, fs["eyes below median (units)"])], marks)
-    sheet.panel("knees", [("knee L above R (thighs)", pt, ps["knee L above R (thighs)"]),
-                          ("hips y / torso", pt, ps["hips y / torso"])], marks)
+    sheet.panel(
+        "knees",
+        [
+            ("knee L above R (thighs)", pt, ps["knee L above R (thighs)"]),
+            ("hips y / torso", pt, ps["hips y / torso"]),
+        ],
+        marks,
+    )
     sheet.panel("rhythm (Hz)", [("head bob Hz", ht, hf), ("knees Hz", kt, kf)], marks, fixed=(0, 4))
-    sheet.panel("rhythm amplitude", [("head bob (units)", ht, ha), ("knees (thighs)", kt, ka)], marks)
-    sheet.panel("turn: widths", [(n, pt, ps[n]) for n in ("shoulder width / torso", "hip width / torso")], marks)
+    sheet.panel(
+        "rhythm amplitude", [("head bob (units)", ht, ha), ("knees (thighs)", kt, ka)], marks
+    )
+    sheet.panel(
+        "turn: widths",
+        [(n, pt, ps[n]) for n in ("shoulder width / torso", "hip width / torso")],
+        marks,
+    )
     sheet.panel(
         "turn: signed",
-        [(n, pt, ps[n]) for n in ("shoulders dx / torso", "nose - shoulders / torso", "shoulders - hips / torso")]
+        [
+            (n, pt, ps[n])
+            for n in (
+                "shoulders dx / torso",
+                "nose - shoulders / torso",
+                "shoulders - hips / torso",
+            )
+        ]
         + [("face yaw (nose - eyes)", ft, fs["face yaw (nose - eyes)"])],
         marks,
     )
-    sheet.panel("turn: scores", [(n, pt, ps[n]) for n in ("ear score L-R", "shoulder score L-R")], marks)
+    sheet.panel(
+        "turn: scores", [(n, pt, ps[n]) for n in ("ear score L-R", "shoulder score L-R")], marks
+    )
     sheet.panel(
         "fists",
         [(n, ft, fs[n]) for n in ("left fist growth in 0.15 s", "right fist growth in 0.15 s")]
-        + [(n, pt, ps[n]) for n in ("L wrist - L shoulder x", "R wrist - R shoulder x",
-                                     "L wrist - L shoulder y", "R wrist - R shoulder y")],
+        + [
+            (n, pt, ps[n])
+            for n in (
+                "L wrist - L shoulder x",
+                "R wrist - R shoulder x",
+                "L wrist - L shoulder y",
+                "R wrist - R shoulder y",
+            )
+        ],
         marks,
     )
-    sheet.panel("scores", [(n, pt, ps[n]) for n in ("score L knee", "score R knee", "score L ankle", "score R ankle")],
-                marks, fixed=(0, 1))
+    sheet.panel(
+        "scores",
+        [
+            (n, pt, ps[n])
+            for n in ("score L knee", "score R knee", "score L ankle", "score R ankle")
+        ],
+        marks,
+        fixed=(0, 1),
+    )
     sheet.image.save(args.out)
     print(f"Wrote {args.out}: {len(ft)} face frames, {len(pt)} poses over {end - start:.0f} s")
 
