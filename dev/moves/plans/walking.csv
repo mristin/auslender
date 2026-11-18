@@ -1,0 +1,10 @@
+label,seconds,title,instruction,calls
+stand 1,8,Stand on your spot,"Stand still on your spot, facing the camera.",
+walk straight,20,Walk straight,"Walk in place on your spot, facing the camera, at an easy pace.",
+stand 2,6,Stand,"Stand still, facing the camera.",
+walk left,20,Walk to the left,"Turn your body to your LEFT and walk in place, as if walking off to the left. Keep your face towards the camera if you can.",
+stand 3,6,Stand,"Stand still, facing the camera.",
+walk right,20,Walk to the right,"Turn your body to your RIGHT and walk in place, as if walking off to the right. Keep your face towards the camera if you can.",
+stand 4,6,Stand,"Stand still, facing the camera.",
+walk changing,30,Walk and change direction,"Walk in place all the time. Each time you are called, turn to walk to the LEFT, STRAIGHT or to the RIGHT.",3:left 8:straight 13:right 18:straight 23:left 27:right
+stand 5,6,Stand,"Stand still, facing the camera. Done soon.",

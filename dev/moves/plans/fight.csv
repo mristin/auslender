@@ -1,0 +1,20 @@
+label,seconds,title,instruction,calls
+stand 1,8,Stand on your spot,"Stand still on your spot in your guard, facing the camera. The game takes this as your home spot.",
+guard,10,Keep your guard,"Stay on your spot in your normal boxing guard (fists at your chin), bouncing lightly. Do not cover, do not lean.",
+cover,14,Cover your head,"Each time COVER is called, cover your head: both forearms up, gloves against your forehead and temples, elbows in. On GUARD, back to your normal guard.",2:cover 4:guard 6:cover 8:guard 10:cover 12:guard
+look around,10,Look around,"Stay on your spot in your guard. Turn your head left and right, nod, look down and up. Do not lean, do not step.",
+slip left,10,Slip to the left,"In your guard. Each time you are called, SLIP to your LEFT: lean your head and shoulders left, then come back.",2:slip_left 4.5:slip_left 7:slip_left
+slip right,10,Slip to the right,"In your guard. Each time you are called, SLIP to your RIGHT: lean your head and shoulders right, then come back.",2:slip_right 4.5:slip_right 7:slip_right
+straight left,12,Straight punches with the left,"In your guard. Each time you are called, throw ONE straight punch (jab) with your LEFT hand at the camera, and back to your guard.",2:straight_left 4:straight_left 6:straight_left 8:straight_left 10:straight_left
+straight right,12,Straight punches with the right,"In your guard. Each time you are called, throw ONE straight punch (cross) with your RIGHT hand at the camera, and back to your guard.",2:straight_right 4:straight_right 6:straight_right 8:straight_right 10:straight_right
+hook left,12,Hooks with the left,"In your guard. Each time you are called, throw ONE hook with your LEFT hand: swing it across at the height of your chin, and back to your guard.",2:hook_left 4:hook_left 6:hook_left 8:hook_left 10:hook_left
+hook right,12,Hooks with the right,"In your guard. Each time you are called, throw ONE hook with your RIGHT hand: swing it across at the height of your chin, and back to your guard.",2:hook_right 4:hook_right 6:hook_right 8:hook_right 10:hook_right
+uppercut left,12,Uppercuts with the left,"In your guard. Each time you are called, throw ONE uppercut with your LEFT hand: from below up to the chin, and back to your guard.",2:uppercut_left 4:uppercut_left 6:uppercut_left 8:uppercut_left 10:uppercut_left
+uppercut right,12,Uppercuts with the right,"In your guard. Each time you are called, throw ONE uppercut with your RIGHT hand: from below up to the chin, and back to your guard.",2:uppercut_right 4:uppercut_right 6:uppercut_right 8:uppercut_right 10:uppercut_right
+one two,12,One-two,"In your guard. Each time you are called, throw a ONE-TWO: a straight left, then at once a straight right, and back to your guard.",2:one_two 5:one_two 8:one_two
+knee left,10,Knee strikes with the left,"Each time you are called, pull your LEFT knee up high, as a knee strike, and put it down.",2:front_kick_left 4.5:front_kick_left 7:front_kick_left
+knee right,10,Knee strikes with the right,"Each time you are called, pull your RIGHT knee up high, as a knee strike, and put it down.",2:front_kick_right 4.5:front_kick_right 7:front_kick_right
+duck,10,Ducks,"Each time you are called, DUCK (squat), and come up again.",2:duck 4.5:duck 7:duck
+jump,10,Jumps,"Each time you are called, JUMP with both feet, land softly, and stand again.",2:jump 4.5:jump 7:jump
+free,20,Fight freely,"Fight as in the game: punch, kick, slip, duck, jump and cover as you like.",
+stand 2,6,Stand on your spot,"Back on your spot, stand still in your guard.",

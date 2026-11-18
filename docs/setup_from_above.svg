@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="820" viewBox="0 0 900 820" font-family="Helvetica, Arial, sans-serif">
+  <title>How to set up the camera and where to stand, seen from above</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#c8302c"/>
+    </marker>
+    <marker id="tick" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M5,0 L5,10" stroke="#3d4252" stroke-width="2"/>
+    </marker>
+  </defs>
+
+  <!-- The room (1 m = 100 px). -->
+  <rect x="0" y="0" width="900" height="820" fill="#f6f3ec"/>
+  <rect x="40" y="40" width="820" height="740" fill="#ffffff" stroke="#3d4252" stroke-width="4"/>
+  <text x="60" y="72" font-size="20" fill="#3d4252" font-weight="bold">Seen from above</text>
+
+  <!-- The field of view of the camera. -->
+  <polygon points="450,690 176,270 724,270" fill="#5fd3e6" fill-opacity="0.18" stroke="#2a8fa3" stroke-dasharray="8 6" stroke-width="2"/>
+  <text x="565" y="292" font-size="15" fill="#2a8fa3">what the camera sees</text>
+
+  <!-- The free space of 2 x 2 m around the player. -->
+  <rect x="350" y="315" width="200" height="200" fill="#d9f2d0" stroke="#3f8f3a" stroke-width="3" stroke-dasharray="10 6"/>
+  <text x="450" y="305" font-size="16" fill="#3f8f3a" text-anchor="middle">2 × 2 m free space</text>
+
+  <!-- One step in every direction moves the boxer. -->
+  <line x1="450" y1="415" x2="450" y2="352" stroke="#c8302c" stroke-width="4" marker-end="url(#arrow)"/>
+  <line x1="450" y1="415" x2="450" y2="478" stroke="#c8302c" stroke-width="4" marker-end="url(#arrow)"/>
+  <line x1="450" y1="415" x2="387" y2="415" stroke="#c8302c" stroke-width="4" marker-end="url(#arrow)"/>
+  <line x1="450" y1="415" x2="513" y2="415" stroke="#c8302c" stroke-width="4" marker-end="url(#arrow)"/>
+  <text x="462" y="352" font-size="13" fill="#c8302c">step back: retreat</text>
+  <text x="462" y="474" font-size="13" fill="#c8302c">step forward:</text>
+  <text x="462" y="490" font-size="13" fill="#c8302c">close in</text>
+  <text x="450" y="538" font-size="13" fill="#c8302c" text-anchor="middle">step left or right: circle around him</text>
+  <text x="450" y="556" font-size="13" fill="#c8302c" text-anchor="middle">back on the spot: stand</text>
+
+  <!-- The home spot and the player, facing the camera. -->
+  <circle cx="450" cy="415" r="18" fill="none" stroke="#3d4252" stroke-width="2" stroke-dasharray="4 4"/>
+  <ellipse cx="450" cy="415" rx="24" ry="13" fill="#7b3fb0"/>
+  <circle cx="450" cy="415" r="9" fill="#e0b48e" stroke="#3d4252" stroke-width="1.5"/>
+  <polygon points="444,425 456,425 450,436" fill="#3d4252"/>
+  <text x="645" y="400" font-size="16" fill="#3d4252">you, on your</text>
+  <text x="645" y="420" font-size="16" fill="#3d4252">home spot,</text>
+  <text x="645" y="440" font-size="16" fill="#3d4252">facing the camera</text>
+
+  <!-- The distance. -->
+  <line x1="250" y1="415" x2="250" y2="690" stroke="#3d4252" stroke-width="2" marker-start="url(#tick)" marker-end="url(#tick)"/>
+  <line x1="250" y1="415" x2="430" y2="415" stroke="#3d4252" stroke-width="1" stroke-dasharray="3 4"/>
+  <text x="240" y="545" font-size="18" fill="#3d4252" text-anchor="end" font-weight="bold">2.5 – 3 m</text>
+  <text x="240" y="567" font-size="14" fill="#3d4252" text-anchor="end">so that it sees you</text>
+  <text x="240" y="585" font-size="14" fill="#3d4252" text-anchor="end">from head to feet</text>
+
+  <!-- The laptop on a chair, at about hip height. -->
+  <rect x="395" y="680" width="110" height="80" rx="6" fill="#b08a5a" stroke="#3d4252" stroke-width="2"/>
+  <rect x="410" y="690" width="80" height="50" fill="#dad6cc" stroke="#3d4252" stroke-width="2"/>
+  <rect x="410" y="686" width="80" height="6" fill="#3d4252"/>
+  <circle cx="450" cy="689" r="2.5" fill="#5fd3e6"/>
+  <text x="525" y="715" font-size="16" fill="#3d4252" font-weight="bold">laptop on a chair or a low table,</text>
+  <text x="525" y="735" font-size="16" fill="#3d4252">the camera at about hip height</text>
+  <text x="525" y="755" font-size="16" fill="#3d4252">(60 – 100 cm), not on the floor</text>
+
+  <!-- A small side view. -->
+  <g transform="translate(60,100)">
+    <rect x="0" y="0" width="260" height="150" fill="#f6f3ec" stroke="#3d4252" stroke-width="1.5"/>
+    <text x="10" y="20" font-size="14" fill="#3d4252" font-weight="bold">From the side</text>
+    <line x1="10" y1="135" x2="250" y2="135" stroke="#3d4252" stroke-width="2"/>
+    <!-- chair and laptop -->
+    <rect x="200" y="100" width="30" height="5" fill="#b08a5a"/>
+    <line x1="203" y1="105" x2="203" y2="135" stroke="#b08a5a" stroke-width="3"/>
+    <line x1="227" y1="105" x2="227" y2="135" stroke="#b08a5a" stroke-width="3"/>
+    <line x1="210" y1="100" x2="204" y2="82" stroke="#3d4252" stroke-width="3"/>
+    <circle cx="205" cy="85" r="2" fill="#5fd3e6"/>
+    <!-- the field of view -->
+    <polygon points="205,85 40,25 40,140" fill="#5fd3e6" fill-opacity="0.25"/>
+    <!-- the player -->
+    <circle cx="60" cy="47" r="8" fill="#e0b48e" stroke="#3d4252"/>
+    <line x1="60" y1="55" x2="60" y2="97" stroke="#7b3fb0" stroke-width="7"/>
+    <line x1="60" y1="97" x2="54" y2="134" stroke="#3a3f4a" stroke-width="5"/>
+    <line x1="60" y1="97" x2="66" y2="134" stroke="#3a3f4a" stroke-width="5"/>
+    <line x1="60" y1="62" x2="78" y2="72" stroke="#7b3fb0" stroke-width="5"/>
+    <text x="85" y="40" font-size="12" fill="#3d4252">room above your head</text>
+    <text x="85" y="54" font-size="12" fill="#3d4252">for the jumps</text>
+    <text x="110" y="128" font-size="12" fill="#3d4252">feet in view, for the kicks</text>
+  </g>
+</svg>

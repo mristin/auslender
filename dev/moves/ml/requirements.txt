@@ -1,0 +1,14 @@
+# The tools to train the move classifier; see README.md. Not needed for the
+# game nor for the continuous integration.
+numpy==2.2.6
+xgboost==3.2.0
+# XGBClassifier needs it:
+scikit-learn==1.7.2
+# Only for comparing the time-series networks (train.py conv,tcn,gru):
+torch==2.14.1
+# Only for the viewer (viewer.py):
+onnxruntime==1.23.2
+opencv-python==5.0.0.93
+# Only for exporting the 3D lifting network (dev/lifting/export_videopose.py):
+onnx==1.23.2
+onnxscript==0.7.2
