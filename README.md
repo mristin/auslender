@@ -1,7 +1,9 @@
 # Auslender
 
 **Auslender** — A satirical, motion-controlled action and fitness game about Swiss society.
-Using real-time body-pose estimation, you box, race, sledge and run through worlds inspired by his songs: steer a car with an invisible wheel, push a sledge down the glacier with your arms, jump and duck over the ice, and punch, kick and dodge your way past mammoths and sabre-toothed tigers, evil scientists at the fictional pharma giant Rochartis, Nörgeli, and hordes of Bünzlis and nationalists.
+Using real-time body-pose estimation, you run and box your way through three worlds inspired by his songs: the Ice Age, Switzerland and a Swiss winter.
+You run as fast as you lift your knees, and steer by leaning; you jump over holes and fallen trees, duck under branches, climb ladders, and smash barriers with your punches and kicks.
+On the road, you box sabre-toothed tigers and mammoths, Bünzlis and nationalists, white sheep and the scientists of the fictional pharma giant Rochartis, until you face the boss of each world: the cave bear, the Rochartis CEO and the Nörgeli.
 No controllers, no walking around — just your body on one spot!
 
 ![Playing Auslender: running through the jungle, and boxing a sabre-toothed tiger with hooks, uppercuts and slips, while the camera panel shows the player's pose](docs/gameplay.gif)
