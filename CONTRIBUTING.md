@@ -100,6 +100,38 @@ venv/bin/python dev/continuous_integration/precommit.py
 Pass `--select` or `--skip` with the names of the steps to run only some of them, e.g., `--select test`.
 The continuous integration runs the same checks on every pull request.
 
+## Packaging
+
+The export presets (`export_presets.cfg`) package the game for Linux, Windows and macOS into `build/`.
+You need the export templates of Godot 4.6.2 (.NET) (in the editor: Editor, Manage Export Templates), then:
+
+```
+venv/bin/python dev/package.py
+```
+
+Pass `--platforms` to package only some, e.g., `--platforms windows`.
+The script exports the presets, adds `LICENSE` and `licenses/` to every package, and copies the camera extension next to the Windows executable (see below).
+It also puts a `.gdignore` into `build/`, which hides the packages from Godot; otherwise Godot would try to load the camera extension of the Windows package on every platform, and fail.
+
+Ship the whole folder (the executable, the `.pck` and the `data_Auslender_*` folder with the .NET runtime and ONNX Runtime), or the archive on macOS.
+
+Mind the limits of the platforms:
+
+* **Windows:** Godot 4.6 implements no camera on Windows, so we use [CameraServerExtension] there, and only there, from `addons/CameraServerExtension/` (the prebuilt Windows x86_64 library of its release 2026.03.27, as in Bird Dog and Steppe Rescue).
+  Godot reports an error on every platform which an extension lists no library for, so the directory is hidden from Godot (`.gdignore`); `VisionService` loads the extension itself on Windows (`StartCameraExtension`), from the directory of the executable, or from the project in the editor.
+  Hence the packaging copies `CameraServerExtension.gdextension` and `libcameraserver-extension.windows.dll` next to the executable.
+  The formats of the extension's feeds are reached by name (the methods of `CameraFeed` do not reach them), and Windows calls YUYV "YUY2".
+  Without the extension, or if Windows denies the camera, the game tells so.
+  Drop the extension once Godot supports the camera on Windows itself ([godotengine/godot#108538]).
+* **macOS:** The app is universal and runs on the Intel and the Apple Silicon Macs.
+  We stay with ONNX Runtime 1.19, the last version whose libraries for macOS run on macOS 11 (from 1.20 on, they need macOS 13.3, and from 1.24 on, there is none for the Intel Macs).
+  The app is signed ad hoc and not notarized, so the player opens it the first time with a right click and Open.
+  The camera on macOS lists no formats and delivers its frames as two planes (Y and CbCr), which `VisionService` converts to RGB itself.
+  On the first start, macOS asks for the permission to use the camera.
+
+[CameraServerExtension]: https://github.com/j20001970/godot-cameraserver-extension
+[godotengine/godot#108538]: https://github.com/godotengine/godot/pull/108538
+
 ## Recording and retraining the moves
 
 The move classifier is only as good as its recordings.
