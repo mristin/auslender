@@ -4,6 +4,8 @@
 Using real-time body-pose estimation, you box, race, sledge and run through worlds inspired by his songs: steer a car with an invisible wheel, push a sledge down the glacier with your arms, jump and duck over the ice, and punch, kick and dodge your way past mammoths and sabre-toothed tigers, evil scientists at the fictional pharma giant Rochartis, Nörgeli, and hordes of Bünzlis and nationalists.
 No controllers, no walking around — just your body on one spot!
 
+![Playing Auslender: running through the jungle, and boxing a sabre-toothed tiger with hooks, uppercuts and slips, while the camera panel shows the player's pose](docs/gameplay.gif)
+
 See [DESIGN.md](DESIGN.md) for the game design, and [CONTRIBUTING.md](CONTRIBUTING.md) for how to develop it, and how to record more moves and retrain the move classifier.
 
 **No network access.**
