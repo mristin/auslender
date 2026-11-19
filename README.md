@@ -7,7 +7,7 @@ You run as fast as you lift your knees, and steer by leaning; you jump over hole
 On the road, you box sabre-toothed tigers and mammoths, Bünzlis and nationalists, white sheep and the scientists of the fictional pharma giant Rochartis, until you face the boss of each world: the cave bear, the Rochartis CEO and the Nörgeli.
 No controllers, no walking around — just your body on one spot!
 
-![Playing Auslender: running through the jungle, and boxing a sabre-toothed tiger with hooks, uppercuts and slips, while the camera panel shows the player's pose](docs/gameplay.gif)
+![Playing Auslender: running through the jungle and jumping, then boxing a sabre-toothed tiger with hooks, uppercuts and jabs, while the camera panel shows the player's pose, the hero on it and the halo around his head](docs/gameplay.gif)
 
 See [DESIGN.md](DESIGN.md) for the game design, and [CONTRIBUTING.md](CONTRIBUTING.md) for how to develop it, and how to record more moves and retrain the move classifier.
 
