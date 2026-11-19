@@ -110,7 +110,11 @@ venv/bin/python dev/package.py
 ```
 
 Pass `--platforms` to package only some, e.g., `--platforms windows`.
-The script exports the presets, adds `LICENSE` and `licenses/` to every package, and copies the camera extension next to the Windows executable (see below).
+The script exports the presets, adds `LICENSE`, `licenses/` and the licenses of the models and of ONNX Runtime to every package, and copies the camera extension next to the Windows executable (see below).
+It fails if Godot reports an error (Godot exits with zero even if it fails to build the C# part) or a package misses ONNX Runtime.
+
+When a release is published on GitHub, the workflow `.github/workflows/publish.yaml` runs the script and attaches the zipped packages to the release (`auslender-<version>-linux-x86_64.zip`, `-windows-x86_64.zip`, `-macos-universal.zip`).
+You can also start it by hand: without a tag, it only tries out the packaging and keeps the packages as the artifacts of the run; with the tag of an existing release, it attaches them to that release.
 It also puts a `.gdignore` into `build/`, which hides the packages from Godot; otherwise Godot would try to load the camera extension of the Windows package on every platform, and fail.
 
 Ship the whole folder (the executable, the `.pck` and the `data_Auslender_*` folder with the .NET runtime and ONNX Runtime), or the archive on macOS.
