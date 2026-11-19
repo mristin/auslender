@@ -84,42 +84,5 @@ namespace Auslender.Tests
             Assert.Equal(400f, FaceTracker.Pick(heads, 390f, 130f)!.Value.CenterX, 3);
             Assert.Null(FaceTracker.Pick(System.Array.Empty<Detection>(), 390f, 130f));
         }
-
-        [Fact]
-        public void Face_anchor_is_mirrored_and_upright()
-        {
-            var face = new FaceLandmarks
-            {
-                RightEyeX = 300f,
-                RightEyeY = 200f,
-                LeftEyeX = 340f,
-                LeftEyeY = 200f,
-            };
-
-            var anchor = FaceAnchor.FromLandmarks(face, 640);
-
-            Assert.Equal(320f, anchor.X, 3);
-            Assert.Equal(200f, anchor.Y, 3);
-            Assert.Equal(40f, anchor.EyeDistance, 3);
-            Assert.Equal(0f, anchor.Angle, 3);
-        }
-
-        [Fact]
-        public void Face_anchor_filter_fades_out_after_the_face_is_lost()
-        {
-            var filter = new FaceAnchorFilter();
-            filter.Observe(0.0, new FaceAnchor(100f, 100f, 20f, 0f));
-            filter.Update(0.0);
-            Assert.Equal(1f, filter.Alpha);
-
-            filter.Update(0.2);
-            Assert.Equal(1f, filter.Alpha);
-
-            filter.Update(0.4);
-            Assert.InRange(filter.Alpha, 0.01f, 0.99f);
-
-            filter.Update(1.0);
-            Assert.Equal(0f, filter.Alpha);
-        }
     }
 }

@@ -14,7 +14,7 @@ extends Node3D
 ## twice, and the target moves on. The faster he smashes it, the more points
 ## (a clock counts down; after it, no bonus, but he must still smash it).
 ##
-## Each land has its own, in the spirit of the songs: the palisade and the wall
+## Each land has its own, in the satire of the land: the palisade and the wall
 ## of those who were here first, the ice wall, the laundry-room roster and the
 ## Bünzli's car, the crates of patents and the gate of Rochartis, the Thuja
 ## hedge, and the poster of the herd.

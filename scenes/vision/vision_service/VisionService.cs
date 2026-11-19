@@ -10,8 +10,7 @@ using Auslender.Vision;
 /// <summary>
 /// Capture the webcam, find the player's pose and face on background threads,
 /// and turn them into the boxing: the room joystick from the head, the punches
-/// from the hands, the kicks from the legs, and the anchor of the looks (the
-/// unibrow) over the face.
+/// from the hands, and the kicks from the legs.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -93,8 +92,6 @@ public partial class VisionService : Node
 
     /// <summary>There is one player; the shared parts of the vision take the count.</summary>
     public int PlayerCount => 1;
-
-    public readonly FaceAnchorFilter Face = new();
 
     /// <summary>The head of the player from the face tracker.</summary>
     public readonly HeadGauge Head = new();
@@ -421,7 +418,6 @@ public partial class VisionService : Node
             _recorder?.RecordFace(face, Head, Joystick, Hands, _faceCues);
         }
 
-        Face.Update(now);
         Joystick.Update(now);
         Walk.Update(now, delta);
         Turn.Update(now);
@@ -433,10 +429,6 @@ public partial class VisionService : Node
     private void ConsumeFace(FaceSnapshot face)
     {
         var landmarks = face.Faces.Count > 0 ? face.Faces[0] : null;
-        if (landmarks != null)
-        {
-            Face.Observe(face.Timestamp, FaceAnchor.FromLandmarks(landmarks, face.Width));
-        }
 
         var head = face.Heads.Count > 0 ? face.Heads[0] : null;
         _faceCues.SetFace(landmarks, head, face.HeadCount >= 0);
@@ -939,24 +931,6 @@ public partial class VisionService : Node
             width / size.X,
             height / size.Y
         );
-    }
-
-    /// <summary>
-    /// The anchor of the looks over the player's face: "center" (normalized),
-    /// "eye_distance" (normalized to the width), "angle" (radians, clockwise)
-    /// and "alpha" (0 hides it).
-    /// </summary>
-    public Godot.Collections.Dictionary GetFaceAnchor()
-    {
-        var size = GetPictureSize();
-        var anchor = Face.Anchor;
-        return new Godot.Collections.Dictionary
-        {
-            ["center"] = new Vector2(anchor.X / size.X, anchor.Y / size.Y),
-            ["eye_distance"] = anchor.EyeDistance / size.X,
-            ["angle"] = anchor.Angle,
-            ["alpha"] = Face.Alpha,
-        };
     }
 
     private Variant Mirrored((float X, float Y)? point)

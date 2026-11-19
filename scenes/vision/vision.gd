@@ -5,7 +5,7 @@ extends Node
 ##
 ## The scenes use `get_node("/root/Vision").service` (the VisionService, in
 ## C#): the camera picture, the room joystick, the punches and the kicks
-## (`PollMoves`) and the anchor of the looks over the face.
+## (`PollMoves`).
 ##
 ## Start with `-- --no-camera` to run without the camera, e.g., in the tests,
 ## and with `-- --replay=<recording.jsonl>` to play a recording of the vision

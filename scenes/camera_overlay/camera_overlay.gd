@@ -1,19 +1,18 @@
 class_name CameraOverlay
 extends CanvasLayer
 
-## Show the webcam dimly over the whole screen, like a mirror, as in Splash 'n'
-## Splat: so that the player sees where his head is. There is no other camera
+## Show the webcam dimly over the whole screen, like a mirror: so that the
+## player sees where his head is. There is no other camera
 ## picture on the screen; all that the player needs to know about his body is
 ## drawn on the mirror, on his head:
 ##
 ## - a soft, glowing circle around the head, which turns orange and pulses
 ##   while the opponent winds up an attack, and green while a dodge counts
 ##   (see [member pose]), with the name of the dodge under it;
-## - his unibrow and his mladež (the mole) on his face (see [FaceLooks]);
 ## - while the game sets his home spot, an arc around the head which fills up.
 ##
 ## We show the middle of the camera picture which fills the screen (the 4:3
-## picture cut to 16:9), so the picture and the looks line up.
+## picture cut to 16:9), so the picture and the marks line up.
 ##
 ## With [member debug], it also draws what the vision sees: the key points of
 ## the body and the hands.
@@ -22,9 +21,6 @@ const _SCREEN := Vector2(1920, 1080)
 
 ## The ellipse quad around the head, as a factor of its radii; see the shader.
 const _MARGIN := 1.4
-
-## The distance between the eyes, as a share of the width of the head box.
-const HEAD_TO_EYES := 0.4
 
 const _GREEN := Color("6ccf5e")
 const _GOLD := Color("f2c14e")
@@ -66,7 +62,6 @@ var vision: Node = null
 var _canvas: Node2D
 var _outline: Node2D
 var _marks: Node2D
-var _looks := FaceLooks.new()
 var _white: Texture2D
 var _time := 0.0
 
@@ -157,22 +152,6 @@ func _draw_camera() -> void:
 
     if debug:
         _draw_debug()
-
-    var anchor: Dictionary = vision.GetFaceAnchor()
-    var alpha: float = anchor["alpha"]
-    if alpha > 0.0:
-        var eyes: float = anchor["eye_distance"] / region().size.x
-        _looks.draw(_canvas, to_screen(anchor["center"]), eyes * _SCREEN.x, anchor["angle"], alpha)
-        return
-
-    # NOTE (mristin):
-    # The face landmarks often fail from 2.5 to 3 m, but the head box is seen
-    # on every frame: so the circle around the head always carries the unibrow
-    # and the mladež, put where the eyes are in a head of that size.
-    var head := head_on_screen()
-    if head.size.x > 0.0:
-        var center := head.get_center() + Vector2(0, -0.05 * head.size.y)
-        _looks.draw(_canvas, center, HEAD_TO_EYES * head.size.x, 0.0, 1.0)
 
 
 func _draw_outline() -> void:

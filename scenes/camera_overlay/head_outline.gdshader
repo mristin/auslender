@@ -1,9 +1,8 @@
 shader_type canvas_item;
 
-// Draw a soft, glowing ellipse in the quad of a head, as in Splash 'n' Splat: a
-// crisp core ring, a wide glow around it, a faint shadow just outside (so that
-// the ring stands out on the bright canvas, too) and a light shimmer which runs
-// around the ring. The
+// Draw a soft, glowing ellipse in the quad of a head: a crisp core ring, a wide
+// glow around it, a faint shadow just outside (so that the ring stands out on
+// the bright canvas, too) and a light shimmer which runs around the ring. The
 // quad is the ellipse enlarged by `margin`; COLOR (the modulate of the draw
 // call) gives the color, and its alpha the strength.
 

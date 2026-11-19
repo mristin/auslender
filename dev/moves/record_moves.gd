@@ -24,7 +24,7 @@ extends SceneTree
 ## ~/Downloads/move_recordings/<plan>-<time>.jsonl by default.
 ##
 ## The screen shows the camera picture with what the vision sees (the
-## skeleton, the hands, the unibrow), the room pad, the depth of each cue and
+## skeleton, the hands, the head), the room pad, the depth of each cue and
 ## the moves which the game detected, so you see at once what works.
 ##
 ## With [code]--frames[/code], it also saves every camera frame as a picture
@@ -261,10 +261,6 @@ class MoveFigure:
         draw_line(neck, at.call("head"), _LINE, width)
         draw_circle(at.call("head"), unit * 0.24, Color("0c0e14"))
         draw_arc(at.call("head"), unit * 0.24, 0.0, TAU, 32, head_color, width)
-        # the unibrow, as on the player's head
-        var brow: Vector2 = at.call("head") + Vector2(0, -unit * 0.05)
-        var half_brow := Vector2(unit * 0.13, 0)
-        draw_line(brow - half_brow, brow + half_brow, head_color, width * 0.7)
 
         for s in ["l_", "r_"]:
             var arm := _ACTIVE if active.has(s + "arm") else _LINE

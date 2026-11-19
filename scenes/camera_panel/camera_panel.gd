@@ -3,16 +3,17 @@ extends Control
 
 ## Show the player how the game sees him, in a panel in a corner (as in Bird
 ## Dog): the mirrored camera picture, his body pose as a wire, his head as a
-## circle with his unibrow and his mladež (see [FaceLooks]), and on top of the
-## panel the command which his body gives now (see [member command]).
+## glowing halo (where the head detector sees it), and on top of the panel the
+## command which his body gives now (see [member command]).
 ##
-## The circle around the head turns orange while the opponent winds up an
-## attack, and green while a dodge counts. While the game sets his home spot,
+## The halo turns orange and pulses while the opponent winds up an attack, and
+## green while a dodge counts. While the game sets his home spot,
 ## an arc fills up around the head.
 ##
 ## If the vision lifts the pose to 3D (see PoseLifter), the rigged 3D model of
 ## the hero (see [RiggedFigure]) stands on the wire: its joints where the
-## wire's are, at the depth of the 3D pose.
+## wire's are, at the depth of the 3D pose. The figure has no head: his own
+## head shows, and the halo is drawn over the figure.
 
 ## The size of the panel: the picture (4:3) and the header with the command.
 const PICTURE := Vector2(512, 384)
@@ -21,8 +22,8 @@ const HEADER := 64.0
 ## How opaque the camera picture is.
 const PICTURE_ALPHA := 0.85
 
-## The distance between the eyes, as a share of the width of the head box.
-const HEAD_TO_EYES := 0.4
+## The quad of the halo, as a factor of its radii (see head_outline.gdshader).
+const HALO_MARGIN := 1.4
 
 ## The score from which a key point counts for the wire.
 const MIN_SCORE := 0.3
@@ -93,10 +94,12 @@ var show_figure := true
 
 var vision: Node = null
 
-var _looks := FaceLooks.new()
 var _time := 0.0
 var _bones: Node2D
 var _joints: Node2D
+var _halo: Node2D
+var _head: Node2D
+var _white: Texture2D
 var _figure: RiggedFigure
 var _calm: Array[Vector3] = []
 var _calm_speed: Array[Vector3] = []
@@ -123,6 +126,25 @@ func _ready() -> void:
     _bones.draw.connect(_draw_bones)
     _joints = _shaded(layer, preload("res://scenes/camera_panel/wire_joint.gdshader"))
     _joints.draw.connect(_draw_joints)
+
+    # NOTE (mristin):
+    # The halo and the arc of the calibration over the figure and the wire
+    # (the figure has no head); clipped as the wire.
+    var over := Control.new()
+    over.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    over.clip_contents = true
+    over.position = Vector2(0, HEADER)
+    over.size = PICTURE
+    add_child(over)
+    var image := Image.create(1, 1, false, Image.FORMAT_RGBA8)
+    image.fill(Color.WHITE)
+    _white = ImageTexture.create_from_image(image)
+    _halo = _shaded(over, preload("res://scenes/camera_overlay/head_outline.gdshader"))
+    (_halo.material as ShaderMaterial).set_shader_parameter("margin", HALO_MARGIN)
+    _halo.draw.connect(_draw_halo)
+    _head = Node2D.new()
+    over.add_child(_head)
+    _head.draw.connect(_draw_head)
 
 
 ## The 3D figure: a world of its own with the model of Auslender and the
@@ -243,12 +265,9 @@ func _process(delta: float) -> void:
     queue_redraw()
     _bones.queue_redraw()
     _joints.queue_redraw()
+    _halo.queue_redraw()
+    _head.queue_redraw()
     _update_figure()
-
-
-## Map a point of the mirrored picture (normalized) into the panel.
-func to_panel(point: Vector2) -> Vector2:
-    return Vector2(0, HEADER) + point * PICTURE
 
 
 func _draw() -> void:
@@ -265,7 +284,6 @@ func _draw() -> void:
             draw_set_transform(Vector2(PICTURE.x, 0), 0, Vector2(-1, 1))
             draw_texture_rect(texture, picture, false, Color(1, 1, 1, PICTURE_ALPHA))
             draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
-        _draw_head()
 
     _draw_command()
     draw_rect(whole, Color(1, 1, 1, 0.85), false, 3.0)
@@ -352,49 +370,44 @@ func _draw_joints() -> void:
         )
 
 
-## The head: a circle (orange while he winds up, green while a dodge counts),
-## the unibrow and the mladež, and the arc of the calibration.
-func _draw_head() -> void:
+## The head box of the head detector in the picture layer (see [method
+## _draw_halo]); empty if it sees no head.
+func _head_box() -> Rect2:
+    if vision == null:
+        return Rect2()
     var head: Rect2 = vision.GetHeadRect()
     if head.size.x <= 0.0:
-        return
-    var a := to_panel(head.position)
-    var b := to_panel(head.end)
-    var box := Rect2(a, b - a)
-    var center := box.get_center()
-    var radius := box.size.y * 0.5 * 1.1
+        return Rect2()
+    return Rect2(head.position * PICTURE, head.size * PICTURE)
 
-    var color := Color(1, 1, 1, 0.85)
-    var width := 3.0
+
+## The halo around the head: a soft glowing ellipse
+## (a shader on a quad), orange and pulsing while he winds up, green while a
+## dodge counts.
+func _draw_halo() -> void:
+    var box := _head_box()
+    if box.size.x <= 0.0:
+        return
+    var radii := box.size * 0.5 * 1.1
+    var color := Color(1, 1, 1, 0.7)
     if dodging:
-        color = _GREEN
-        width = 5.0
+        color = Color(_GREEN, 0.95)
     elif threatened:
         var pulse := 0.5 + 0.5 * sin(_time * 12.0)
         color = Color(_ORANGE, 0.75 + 0.25 * pulse)
-        width = 4.0 + 2.0 * pulse
-    draw_arc(center, radius, 0.0, TAU, 40, color, width, true)
+        radii *= 1.0 + 0.05 * pulse
+    var quad := radii * HALO_MARGIN
+    _halo.draw_texture_rect(_white, Rect2(box.get_center() - quad, quad * 2.0), false, color)
 
-    var anchor: Dictionary = vision.GetFaceAnchor()
-    if anchor["alpha"] > 0.0:
-        _looks.draw(
-            self,
-            to_panel(anchor["center"]),
-            anchor["eye_distance"] * PICTURE.x,
-            anchor["angle"],
-            anchor["alpha"]
-        )
-    else:
-        # NOTE (mristin):
-        # The face landmarks often fail from 2.5 to 3 m, but the head box is
-        # seen on every frame: so the looks go where the eyes are in a head of
-        # that size.
-        var eyes := center + Vector2(0, -0.05 * box.size.y)
-        _looks.draw(self, eyes, HEAD_TO_EYES * box.size.x, 0.0, 1.0)
 
-    if not calibrated:
-        var end := -PI * 0.5 + TAU * calibration_progress
-        draw_arc(center, radius + 8.0, -PI * 0.5, end, 40, _GOLD, 6.0, true)
+## Over the halo: the arc of the calibration, while the game sets his home spot.
+func _draw_head() -> void:
+    var box := _head_box()
+    if box.size.x <= 0.0 or calibrated:
+        return
+    var radius := box.size.y * 0.5 * 1.1 * HALO_MARGIN
+    var end := -PI * 0.5 + TAU * calibration_progress
+    _head.draw_arc(box.get_center(), radius, -PI * 0.5, end, 40, _GOLD, 6.0, true)
 
 
 ## The command of the body, big on top of the panel.

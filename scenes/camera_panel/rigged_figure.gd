@@ -13,6 +13,10 @@ extends Node3D
 ## and the lower leg straight on (the ankles are only guessed). The bones keep
 ## their lengths; the whole model is scaled by the length of the torso.
 ##
+## The model has no head: the head bone shrinks to nothing (its skin with it),
+## so that the player's own head shows in the camera picture (see
+## [CameraPanel], which draws a halo around it).
+##
 ## The model faces +z, its left side at +x, as a person who faces the camera
 ## (x right, y up, z towards the camera): so give the joints as in the picture
 ## which is not mirrored, and mirror the rendered picture.
@@ -39,6 +43,10 @@ const LEFT_WRIST := 13
 const RIGHT_SHOULDER := 14
 const RIGHT_ELBOW := 15
 const RIGHT_WRIST := 16
+
+## How big the head is (it shrinks to nothing, see above). Not quite zero, so
+## that the skinning stays well defined.
+const HEAD_SCALE := 1e-3
 
 ## How far a thigh may swing from hanging down, in the frame of the torso
 ## (degrees): forward (a knee up) and backward, outward and inward. A
@@ -199,6 +207,8 @@ func set_joints(joints: Array[Vector3]) -> void:
     var neck := _towards("Neck", "Head", joints[HEAD] - joints[THORAX], torso)
     _turn("Neck", neck)
     _turn("Head", neck)
+    if _bones.has("Head"):
+        _skeleton.set_bone_pose_scale(_bones["Head"], Vector3.ONE * HEAD_SCALE)
 
     for entry in [
         ["Left", LEFT_SHOULDER, LEFT_ELBOW, LEFT_WRIST],
